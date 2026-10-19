@@ -213,7 +213,11 @@ O desenho da pista da cena `f1-gp` é feito pelo `atualizar_f1.py` a partir do t
 .venv\Scripts\python tools\baixar_emblemas.py --refazer  # tudo de novo
 ```
 
-No dia a dia não é preciso: os atualizadores de futebol e NBA descarregam sozinhos o emblema de uma equipa nova (da ESPN). O script serve para repor um emblema estragado. Futebol e NBA vêm da ESPN; as equipas de F1 do site oficial da F1 (`F1_OFICIAL` no script), já sem margens, e as que têm logótipo preto (Mercedes, Aston Martin, Audi, Cadillac) usam a versão branca. O `NFO.svg` (Nottingham Forest) é da Wikipédia. São marcas dos clubes, só para uso pessoal.
+No dia a dia não é preciso: os atualizadores de futebol e NBA descarregam sozinhos o emblema de uma equipa nova (da ESPN).
+
+**Clubes que a ESPN não tem** (sobretudo os amadores das taças): `tools/emblemas_wikidata.py` procura-os no Wikidata, só entre os clubes de futebol do país dessa taça (`PAIS_WIKIDATA` em `atualizar_futebol.py`), e só aceita uma correspondência clara (se houver dois clubes com o mesmo nome, como as duas Lusitânias, fica a sigla). O emblema vem do logótipo do Wikidata (P154, no Commons) ou, como é o normal nestes clubes, da imagem do artigo da Wikipédia em português ligado a essa entidade, só se for PNG ou SVG. Cada procura fica em `data/emblemas_wikidata.json` (o que se encontrou e o que não): só se procura o que falta, e uma procura falhada só se repete passados 30 dias. Os que a pesquisa não acerta vão em `CLUBES_FIXOS` (nome -> entidade). Na 3.ª eliminatória da Taça de 2026/27 ficaram 21 dos 31 clubes; a primeira vez demora mais ~80 s. Os nomes sem acentos da ESPN ("Uniao Leiria") corrigem-se em `NOMES_PT`.
+
+**Símbolos das competições**: vêm da ESPN (a versão para fundo escuro), para `web/img/ligas/<chave>.png`. A Taça de Portugal não tem na ESPN: usa-se o desenho do troféu do Commons (`SIMBOLOS_COMMONS`). O script serve para repor um emblema estragado. Futebol e NBA vêm da ESPN; as equipas de F1 do site oficial da F1 (`F1_OFICIAL` no script), já sem margens, e as que têm logótipo preto (Mercedes, Aston Martin, Audi, Cadillac) usam a versão branca. O `NFO.svg` (Nottingham Forest) é da Wikipédia. São marcas dos clubes, só para uso pessoal.
 
 ## Caras dos jogadores
 
