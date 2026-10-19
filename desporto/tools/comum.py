@@ -24,8 +24,8 @@ PAUSA = 0.5   # segundos entre pedidos, para não abusar das APIs
 PARTES = ("f1", "futebol", "nba", "destaques", "curiosidades")
 
 
-def pedir(url, pausa=PAUSA):
-    pedido = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"})
+def pedir(url, pausa=PAUSA, ua=USER_AGENT):
+    pedido = urllib.request.Request(url, headers={"User-Agent": ua, "Accept-Encoding": "gzip"})
     with urllib.request.urlopen(pedido, timeout=30) as resp:
         dados = resp.read()
         if resp.headers.get("Content-Encoding") == "gzip":

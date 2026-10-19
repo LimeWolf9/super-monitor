@@ -34,8 +34,9 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from comum import LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, tem_emblema
+from comum import EMBLEMAS, LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, tem_emblema
 import competicoes
+import emblemas_wikidata
 
 API = "https://site.api.espn.com/apis"
 URL_EMBLEMA = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/{id}.png&h=200&w=200"
@@ -46,6 +47,10 @@ LIGAS = {c["chave"]: c["espn"] for c in competicoes.COMPETICOES if c["tipo"] == 
 # Nome das ligas que não existiam no mock.json
 NOMES_LIGAS = {c["chave"]: c["nome"] for c in competicoes.COMPETICOES if c["tipo"] == "liga"}
 LOGOS_LIGAS = RAIZ / "web" / "img" / "ligas"
+# Competições sem símbolo na ESPN: um ficheiro do Wikimedia Commons (livre)
+SIMBOLOS_COMMONS = {"tp": "Coppa del Portogallo.svg"}   # o troféu da Taça de Portugal
+# País no Wikidata dos clubes de cada taça: os emblemas que a ESPN não tem procuram-se lá (emblemas_wikidata.py)
+PAIS_WIKIDATA = {"tp": "Q45", "fa": "Q145", "efl": "Q145", "cdr": "Q29", "dfb": "Q183", "cit": "Q38", "cdf": "Q142"}
 
 # id da equipa na ESPN -> sigla. As que já existiam no mock.json foram ligadas pelo nome;
 # as restantes (NOVAS) ganharam uma sigla nova. Atenção: as siglas da ESPN não servem
@@ -128,6 +133,16 @@ def api(caminho):
     return pedir_json(f"{API}/{caminho}")
 
 
+# Nomes da ESPN sem acentos ou compridos (clubes das taças), pelo nome da ESPN
+NOMES_PT = {
+    "Fatima": "Fátima", "Leca": "Leça", "Leixoes": "Leixões", "Uniao Leiria": "União de Leiria",
+    "Lusitania": "Lusitânia", "Oliveira Hospital": "Oliveira do Hospital", "Vitoria Sernache": "Vitória de Sernache",
+    "Vitoria Setubal": "Vitória de Setúbal", "Uniao da Serra": "União da Serra", "União Santarém": "União de Santarém",
+    "Os Marialvas": "Os Marialvas", "AD Fazendense": "Fazendense", "ACDR Lamelas": "Lamelas", "SC Farense": "Farense",
+    "GD Chaves": "Chaves", "FC Penafiel": "Penafiel", "Felgueiras 1932": "Felgueiras", "AD Marco 09": "Marco 09",
+    "Maritimo": "Marítimo", "FC Famalicao": "Famalicão", "Vitória de Guimaraes": "Vitória de Guimarães",
+}
+
 # Nome em português das seleções (pelo nome da ESPN). As que não estiverem aqui ficam com o nome da ESPN.
 NOMES_SELECOES = {
     "Portugal": "Portugal", "Spain": "Espanha", "France": "França", "Germany": "Alemanha", "England": "Inglaterra",
@@ -164,11 +179,14 @@ class Equipas:
         self.novas, self.desconhecidas, self.sem_emblema = [], set(), []
         self.tranca = threading.RLock()   # as ligas correm em paralelo e partilham "teams"
         self.pedidos = set()              # emblemas já pedidos nesta atualização (uma vez por sigla)
+        self.ids = {}                     # sigla -> id da ESPN (para o mapa do Wikidata)
+        self.wikidata = set()             # siglas já procuradas no Wikidata nesta atualização
 
     def sigla(self, t, avisar=True):
         """avisar=False nas taças e nas seleções: lá aparecem muitas equipas novas (clubes amadores, seleções)."""
         with self.tranca:
             code = self._sigla(t, avisar)
+            self.ids[code] = t["id"]
             baixar = self.baixar and code not in self.pedidos and not tem_emblema(code)
             self.pedidos.add(code)
         if baixar:   # fora da tranca: as outras competições não ficam à espera dos emblemas
@@ -190,7 +208,7 @@ class Equipas:
         if code not in self.teams:
             c1, c2 = t.get("color"), t.get("alternateColor")
             self.teams[code] = {
-                "name": NOVAS.get(code) or NOMES_SELECOES.get(t.get("displayName"))
+                "name": NOVAS.get(code) or NOMES_PT.get(t.get("displayName")) or NOMES_SELECOES.get(t.get("displayName"))
                         or t.get("shortDisplayName") or t.get("displayName") or code,
                 "c1": f"#{c1}" if c1 and c1 != "000000" else COR_NEUTRA,
                 "c2": f"#{c2}" if c2 and c2 != c1 else "#ffffff",
@@ -202,6 +220,8 @@ class Equipas:
             # a classificação não traz cores; os jogos trazem, e corrigem a cor neutra
             self.teams[code] = {**self.teams[code], "c1": f"#{t['color']}",
                                 "c2": f"#{t['alternateColor']}" if t.get("alternateColor") not in (None, t["color"]) else "#ffffff"}
+        if NOMES_PT.get(t.get("displayName")) and code not in NOVAS and self.teams[code]["name"] != NOMES_PT[t["displayName"]]:
+            self.teams[code] = {**self.teams[code], "name": NOMES_PT[t["displayName"]]}   # corrige os que já existiam
         if t.get("displayName") and self.teams[code].get("espnName") != t["displayName"]:
             # nome completo na ESPN (ex.: "VfB Stuttgart" para a Estugarda): serve para confirmar o clube das fotos
             self.teams[code] = {**self.teams[code], "espnName": t["displayName"]}
@@ -224,6 +244,25 @@ class Equipas:
                 print(f"Emblema novo: {code}.png ({self.teams[code]['name']})")
             else:
                 self.sem_emblema.append(code)
+
+
+    def emblemas_wikidata(self, codes, pais):
+        """Os emblemas que faltam (a ESPN não os tem), procurados no Wikidata. Só os que faltam, uma vez."""
+        if not self.baixar or not pais:
+            return
+        for code in sorted(codes):
+            with self.tranca:
+                if code in self.wikidata or tem_emblema(code):
+                    continue
+                self.wikidata.add(code)
+                t = self.teams.get(code, {})
+                nomes = [n for n in (t.get("name"), t.get("espnName")) if n]
+                chave = f"espn:{self.ids.get(code, code)}"
+            if nomes and emblemas_wikidata.emblema(chave, nomes, pais, EMBLEMAS / f"{code}.png"):
+                with self.tranca:
+                    print(f"Emblema novo (Wikidata): {code}.png ({nomes[0]})")
+                    if code in self.sem_emblema:
+                        self.sem_emblema.remove(code)
 
 
 def classificacao(liga, equipas):
@@ -643,6 +682,9 @@ def montar_taca(chave, nome, liga, tipo, filtro, antigo, equipas, agora):
     if grupos:
         ids = {i for e in eventos for i in par(e)}
         nova["grupos"] = grupos_selecoes(grupos, equipas, filtro, ids)
+    # Clubes sem emblema na ESPN (os amadores das taças): procura-se no Wikidata
+    equipas.emblemas_wikidata({m[k] for m in nova["results"] + nova["next"] for k in ("home", "away")},
+                              PAIS_WIKIDATA.get(chave))
     return nova
 
 
@@ -653,8 +695,11 @@ def logo_competicao(chave, liga):
     try:
         logos = (api(f"site/v2/sports/soccer/{liga}/scoreboard").get("leagues") or [{}])[0].get("logos") or []
         escuro = next((l for l in logos if "dark" in l.get("rel", [])), logos[0] if logos else None)
-        if escuro:
-            png = pedir(escuro["href"])
+        url = escuro["href"] if escuro else None
+        if not url and chave in SIMBOLOS_COMMONS:   # a ESPN não o tem: o do Commons
+            url = emblemas_wikidata.COMMONS.format(ficheiro=SIMBOLOS_COMMONS[chave].replace(" ", "_"))
+        if url:
+            png = pedir(url, ua=emblemas_wikidata.USER_AGENT)
             if png.startswith(b"\x89PNG"):
                 LOGOS_LIGAS.mkdir(parents=True, exist_ok=True)
                 (LOGOS_LIGAS / f"{chave}.png").write_bytes(png)
