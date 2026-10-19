@@ -16,11 +16,17 @@ A ESPN não diz a jornada de cada jogo. Por isso os jogos são agrupados pelas d
 Equipas: o id da ESPN passa a sigla pelo mapa EQUIPAS (as siglas de "teams" e de web/img/equipas/<sigla>.png).
 Uma equipa que ainda não esteja em "teams" é acrescentada com as cores da ESPN, e o emblema que faltar é
 descarregado da ESPN. Um id que não esteja em EQUIPAS dá um aviso.
+Taças e seleções (tipo "taca" e "selecoes" em competicoes.py): 3 pedidos por competição (os jogos dos três
+meses), mais a classificação dos grupos nas seleções. A fase vem de cada jogo (season.slug: "3rd-round",
+"round-of-16", "group-stage"...). Ver montar_taca().
+As competições que se buscam são as escolhidas em data/competicoes.json (página /definicoes do serve.py);
+as que se desligaram saem do live.json.
 Só usa a biblioteca standard do Python.
 """
 
 import argparse
 import json
+import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -28,21 +34,18 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from comum import LIVE, baixar_emblema, gravar, ler_dados, pedir_json, tem_emblema
+from comum import LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, tem_emblema
+import competicoes
 
 API = "https://site.api.espn.com/apis"
 URL_EMBLEMA = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/{id}.png&h=200&w=200"
 INTERVALO_JORNADA = timedelta(hours=40)   # mais do que isto entre dois jogos = jornada nova
 
-# Chave no live.json -> liga na ESPN
-LIGAS = {
-    "pt": "por.1", "en": "eng.1", "es": "esp.1",
-    "ucl": "uefa.champions", "uel": "uefa.europa", "uecl": "uefa.europa.conf",
-    # Só aparecem com ?cat=futebol (ver construirCenas em scenes.js)
-    "de": "ger.1", "fr": "fra.1", "it": "ita.1",
-}
+# Chave no live.json -> liga na ESPN (só as ligas; a lista toda, com as taças e as seleções, está em competicoes.py)
+LIGAS = {c["chave"]: c["espn"] for c in competicoes.COMPETICOES if c["tipo"] == "liga"}
 # Nome das ligas que não existiam no mock.json
-NOMES_LIGAS = {"de": "Bundesliga", "fr": "Ligue 1", "it": "Serie A"}
+NOMES_LIGAS = {c["chave"]: c["nome"] for c in competicoes.COMPETICOES if c["tipo"] == "liga"}
+LOGOS_LIGAS = RAIZ / "web" / "img" / "ligas"
 
 # id da equipa na ESPN -> sigla. As que já existiam no mock.json foram ligadas pelo nome;
 # as restantes (NOVAS) ganharam uma sigla nova. Atenção: as siglas da ESPN não servem
@@ -53,6 +56,8 @@ EQUIPAS = {
     "3699": "GIL", "12216": "EST", "21581": "CPI", "3696": "MOR", "15784": "ARO", "3822": "RAV",
     "12215": "SCL", "3472": "NAC", "21610": "AMD", "21607": "ACV", "21613": "ALV", "552": "MTO",
     "21615": "SCU",
+    # Seleções seguidas (as outras ficam com a sigla da ESPN)
+    "482": "PRT", "205": "BRA", "202": "ARG",   # PRT: "POR" já é dos Portland Trail Blazers (NBA)
     # Inglaterra
     "382": "MCI", "359": "ARS", "364": "LIV", "363": "CHE", "367": "TOT", "361": "NEW", "360": "MUN",
     "362": "AVL", "331": "BHA", "368": "EVE", "370": "FUL", "384": "CRY", "337": "BRE", "349": "BOU",
@@ -123,6 +128,34 @@ def api(caminho):
     return pedir_json(f"{API}/{caminho}")
 
 
+# Nome em português das seleções (pelo nome da ESPN). As que não estiverem aqui ficam com o nome da ESPN.
+NOMES_SELECOES = {
+    "Portugal": "Portugal", "Spain": "Espanha", "France": "França", "Germany": "Alemanha", "England": "Inglaterra",
+    "Italy": "Itália", "Netherlands": "Países Baixos", "Belgium": "Bélgica", "Croatia": "Croácia",
+    "Denmark": "Dinamarca", "Norway": "Noruega", "Wales": "País de Gales", "Scotland": "Escócia",
+    "Northern Ireland": "Irlanda do Norte", "Republic of Ireland": "Irlanda", "Switzerland": "Suíça",
+    "Austria": "Áustria", "Czechia": "Chéquia", "Greece": "Grécia", "Serbia": "Sérvia", "Türkiye": "Turquia",
+    "Poland": "Polónia", "Sweden": "Suécia", "Hungary": "Hungria", "Ukraine": "Ucrânia", "Romania": "Roménia",
+    "Slovakia": "Eslováquia", "Slovenia": "Eslovénia", "Bosnia-Herzegovina": "Bósnia", "North Macedonia": "Macedónia do Norte",
+    "Georgia": "Geórgia", "Albania": "Albânia", "Finland": "Finlândia", "Iceland": "Islândia", "Israel": "Israel",
+    "Kosovo": "Kosovo", "Montenegro": "Montenegro", "Bulgaria": "Bulgária", "Belarus": "Bielorrússia",
+    "Armenia": "Arménia", "Azerbaijan": "Azerbaijão", "Kazakhstan": "Cazaquistão", "Cyprus": "Chipre",
+    "Estonia": "Estónia", "Latvia": "Letónia", "Lithuania": "Lituânia", "Luxembourg": "Luxemburgo",
+    "Moldova": "Moldávia", "Malta": "Malta", "Faroe Islands": "Ilhas Faroé", "Andorra": "Andorra",
+    "San Marino": "São Marino", "Liechtenstein": "Liechtenstein", "Gibraltar": "Gibraltar", "Russia": "Rússia",
+    "Brazil": "Brasil", "Argentina": "Argentina", "Uruguay": "Uruguai", "Colombia": "Colômbia", "Chile": "Chile",
+    "Paraguay": "Paraguai", "Peru": "Peru", "Ecuador": "Equador", "Bolivia": "Bolívia", "Venezuela": "Venezuela",
+    "United States": "Estados Unidos", "USA": "Estados Unidos", "Mexico": "México", "Canada": "Canadá",
+    "Japan": "Japão", "South Korea": "Coreia do Sul", "Morocco": "Marrocos", "Senegal": "Senegal",
+    "Saudi Arabia": "Arábia Saudita", "Australia": "Austrália", "Egypt": "Egito", "Nigeria": "Nigéria",
+    "Ivory Coast": "Costa do Marfim", "Cameroon": "Camarões", "Algeria": "Argélia", "Tunisia": "Tunísia",
+    "Ghana": "Gana", "Iran": "Irão", "Qatar": "Catar", "New Zealand": "Nova Zelândia", "Cape Verde": "Cabo Verde",
+    "Angola": "Angola", "Mozambique": "Moçambique", "Guinea-Bissau": "Guiné-Bissau", "Costa Rica": "Costa Rica",
+    "Panama": "Panamá", "Jamaica": "Jamaica", "Haiti": "Haiti", "Uzbekistan": "Usbequistão", "Jordan": "Jordânia",
+    "South Africa": "África do Sul", "DR Congo": "RD Congo", "Curacao": "Curaçau", "Curaçao": "Curaçau", "Iraq": "Iraque",
+}
+
+
 class Equipas:
     """Converte ids da ESPN em siglas e acrescenta a "teams" as equipas que faltam."""
 
@@ -130,12 +163,19 @@ class Equipas:
         self.teams, self.baixar = teams, baixar
         self.novas, self.desconhecidas, self.sem_emblema = [], set(), []
         self.tranca = threading.RLock()   # as ligas correm em paralelo e partilham "teams"
+        self.pedidos = set()              # emblemas já pedidos nesta atualização (uma vez por sigla)
 
-    def sigla(self, t):
+    def sigla(self, t, avisar=True):
+        """avisar=False nas taças e nas seleções: lá aparecem muitas equipas novas (clubes amadores, seleções)."""
         with self.tranca:
-            return self._sigla(t)
+            code = self._sigla(t, avisar)
+            baixar = self.baixar and code not in self.pedidos and not tem_emblema(code)
+            self.pedidos.add(code)
+        if baixar:   # fora da tranca: as outras competições não ficam à espera dos emblemas
+            self.emblema(code, t)
+        return code
 
-    def _sigla(self, t):
+    def _sigla(self, t, avisar):
         code = EQUIPAS.get(t["id"])
         if code is None:
             code = "".join(c for c in t.get("abbreviation", "") if c.isalpha()).upper()[:4] or f"E{t['id']}"
@@ -143,14 +183,15 @@ class Equipas:
                 code += "X"
             while code in self.teams and self.teams[code].get("_espn") != t["id"]:
                 code += "X"
-            if t["id"] not in self.desconhecidas:
+            if avisar and t["id"] not in self.desconhecidas:
                 self.desconhecidas.add(t["id"])
                 print(f"Aviso: equipa nova '{t.get('displayName')}' (id {t['id']}) ficou com a sigla {code}. "
                       f"Acrescenta-a a EQUIPAS em {Path(__file__).name}.")
         if code not in self.teams:
             c1, c2 = t.get("color"), t.get("alternateColor")
             self.teams[code] = {
-                "name": NOVAS.get(code, t.get("shortDisplayName") or t.get("displayName") or code),
+                "name": NOVAS.get(code) or NOMES_SELECOES.get(t.get("displayName"))
+                        or t.get("shortDisplayName") or t.get("displayName") or code,
                 "c1": f"#{c1}" if c1 and c1 != "000000" else COR_NEUTRA,
                 "c2": f"#{c2}" if c2 and c2 != c1 else "#ffffff",
             }
@@ -164,17 +205,25 @@ class Equipas:
         if t.get("displayName") and self.teams[code].get("espnName") != t["displayName"]:
             # nome completo na ESPN (ex.: "VfB Stuttgart" para a Estugarda): serve para confirmar o clube das fotos
             self.teams[code] = {**self.teams[code], "espnName": t["displayName"]}
-        self.emblema(code, t["id"])
         return code
 
-    def emblema(self, code, espn_id):
-        """Descarrega o emblema da ESPN se ainda não houver nenhum para esta sigla."""
-        if not self.baixar or code in self.sem_emblema or tem_emblema(code):
+    def emblema(self, code, t):
+        """Descarrega o emblema da ESPN (as seleções têm a bandeira noutro sítio: vem em t["logo"])."""
+        logo = t.get("logo") or ""
+        if logo.startswith("https://a.espncdn.com/"):
+            url = f"https://a.espncdn.com/combiner/i?img={logo.removeprefix('https://a.espncdn.com')}&h=200&w=200"
+        elif "logo" in t:   # a ESPN diz que não há emblema (clubes amadores): fica o círculo com a sigla
+            with self.tranca:
+                self.sem_emblema.append(code)
             return
-        if baixar_emblema(code, URL_EMBLEMA.format(id=espn_id)):
-            print(f"Emblema novo: {code}.png ({self.teams[code]['name']})")
         else:
-            self.sem_emblema.append(code)
+            url = URL_EMBLEMA.format(id=t["id"])
+        ok = baixar_emblema(code, url)
+        with self.tranca:
+            if ok:
+                print(f"Emblema novo: {code}.png ({self.teams[code]['name']})")
+            else:
+                self.sem_emblema.append(code)
 
 
 def classificacao(liga, equipas):
@@ -302,35 +351,35 @@ def eventos_do_jogo(comp, lado):
     return ev
 
 
-def resultado(e, equipas):
+def resultado(e, equipas, avisar=True):
     comp = e["competitions"][0]
     casa = next(c for c in comp["competitors"] if c["homeAway"] == "home")
     fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
     lado = {casa["team"]["id"]: "h", fora["team"]["id"]: "a"}
-    return {"home": equipas.sigla(casa["team"]), "away": equipas.sigla(fora["team"]),
+    return {"home": equipas.sigla(casa["team"], avisar), "away": equipas.sigla(fora["team"], avisar),
             "hs": int(casa["score"]), "as": int(fora["score"]), "ev": eventos_do_jogo(comp, lado),
             "id": e["id"]}   # id do jogo na ESPN (o atualizar_onze.py vai buscar as estatísticas por aqui)
 
 
-def jogo_da_jornada(e, equipas):
+def jogo_da_jornada(e, equipas, avisar=True):
     """Um jogo da jornada dos resultados: acabado (resultado), a decorrer (resultado atual), adiado ou por jogar."""
     tipo = e["status"]["type"]
     if estado(e) == "fim":
-        return resultado(e, equipas)
+        return resultado(e, equipas, avisar)
     if estado(e) == "adiado":
-        return {**proximo(e, equipas), "status": "adiado", "id": e["id"]}
+        return {**proximo(e, equipas, avisar), "status": "adiado", "id": e["id"]}
     if tipo.get("state") == "in":   # a decorrer: resultado e minuto da ESPN
-        r = resultado(e, equipas)
+        r = resultado(e, equipas, avisar)
         return {**r, "live": True, "clock": tipo.get("shortDetail") or e["status"].get("displayClock") or ""}
-    return {**proximo(e, equipas), "id": e["id"]}
+    return {**proximo(e, equipas, avisar), "id": e["id"]}
 
 
-def proximo(e, equipas):
+def proximo(e, equipas, avisar=True):
     comp = e["competitions"][0]
     casa = next(c for c in comp["competitors"] if c["homeAway"] == "home")
     fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
     local = quando(e).astimezone()    # hora deste PC
-    return {"home": equipas.sigla(casa["team"]), "away": equipas.sigla(fora["team"]),
+    return {"home": equipas.sigla(casa["team"], avisar), "away": equipas.sigla(fora["team"], avisar),
             "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}"}
 
 
@@ -384,7 +433,243 @@ def montar_liga(chave, antigo, equipas, agora):
     # Rótulo: só se diz "Jornada N" quando os próximos jogos são todos da jornada seguinte
     da_seguinte = {e["id"] for e in depois[0]} if depois else set()
     nova["nextMixed"] = any(e["id"] not in da_seguinte for e in por_jogar)
+    nova["tipo"], nova["janela"] = "liga", janela(eventos, agora)
     return nova
+
+
+def iso(d):
+    return d.isoformat(timespec="minutes") if d else None
+
+
+def janela(eventos, agora):
+    """Datas que decidem se a competição entra na rotação (ver competicaoAtiva em web/js/cenas/futebol.js):
+    o último jogo acabado ou a decorrer e o próximo por jogar. O dashboard compara-as com a hora a que mostra."""
+    feitos = [quando(e) for e in eventos if estado(e) == "fim" or e["status"]["type"].get("state") == "in"]
+    por_jogar = [quando(e) for e in eventos if estado(e) == "por jogar" and quando(e) > agora]
+    return {"ultimo": iso(max(feitos, default=None)), "proximo": iso(min(por_jogar, default=None))}
+
+
+# ---------- Taças e seleções ----------
+
+# Nome das fases (season.slug de cada jogo na ESPN)
+FASES = {
+    "round-of-16": "Oitavos de final", "quarterfinals": "Quartos de final", "semifinals": "Meias-finais",
+    "final": "Final", "3rd-place-match": "Jogo do 3.º lugar", "round-of-32": "16 avos de final",
+    "league-phase": "Fase de liga", "group-stage": "Fase de grupos", "relegation-playoffs": "Play-off de descida",
+    "preliminary-round": "Eliminatória preliminar", "qualifying-round": "Pré-eliminatória",
+    "playoff-semifinals": "Play-off · meias-finais", "playoff-finals": "Play-off · final",
+    "knockout-round-playoffs": "Play-off",
+}
+ORDINAIS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8}
+FASES_GRUPOS = {"league-phase", "group-stage"}   # aqui conta-se a jornada; nas outras, a mão (1.ª / 2.ª)
+FASES_FINAIS = {"round-of-16", "quarterfinals", "semifinals", "final", "3rd-place-match"}
+INTERVALO_AMIGAVEIS = timedelta(days=4)   # amigáveis: uma janela de jogos acaba com 4 dias sem jogos
+
+
+def fase(e):
+    return (e.get("season") or {}).get("slug") or ""
+
+
+def numero_eliminatoria(slug):
+    """"3rd-round" / "third-round" -> 3; None se não for uma eliminatória numerada."""
+    m = re.fullmatch(r"(\d+)(?:st|nd|rd|th)-round", slug) or re.fullmatch(r"([a-z]+)-round", slug)
+    if not m:
+        return None
+    return int(m.group(1)) if m.group(1).isdigit() else ORDINAIS.get(m.group(1))
+
+
+def nome_fase(slug, confrontos):
+    """Nome em português. confrontos = quantos tem a fase (8 numa eliminatória numerada = oitavos)."""
+    if slug in FASES:
+        return FASES[slug]
+    n = numero_eliminatoria(slug)
+    if n is not None:
+        return "Oitavos de final" if confrontos == 8 else f"{n}.ª eliminatória"
+    return "Final" if confrontos == 1 else ""
+
+
+def par(e):
+    return frozenset(c["team"]["id"] for c in e["competitions"][0]["competitors"])
+
+
+def jogo_valido(e):
+    """Fora: jogos sem as duas equipas definidas (ex.: "Vencedor do jogo 3")."""
+    comp = e["competitions"][0]["competitors"]
+    return len(comp) == 2 and all(c.get("team", {}).get("id") and "TBD" not in (c["team"].get("displayName") or "")
+                                  for c in comp)
+
+
+def com_nota(e, jogo):
+    """Prolongamento e penáltis: "a.p." / "g.p. 6-5" (o desempate não entra no resultado)."""
+    nome = e["status"]["type"]["name"]
+    if nome == "STATUS_FINAL_PEN":
+        comp = e["competitions"][0]
+        casa = next(c for c in comp["competitors"] if c["homeAway"] == "home")
+        fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
+        if casa.get("shootoutScore") is not None:
+            jogo["nota"] = f"g.p. {casa['shootoutScore']}-{fora.get('shootoutScore')}"
+    elif nome == "STATUS_FINAL_AET":
+        jogo["nota"] = "a.p."
+    return jogo
+
+
+def confrontos_por_fase(eventos):
+    conf = {}
+    for e in eventos:
+        conf.setdefault(fase(e), set()).add(par(e))
+    return conf
+
+
+def rondas(chave, eventos):
+    """Divide os jogos em rondas, pela ordem do calendário. Devolve [(rótulo, [jogos])].
+
+    Ronda = fase + jornada (fase de grupos: o n.º do jogo de cada equipa nessa fase) ou fase + mão
+    (eliminatórias a duas mãos). Nos amigáveis não há fases: cada janela de jogos é uma ronda.
+    """
+    confrontos = confrontos_por_fase(eventos)
+    jogos_do_par = Counter((fase(e), par(e)) for e in eventos)
+    vezes, chaves = Counter(), {}
+    anterior, n_janela = None, 0
+    for e in eventos:
+        f = fase(e)
+        if chave == "amg":
+            if anterior and quando(e) - anterior > INTERVALO_AMIGAVEIS:
+                n_janela += 1
+            anterior = quando(e)
+            chaves[e["id"]] = ("", n_janela)
+        elif f in FASES_GRUPOS:
+            ids = [c["team"]["id"] for c in e["competitions"][0]["competitors"]]
+            for i in ids:
+                vezes[(f, i)] += 1
+            chaves[e["id"]] = (f, max(vezes[(f, i)] for i in ids))
+        else:
+            vezes[(f, par(e))] += 1
+            chaves[e["id"]] = (f, vezes[(f, par(e))])
+    grupos = {}
+    for e in eventos:
+        grupos.setdefault(chaves[e["id"]], []).append(e)
+    lista = []
+    for (f, n), g in grupos.items():   # dict: pela ordem do primeiro jogo de cada ronda
+        nome = nome_fase(f, len(confrontos.get(f, ())))
+        if chave == "amg":
+            rotulo = "Amigáveis"
+        elif f in FASES_GRUPOS:
+            rotulo = f"{nome} · Jornada {n}"
+        elif n > 1 or any(jogos_do_par[(f, par(e))] > 1 for e in g):
+            rotulo = f"{nome} · {n}.ª mão"
+        else:
+            rotulo = nome
+        lista.append((rotulo, g))
+    return lista
+
+
+# Taças estrangeiras: a fase que equivale aos oitavos, quando a ESPN não lhe chama "round-of-16"
+OITAVOS = {"fa": "fifth-round", "efl": "fourth-round"}
+
+
+def fase_conta(chave, eventos):
+    """Taças estrangeiras: só a partir dos oitavos. Vai pelo nome da fase e não pelo número de jogos, porque
+    os três meses que se buscam podem apanhar só o fim de uma eliminatória maior."""
+    if chave not in competicoes.DESDE_OITAVOS:
+        return eventos
+    return [e for e in eventos if fase(e) in FASES_FINAIS or fase(e) == OITAVOS.get(chave)]
+
+
+def grupos_da_classificacao(liga):
+    return (api(f"v2/sports/soccer/{liga}/standings").get("children")) or []
+
+
+def grupos_selecoes(grupos, equipas, filtro, ids_nos_jogos):
+    """Tabelas dos grupos (Liga das Nações, qualificações, fase final), se a ESPN as tiver.
+
+    Só os grupos com alguma seleção dos jogos deste período (a ESPN pode ainda ter a tabela da edição anterior).
+    Liga das Nações: só a Liga A (grupos "Group A1".."A4"), mais o grupo de Portugal se estiver noutra liga.
+    """
+    tabelas = []
+    for g in grupos:
+        entradas = list((g.get("standings") or {}).get("entries") or [])
+        ids = {e["team"]["id"] for e in entradas}
+        if not ids & ids_nos_jogos:
+            continue
+        liga_a = (g.get("name") or "").startswith("Group A")
+        if not (filtro["equipas"] & ids or filtro["todos"] and (liga_a or not filtro["ligaA"])):
+            continue
+
+        def stat(e, nome):
+            return next((s.get("value") for s in e["stats"] if s["name"] == nome), 0) or 0
+
+        entradas.sort(key=lambda e: stat(e, "rank") or 999)
+        tabelas.append((not filtro["equipas"] & ids, {   # Portugal (e quem mais se segue) primeiro
+            "name": (g.get("name") or "").replace("Group", "Grupo"),
+            "table": [{"team": equipas.sigla(e["team"], avisar=False), "j": int(stat(e, "gamesPlayed")),
+                       "dg": int(stat(e, "pointDifferential")), "pts": int(stat(e, "points"))} for e in entradas],
+        }))
+    return [t for _, t in sorted(tabelas, key=lambda x: x[0])]
+
+
+def montar_taca(chave, nome, liga, tipo, filtro, antigo, equipas, agora):
+    """Taças e seleções: os resultados da ronda atual (a mais recente com um jogo acabado; aparece logo que acaba
+    o primeiro jogo) e os jogos da ronda seguinte, cada um com o nome da fase ("Oitavos de final",
+    "3.ª eliminatória", "Fase de liga · Jornada 4")."""
+    nova = {"name": (antigo or {}).get("name") or nome, "tipo": tipo}
+    eventos = [e for e in jogos(liga, agora) if jogo_valido(e)]
+    grupos = grupos_da_classificacao(liga) if tipo == "selecoes" and chave != "amg" else []
+    if filtro:   # seleções: só os jogos que se seguem
+        liga_a = {e["team"]["id"] for g in grupos if (g.get("name") or "").startswith("Group A")
+                  for e in (g.get("standings") or {}).get("entries") or []}
+        eventos = [e for e in eventos if par(e) & filtro["equipas"]
+                   or filtro["todos"] and (not filtro["ligaA"] or par(e) & liga_a)]
+    eventos = fase_conta(chave, eventos)
+    nova["janela"] = janela(eventos, agora)
+    lista = rondas(chave, [e for e in eventos if estado(e) != "adiado"])
+    feitos = lambda g: [e for e in g if estado(e) == "fim"]
+    atual = next((i for i in range(len(lista) - 1, -1, -1) if feitos(lista[i][1])), None)
+    if atual is None:
+        nova["fase"], nova["results"], nova["partial"] = None, [], None
+    else:
+        rotulo, g = lista[atual]
+        ini, fim = quando(g[0]), quando(g[-1])
+        adiados = [e for e in eventos if estado(e) == "adiado" and ini <= quando(e) <= fim]
+        ronda = sorted(g + adiados, key=lambda e: e["date"])
+        nova["fase"] = rotulo
+        nova["results"] = [com_nota(e, jogo_da_jornada(e, equipas, avisar=False)) for e in ronda]
+        n = sum(1 for e in ronda if estado(e) == "fim")
+        nova["partial"] = {"done": n, "total": len(ronda)} if n < len(ronda) else None
+    # Próximos: os jogos por jogar da ronda seguinte que tenha jogos marcados
+    por_jogar = lambda g: [e for e in g if estado(e) == "por jogar" and quando(e) > agora]
+    seguinte = next(((r, por_jogar(g)) for r, g in lista[(atual + 1 if atual is not None else 0):] if por_jogar(g)),
+                    (None, []))
+    nova["proxFase"], nova["next"] = seguinte[0], [proximo(e, equipas, avisar=False) for e in seguinte[1]]
+    if grupos:
+        ids = {i for e in eventos for i in par(e)}
+        nova["grupos"] = grupos_selecoes(grupos, equipas, filtro, ids)
+    return nova
+
+
+def logo_competicao(chave, liga):
+    """Descarrega o símbolo da competição da ESPN (versão para fundo escuro) se ainda não houver nenhum."""
+    if any(LOGOS_LIGAS.glob(f"{chave}.*")):
+        return
+    try:
+        logos = (api(f"site/v2/sports/soccer/{liga}/scoreboard").get("leagues") or [{}])[0].get("logos") or []
+        escuro = next((l for l in logos if "dark" in l.get("rel", [])), logos[0] if logos else None)
+        if escuro:
+            png = pedir(escuro["href"])
+            if png.startswith(b"\x89PNG"):
+                LOGOS_LIGAS.mkdir(parents=True, exist_ok=True)
+                (LOGOS_LIGAS / f"{chave}.png").write_bytes(png)
+    except Exception as e:   # sem símbolo: o título fica só com o nome
+        print(f"Aviso: sem símbolo para {chave} ({e!r}).")
+
+
+def montar(chave, nome, liga, tipo, filtro, antigo, equipas, agora, baixar):
+    if baixar:
+        logo_competicao(chave, liga)
+    if tipo == "liga":
+        nova = montar_liga(chave, antigo, equipas, agora)
+        nova.setdefault("name", nome)
+        return nova
+    return montar_taca(chave, nome, liga, tipo, filtro, antigo, equipas, agora)
 
 
 def main():
@@ -396,15 +681,22 @@ def main():
     teams = dict(dados["teams"])   # cópia: se falhar a meio, os dados originais ficam intactos
     equipas = Equipas(teams, baixar=not args.mostrar)
     agora = datetime.now(timezone.utc)
-    futebol = dict(dados["football"])
-    try:
-        # As ligas são independentes: correm em paralelo (5 de cada vez), cada uma com os seus pedidos à ESPN
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            futuros = {k: ex.submit(montar_liga, k, futebol.get(k), equipas, agora) for k in LIGAS}
-            for chave, f in futuros.items():
-                futebol[chave] = f.result()
-    except Exception as e:   # sem rede, API em baixo, formato mudou...: fica tudo como estava
-        sys.exit(f"Não foi possível atualizar o futebol ({e}). O live.json não foi alterado.")
+    antigo = dados.get("football") or {}
+    lista = competicoes.a_buscar()   # as escolhidas em data/competicoes.json, pela ordem da rotação
+    futebol, falhas = {}, []
+    # As competições são independentes: correm em paralelo, cada uma com os seus pedidos à ESPN.
+    # Uma que falhe fica com os dados anteriores (se os tiver); as desligadas saem do live.json.
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futuros = {c[0]: ex.submit(montar, *c, antigo.get(c[0]), equipas, agora, not args.mostrar) for c in lista}
+    for chave, f in futuros.items():
+        try:
+            futebol[chave] = f.result()
+        except Exception as e:   # sem rede, API em baixo, formato mudou...
+            falhas.append(f"{chave} ({e})")
+            if antigo.get(chave):
+                futebol[chave] = antigo[chave]
+    if falhas and len(falhas) == len(lista):
+        sys.exit(f"Não foi possível atualizar o futebol ({'; '.join(falhas)}). O live.json não foi alterado.")
 
     if args.mostrar:
         print(json.dumps(futebol, ensure_ascii=False, indent=2))
@@ -413,12 +705,19 @@ def main():
     gravar(dados, "futebol")
     if equipas.novas:
         print(f"Equipas acrescentadas a teams: {', '.join(equipas.novas)}")
-    if equipas.sem_emblema:
-        print(f"Sem emblema: {', '.join(equipas.sem_emblema)}")
-    for chave in LIGAS:
-        L = futebol[chave]
-        print(f"{L['name']}: {L['round']}, {len(L['table'])} equipas, {len(L['results'])} resultados, "
-              f"{len(L['next'])} próximos jogos, {len(L['scorers'])} marcadores")
+    if equipas.sem_emblema:   # nas taças há muitos clubes amadores sem emblema na ESPN: ficam com o círculo
+        lista = equipas.sem_emblema
+        print(f"Sem emblema: {', '.join(lista[:8])}" + (f" e mais {len(lista) - 8}" if len(lista) > 8 else ""))
+    for chave, L in futebol.items():
+        if L.get("tipo") == "liga":
+            print(f"{L['name']}: {L['round']}, {len(L['table'])} equipas, {len(L['results'])} resultados, "
+                  f"{len(L['next'])} próximos jogos, {len(L['scorers'])} marcadores")
+        else:
+            print(f"{L['name']}: {L.get('fase') or 'sem resultados'} ({len(L['results'])} jogos), "
+                  f"{L.get('proxFase') or 'sem próximos'} ({len(L['next'])} jogos)"
+                  + (f", {len(L['grupos'])} grupos" if L.get("grupos") else ""))
+    if falhas:
+        print(f"Falharam (ficaram com os dados anteriores): {'; '.join(falhas)}")
     print(f"Futebol atualizado em {LIVE}.")
 
 
