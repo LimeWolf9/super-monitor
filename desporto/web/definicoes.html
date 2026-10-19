@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <title>Definições do futebol</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e14">
+  <style>
+    /* Página do telemóvel: escolher as competições do futebol (grava em data/competicoes.json pelo serve.py) */
+    :root { --fundo: #0b0e14; --painel: #161b26; --linha: #252c3b; --texto: #eef1f7; --apagado: #8a93a6; --cor: #4fa3ff; --ok: #3ddc84; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font: 17px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      padding: 16px 16px 120px; max-width: 640px; margin-inline: auto; -webkit-tap-highlight-color: transparent; }
+    h1 { font-size: 24px; margin: 4px 0 4px; }
+    .intro { color: var(--apagado); margin: 0 0 18px; font-size: 15px; }
+    section { background: var(--painel); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+    label { display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 56px; cursor: pointer; }
+    label + label { border-top: 1px solid var(--linha); }
+    .grupo { font-weight: 700; font-size: 18px; background: rgba(255,255,255,.03); }
+    .grupo .conta { margin-left: auto; color: var(--apagado); font-weight: 400; font-size: 14px; }
+    .item { padding-left: 28px; }
+    .nome { display: flex; flex-direction: column; min-width: 0; }
+    .nota { color: var(--apagado); font-size: 14px; }
+    input[type=checkbox] { width: 26px; height: 26px; flex: none; accent-color: var(--cor); margin: 0; }
+    label.off { opacity: .45; cursor: default; }
+    .barra { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(11,14,20,.94); border-top: 1px solid var(--linha); display: flex; gap: 10px; justify-content: center; }
+    .barra > div { display: flex; gap: 10px; width: 100%; max-width: 608px; flex-wrap: wrap; }
+    button { flex: 1; min-height: 50px; border: 0; border-radius: 12px; font: 600 17px system-ui, sans-serif; color: #fff; background: var(--cor); }
+    button.sec { background: var(--linha); }
+    button:disabled { opacity: .5; }
+    #estado { width: 100%; text-align: center; font-size: 14px; color: var(--apagado); min-height: 1.4em; }
+    #estado.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>Futebol: competições</h1>
+  <p class="intro">Só entram na rotação as escolhidas que jogam nesta semana (jogos acabados nos últimos 4 dias ou marcados para os próximos 7). As mudanças entram na próxima atualização dos dados.</p>
+  <div id="lista">A carregar…</div>
+  <div class="barra"><div>
+    <div id="estado"></div>
+    <button id="gravar">Gravar</button>
+    <button id="atualizar" class="sec">Gravar e atualizar já</button>
+  </div></div>
+<script>
+const lista = document.getElementById('lista');
+const estado = document.getElementById('estado');
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const aviso = (txt, ok = false) => { estado.textContent = txt; estado.className = ok ? 'ok' : ''; };
+
+function montar(dados) {
+  lista.innerHTML = dados.grupos.map((g, gi) => `<section data-g="${gi}">
+    <label class="grupo"><input type="checkbox" class="todos"><span>${esc(g.nome)}</span><span class="conta"></span></label>
+    ${g.itens.map((c) => `<label class="item${c.disponivel ? '' : ' off'}">
+      <input type="checkbox" name="${esc(c.chave)}" ${c.ligada && c.disponivel ? 'checked' : ''} ${c.disponivel ? '' : 'disabled'}>
+      <span class="nome">${esc(c.nome)}${c.nota ? `<span class="nota">${esc(c.nota)}</span>` : ''}</span></label>`).join('')}
+  </section>`).join('');
+  lista.querySelectorAll('section').forEach((sec) => {
+    const todos = sec.querySelector('.todos');
+    const itens = [...sec.querySelectorAll('input[name]:not(:disabled)')];
+    const contar = () => {
+      const n = itens.filter((i) => i.checked).length;
+      todos.checked = n === itens.length && n > 0;
+      todos.indeterminate = n > 0 && n < itens.length;
+      sec.querySelector('.conta').textContent = `${n} de ${itens.length}`;
+    };
+    todos.addEventListener('change', () => { itens.forEach((i) => { i.checked = todos.checked; }); contar(); aviso('Por gravar'); });
+    itens.forEach((i) => i.addEventListener('change', () => { contar(); aviso('Por gravar'); }));
+    contar();
+  });
+}
+
+async function gravar() {
+  const escolha = {};
+  lista.querySelectorAll('input[name]:not(:disabled)').forEach((i) => { escolha[i.name] = i.checked; });
+  const r = await fetch('/api/competicoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ligadas: escolha }) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
+document.getElementById('gravar').addEventListener('click', async () => {
+  try { await gravar(); aviso('Gravado. Entra na próxima atualização.', true); }
+  catch (e) { aviso(`Não gravou (${e.message})`); }
+});
+
+document.getElementById('atualizar').addEventListener('click', async (ev) => {
+  const botao = ev.currentTarget;
+  try {
+    await gravar();
+    const r = await fetch('/api/atualizar', { method: 'POST' });
+    aviso(r.status === 409 ? 'Gravado. Já estava a atualizar: entra na próxima.' : 'Gravado. A atualizar…', true);
+    if (r.status === 409) return;
+    botao.disabled = true;
+    const seguir = setInterval(async () => {
+      const e = await (await fetch('/api/atualizar/estado')).json();
+      if (e.estado === 'a_correr') { aviso(`A atualizar: ${e.passo || ''} (${e.feitos + 1}/${e.total})`, true); return; }
+      clearInterval(seguir);
+      botao.disabled = false;
+      aviso(e.erro ? `Atualizado, mas: ${e.erro}` : `Atualizado em ${Math.round(e.decorrido_s)} s.`, !e.erro);
+    }, 1500);
+  } catch (e) { aviso(`Não gravou (${e.message})`); botao.disabled = false; }
+});
+
+fetch('/api/competicoes').then((r) => r.json()).then(montar)
+  .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });
+</script>
+</body>
+</html>
