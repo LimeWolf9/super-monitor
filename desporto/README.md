@@ -26,7 +26,7 @@ Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã i
 - `f1`: as 7 cenas da F1 (ver "Categoria F1" mais abaixo).
 - `nba`: um ecrã "Em construção" (`nba-construcao`), com a data de início da época regular (da ESPN).
 
-O comando funciona igual em todas. Com as 24 competições por defeito, o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~40 s (na primeira vez ~60 s, porque descarrega os emblemas dos clubes e as bandeiras).
+O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~40 s (na primeira vez ~60 s, porque descarrega os emblemas dos clubes e as bandeiras).
 
 ## Competições do futebol (`/definicoes`)
 
