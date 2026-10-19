@@ -32,7 +32,8 @@ Esc, Espaço (pausa), `m` (menu), `e` (energia).
 
 ## Apps
 
-Estão em `apps.json`:
+Estão em `apps.json` (exemplo, vai para o git). Para a configuração do teu PC (por exemplo o PIN),
+copia-o para `apps.local.json`: se existir, o hub usa esse, e o git ignora-o.
 
 ```json
 {

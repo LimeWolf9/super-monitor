@@ -34,7 +34,8 @@ from urllib.parse import unquote, urlsplit
 
 RAIZ = Path(__file__).parent.resolve()
 PASTA_WEB = RAIZ / "web"
-FICHEIRO_APPS = RAIZ / "apps.json"
+# apps.local.json (fora do git) tem a configuração deste PC, ex.: o PIN; sem ele usa-se o apps.json de exemplo
+FICHEIRO_APPS = RAIZ / "apps.local.json" if (RAIZ / "apps.local.json").exists() else RAIZ / "apps.json"
 FICHEIRO_CONFIG = RAIZ / "config.json"
 NO_WINDOWS = os.name == "nt"
 

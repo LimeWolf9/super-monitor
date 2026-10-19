@@ -83,3 +83,15 @@ no monitor que estiver na vertical.
 ## Licença
 
 [MIT](LICENSE). Os dados vêm das fontes públicas indicadas acima e ficam sujeitos aos termos de cada uma.
+
+## Antes de cada commit
+
+Uma verificação trava o commit se algum ficheiro tiver informação privada. Liga-se uma vez:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Põe numa `.privado.txt` na raiz (o git ignora-a) as palavras que nunca podem sair do teu PC, uma
+por linha: nomes, números de conta, PIN. Bases de dados, extractos e configurações locais são
+sempre travados, mesmo sem a lista.

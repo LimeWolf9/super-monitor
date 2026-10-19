@@ -8,7 +8,7 @@
     "arrancar": {
       "pasta": "../desporto",
       "cmd": [
-        ".venv/Scripts/python.exe",
+        "python",
         "serve.py",
         "--no-browser"
       ]
@@ -17,7 +17,7 @@
     "atualizar": {
       "pasta": "../desporto",
       "cmd": [
-        ".venv/Scripts/python.exe",
+        "python",
         "tools/atualizar_tudo.py"
       ],
       "progresso": "data/atualizacao.json"

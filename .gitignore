@@ -15,3 +15,9 @@ desporto/web/img/equipas/
 desporto/web/img/ligas/
 desporto/config.local.json
 desporto/capturas/
+
+# Configuração deste PC (PIN, caminhos): copia hub/apps.json para hub/apps.local.json
+hub/apps.local.json
+
+# Lista privada da verificação antes de cada commit
+.privado.txt

@@ -4,6 +4,12 @@
 
 $raiz = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $raiz ".venv\Scripts\python.exe"
+$argsPy = @()
+# Sem .venv serve qualquer Python 3: o dashboard só usa a biblioteca standard
+if (-not (Test-Path $python)) {
+    if (Get-Command py -ErrorAction SilentlyContinue) { $python = "py"; $argsPy = @("-3") }
+    else { $python = "python" }
+}
 $url = "http://127.0.0.1:8000/"
 $edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
           "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
@@ -23,7 +29,7 @@ if (-not $alvo) { $alvo = $ecras[0] }
 $servidor = $null
 try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2 | Out-Null }
 catch {
-    $servidor = Start-Process $python -ArgumentList "serve.py", "--no-browser" -WorkingDirectory $raiz -WindowStyle Minimized -PassThru
+    $servidor = Start-Process $python -ArgumentList ($argsPy + @("serve.py", "--no-browser")) -WorkingDirectory $raiz -WindowStyle Minimized -PassThru
     for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Milliseconds 500
         try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch {}
