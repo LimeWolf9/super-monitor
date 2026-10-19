@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard Desportivo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/leagues.css">
+  <script>
+    // ?preview=1 mostra o ecrã dentro de uma moldura de monitor.
+    if (new URLSearchParams(location.search).get('preview') === '1') document.documentElement.className = 'preview';
+  </script>
+</head>
+<body>
+  <div id="frame">
+    <div id="scaler">
+      <div id="stage">
+
+        <!-- ZONA 1: barra de topo estilo iPhone (100 px): hora + dia -->
+        <header id="top">
+          <div id="clock">--:--</div>
+          <div id="date"></div>
+          <div id="greeting"></div>
+          <div id="pausa" title="Em pausa">⏸</div>
+        </header>
+
+        <!-- ZONA 2: centro rotativo (2460 px) -->
+        <main id="center">
+          <div id="progress"><div id="progress-bar"></div></div>
+          <div id="scene-host"></div>
+        </main>
+
+        <!-- Notícia aberta com o comando (OK), por cima da cena -->
+        <div id="noticia" hidden></div>
+
+        <!-- Atualizar dados (atualizacao.js): hora dos dados e barra de progresso -->
+        <div id="dados-hora"></div>
+        <div id="atualizacao" hidden></div>
+
+      </div>
+    </div>
+  </div>
+  <div id="stand"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

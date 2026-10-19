@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="comando.webmanifest">
+<link rel="icon" href="icone.svg">
+<link rel="apple-touch-icon" href="icone.svg">
+<title>Comando</title>
+<link rel="stylesheet" href="comando.css">
+</head>
+<body>
+  <div class="topo">
+    <div>
+      <div class="rotulo">No monitor</div>
+      <div id="estado">A ligar…</div>
+    </div>
+    <button class="redondo energia" data-acao="energia" aria-label="Ligar ou desligar o ecrã">⏻</button>
+  </div>
+
+  <!-- Teclado numérico: só aparece quando o monitor pede o código -->
+  <div class="teclado">
+    <div id="pin-titulo">Código</div>
+    <div class="teclas">
+      <button data-digito="1">1</button><button data-digito="2">2</button><button data-digito="3">3</button>
+      <button data-digito="4">4</button><button data-digito="5">5</button><button data-digito="6">6</button>
+      <button data-digito="7">7</button><button data-digito="8">8</button><button data-digito="9">9</button>
+      <button data-acao="menu" class="sec">✕</button><button data-digito="0">0</button><button data-acao="voltar" class="sec">⌫</button>
+    </div>
+  </div>
+
+  <div class="dpad">
+    <button data-acao="cima" class="cima" aria-label="Cima">▲</button>
+    <button data-acao="esquerda" class="esquerda" aria-label="Esquerda">◀</button>
+    <button data-acao="ok" class="ok">OK</button>
+    <button data-acao="direita" class="direita" aria-label="Direita">▶</button>
+    <button data-acao="baixo" class="baixo" aria-label="Baixo">▼</button>
+  </div>
+
+  <div class="linha">
+    <button class="redondo" data-acao="voltar" aria-label="Voltar">↩<span>Voltar</span></button>
+    <button class="redondo" data-acao="pausa" aria-label="Pausa">⏯<span>Pausa</span></button>
+    <button class="redondo" data-acao="menu" aria-label="Menu">☰<span>Menu</span></button>
+  </div>
+
+  <!-- Só aparece quando a app aberta anuncia "atualizar" (ex.: o desporto) -->
+  <button class="largo" id="atualizar" data-acao="atualizar">⟳ Atualizar dados</button>
+
+  <!-- Atualizar os dados de uma app sem a abrir (ex.: Desporto) -->
+  <div id="dados-bloco">
+    <div class="rotulo apps-titulo">Atualizar dados</div>
+    <div id="dados"></div>
+  </div>
+
+  <div class="rotulo apps-titulo">Abrir direto</div>
+  <div id="apps"></div>
+
+  <script src="comando.js"></script>
+</body>
+</html>

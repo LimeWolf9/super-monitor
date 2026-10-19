@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>Relógio</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f17; color: #eef2f8; font-family: "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.6vw; }
+  .cena { display: none; text-align: center; }
+  .cena.ativa { display: block; }
+  .grande { font-size: 14rem; font-weight: 200; }
+  .media { font-size: 5rem; }
+  .pontos { position: fixed; bottom: 6vh; display: flex; gap: 1.2rem; }
+  .pontos i { width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #1f2a3d; }
+  .pontos i.ativa { background: #3ea6ff; }
+  #pausa { position: fixed; top: 4vh; right: 5vw; font-size: 3rem; display: none; }
+  body.parado #pausa { display: block; }
+</style>
+</head>
+<body>
+  <!-- App de exemplo do protocolo do comando: 3 "cenas" que rodam, como no dashboard de desporto. -->
+  <div class="cena" id="c-hora"><div class="grande" id="hora"></div></div>
+  <div class="cena" id="c-data"><div class="media" id="data"></div></div>
+  <div class="cena" id="c-seg"><div class="grande" id="seg"></div><div class="media">segundos</div></div>
+  <div class="pontos"><i></i><i></i><i></i></div>
+  <div id="pausa">⏸</div>
+<script>
+const cenas = [...document.querySelectorAll(".cena")];
+const pontos = [...document.querySelectorAll(".pontos i")];
+let atual = 0, parado = false, tRodar;
+
+function mostrar(i) {
+  atual = (i + cenas.length) % cenas.length;
+  cenas.forEach((c, k) => c.classList.toggle("ativa", k === atual));
+  pontos.forEach((p, k) => p.classList.toggle("ativa", k === atual));
+  agendar();
+}
+function agendar() {
+  clearTimeout(tRodar);
+  if (!parado) tRodar = setTimeout(() => mostrar(atual + 1), 5000);
+}
+function tique() {
+  const d = new Date();
+  document.getElementById("hora").textContent = d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+  const t = d.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" });
+  document.getElementById("data").textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  document.getElementById("seg").textContent = String(d.getSeconds()).padStart(2, "0");
+}
+setInterval(tique, 250); tique(); mostrar(0);
+
+// ---- protocolo MonitorHub (ver PROTOCOLO.md)
+const hub = (m) => parent !== window && parent.postMessage({ monitorhub: 1, ...m }, "*");
+window.addEventListener("message", (e) => {
+  const m = e.data;
+  if (!m || m.monitorhub !== 1 || m.tipo !== "comando") return;
+  switch (m.acao) {
+    case "direita": case "baixo": mostrar(atual + 1); break;
+    case "esquerda": case "cima": mostrar(atual - 1); break;
+    case "pausa": parado = !parado; document.body.classList.toggle("parado", parado); agendar();
+                  hub({ tipo: "aviso", texto: parado ? "⏸ Em pausa" : "▶ A rodar" }); break;
+    case "ok": hub({ tipo: "aviso", texto: "OK recebido" }); break;
+    default: hub({ tipo: "nao_tratado", acao: m.acao });   // "voltar": aqui não há para onde voltar
+  }
+});
+hub({ tipo: "pronto", acoes: ["cima", "baixo", "esquerda", "direita", "ok", "pausa", "voltar"] });
+</script>
+</body>
+</html>

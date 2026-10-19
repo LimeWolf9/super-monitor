@@ -1,0 +1,29 @@
+{
+  "_nota": "Recordes desportivos reais, para a cena Curiosidades. O atualizar_curiosidades.py roda-os, um pouco por dia. Podes acrescentar mais: só factos confirmados.",
+  "records": [
+    {"text": "Usain Bolt fez os 100 m em 9,58 s, em Berlim, em 2009. Tu demoraste mais a ler esta frase."},
+    {"text": "Os 200 m de Usain Bolt em 19,19 s (Berlim, 2009) continuam sem dono novo. Nem com vento a favor."},
+    {"text": "Wilt Chamberlain marcou 100 pontos num jogo da NBA, a 2 de março de 1962. Não há imagens: só a rádio e a palavra de quem lá estava."},
+    {"text": "O golo mais rápido da Premier League é de Shane Long, aos 7,69 segundos, em 2019. Ainda havia adeptos a sentar-se."},
+    {"text": "Miroslav Klose marcou 16 golos em Mundiais, mais do que qualquer outro jogador. Quatro Mundiais, sempre a aparecer."},
+    {"text": "Michael Phelps tem 23 medalhas de ouro olímpicas, e 28 no total. Há países inteiros com menos."},
+    {"text": "Em Pequim 2008, Michael Phelps ganhou 8 medalhas de ouro nos mesmos Jogos. Oito provas, oito pódios no lugar mais alto."},
+    {"text": "O Real Madrid ganhou as cinco primeiras edições da Taça dos Campeões Europeus, de 1956 a 1960. Os outros só começaram a ganhar quando o Real deixou."},
+    {"text": "O Brasil é o único pentacampeão do mundo: 1958, 1962, 1970, 1994 e 2002."},
+    {"text": "Lewis Hamilton e Michael Schumacher têm sete títulos mundiais de Fórmula 1 cada um. Ninguém tem mais."},
+    {"text": "Em 2023, Max Verstappen ganhou 19 das 22 corridas da Fórmula 1. Os outros dividiram três."},
+    {"text": "LeBron James passou Kareem Abdul-Jabbar em 2023 e tornou-se o melhor marcador da história da NBA. Em 2024 foi o primeiro a chegar aos 40 000 pontos."},
+    {"text": "Os Boston Celtics ganharam oito títulos da NBA seguidos, de 1959 a 1966. Nenhuma equipa de nenhuma grande liga americana fez melhor."},
+    {"text": "Os Golden State Warriors fizeram 73 vitórias e 9 derrotas em 2015-16, o melhor registo de sempre na NBA. E depois perderam a final."},
+    {"text": "Kelvin Kiptum correu a maratona em 2:00:35, em Chicago, em 2023. São 42 km a uns 21 km/h, sempre."},
+    {"text": "Em 2019, em Viena, Eliud Kipchoge correu uma maratona em 1:59:40. Não conta como recorde (tinha lebres a rodar), mas ninguém o tinha feito em menos de duas horas."},
+    {"text": "John Isner e Nicolas Mahut jogaram 11 horas e 5 minutos em Wimbledon, em 2010, ao longo de três dias. O último set acabou 70-68."},
+    {"text": "O Arsenal de 2003-04 fez os 38 jogos da Premier League sem perder: 26 vitórias e 12 empates. Ficaram conhecidos como os Invencíveis."},
+    {"text": "Eusébio ganhou a primeira Bota de Ouro da Europa, em 1968, e voltou a ganhá-la em 1973."},
+    {"text": "Em 2012, Lionel Messi marcou 91 golos num só ano civil. Dá quase um golo e meio por semana."},
+    {"text": "Novak Djokovic ganhou 24 torneios do Grand Slam, mais do que qualquer outro tenista masculino."},
+    {"text": "Pelé é o único jogador com três Mundiais ganhos: 1958, 1962 e 1970. No primeiro tinha 17 anos."},
+    {"text": "Cristiano Ronaldo foi o primeiro jogador a marcar em cinco Mundiais diferentes, de 2006 a 2022."},
+    {"text": "O primeiro Mundial de futebol foi em 1930, no Uruguai. Ganhou o Uruguai, que tratou logo do assunto em casa."}
+  ]
+}

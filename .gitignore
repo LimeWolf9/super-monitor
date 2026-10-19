@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Desporto: dados gerados pelos atualizadores e imagens de terceiros (descarregam-se no PC de cada um)
+desporto/data/live.json
+desporto/data/cache_onze.json
+desporto/data/duracoes.json
+desporto/data/atualizacao.json
+desporto/data/atualizacao.lock
+desporto/data/*.tmp
+desporto/web/img/jogadores/
+desporto/web/img/equipas/
+desporto/web/img/ligas/
+desporto/config.local.json
+desporto/capturas/

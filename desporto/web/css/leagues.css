@@ -1,0 +1,15 @@
+/* CORES DE CADA COMPETIÇÃO.
+   --accent = cor de destaque (títulos, barras) · --tint = cor do brilho de fundo.
+   São aproximações das cores de cada competição; não são logótipos. */
+
+.league-pt   { --accent: #ff3d5a; --tint: #5a0f22; }   /* Liga Portugal */
+.league-en   { --accent: #00ff85; --tint: #3d195b; }   /* Premier League */
+.league-es   { --accent: #ff5a3c; --tint: #6b0f1a; }   /* La Liga */
+.league-ucl  { --accent: #6fb7ff; --tint: #0c2270; }   /* Champions League */
+.league-uel  { --accent: #ff9a2e; --tint: #5f2f00; }   /* Liga Europa */
+.league-uecl { --accent: #3ddc84; --tint: #0b4a2a; }   /* Liga Conferência */
+.league-de   { --accent: #ff4b4b; --tint: #4f0a0e; }   /* Bundesliga */
+.league-fr   { --accent: #d8ff3c; --tint: #0d2147; }   /* Ligue 1 */
+.league-it   { --accent: #3ad0ff; --tint: #0a2a4f; }   /* Serie A */
+.league-f1   { --accent: #ff3b3b; --tint: #5c0a0a; }   /* Fórmula 1 */
+.league-nba  { --accent: #ff8a1f; --tint: #5c2b00; }   /* NBA */

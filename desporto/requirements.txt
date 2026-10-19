@@ -1,0 +1,2 @@
+# O dashboard só usa a biblioteca standard do Python: não há nada para instalar.
+# (A ferramenta tools/baixar_emblemas.py usa o Pillow: ver requirements-dev.txt.)

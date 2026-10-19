@@ -1,0 +1,9 @@
+{
+  "name": "Comando do monitor",
+  "short_name": "Comando",
+  "start_url": "/comando",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

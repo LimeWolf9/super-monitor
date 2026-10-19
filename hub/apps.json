@@ -1,0 +1,93 @@
+[
+  {
+    "id": "desporto",
+    "nome": "Desporto",
+    "icone": "🏟️",
+    "descricao": "Futebol, NBA e F1",
+    "saude": "http://127.0.0.1:8000/",
+    "arrancar": {
+      "pasta": "../desporto",
+      "cmd": [
+        ".venv/Scripts/python.exe",
+        "serve.py",
+        "--no-browser"
+      ]
+    },
+    "espera_max": 60,
+    "atualizar": {
+      "pasta": "../desporto",
+      "cmd": [
+        ".venv/Scripts/python.exe",
+        "tools/atualizar_tudo.py"
+      ],
+      "progresso": "data/atualizacao.json"
+    },
+    "apps": [
+      {
+        "id": "futebol",
+        "nome": "Futebol",
+        "atalho": "Futebol",
+        "icone": "⚽",
+        "descricao": "Ligas, Europa, jogos e notícias",
+        "url": "http://127.0.0.1:8000/?cat=futebol"
+      },
+      {
+        "id": "f1",
+        "nome": "Fórmula 1",
+        "atalho": "F1",
+        "icone": "🏎️",
+        "descricao": "Classificações, corridas e pilotos",
+        "url": "http://127.0.0.1:8000/?cat=f1"
+      },
+      {
+        "id": "nba",
+        "nome": "NBA",
+        "icone": "🏀",
+        "descricao": "A época ainda não começou",
+        "em_breve": true,
+        "etiqueta": "Em construção",
+        "url": "http://127.0.0.1:8000/?cat=nba"
+      },
+      {
+        "id": "desporto-todos",
+        "nome": "Ver todos",
+        "atalho": "Desporto (todos)",
+        "icone": "📺",
+        "descricao": "Tudo junto, como até agora",
+        "url": "http://127.0.0.1:8000/?cat=todos"
+      }
+    ]
+  },
+  {
+    "id": "despesas",
+    "nome": "Despesas",
+    "icone": "💶",
+    "descricao": "Gastos do mês e objetivos",
+    "url": "/apps/despesas.html",
+    "preparar": {
+      "pasta": "../../despesas-casal",
+      "cmd": [
+        "python",
+        "src/exportar_monitor.py"
+      ]
+    },
+    "ficheiros": {
+      "/dados/despesas.json": "../../despesas-casal/data/monitor.json"
+    }
+  },
+  {
+    "id": "despesas-demo",
+    "nome": "Despesas (demo)",
+    "icone": "🧪",
+    "descricao": "Como funciona, com dados inventados",
+    "url": "/apps/despesas.html?demo=1"
+  },
+  {
+    "id": "relogio",
+    "nome": "Relógio",
+    "icone": "🕒",
+    "descricao": "App de teste do comando",
+    "url": "/apps/relogio.html",
+    "escondida": true
+  }
+]

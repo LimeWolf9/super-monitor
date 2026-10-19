@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MonitorHub</title>
+<link rel="stylesheet" href="ecra.css">
+</head>
+<body>
+  <!-- Menu inicial -->
+  <section id="menu" class="vista">
+    <header>
+      <div id="hora">--:--</div>
+      <div id="data"></div>
+    </header>
+    <h1 id="titulo-menu">O que queres ver?</h1>
+    <ul id="lista"></ul>
+    <footer>
+      <div>Comando no telemóvel</div>
+      <div id="links"></div>
+    </footer>
+  </section>
+
+  <!-- A carregar / erro -->
+  <section id="carregar" class="vista">
+    <div id="carregar-icone"></div>
+    <div id="carregar-nome"></div>
+    <div class="roda"></div>
+    <div id="carregar-msg"></div>
+    <div class="dica">Voltar para cancelar</div>
+  </section>
+
+  <!-- Código de uma app pessoal (marca-se no comando) -->
+  <section id="pin" class="vista">
+    <div class="pin-icone">🔒</div>
+    <div id="pin-nome"></div>
+    <div id="pin-pontos"></div>
+    <div id="pin-msg"></div>
+    <div class="dica">Marca o código no comando · Voltar apaga</div>
+  </section>
+
+  <section id="erro" class="vista">
+    <div class="erro-icone">⚠️</div>
+    <div id="erro-msg"></div>
+    <div class="dica">OK para voltar ao menu</div>
+  </section>
+
+  <!-- A app escolhida -->
+  <iframe id="app" class="vista" title="app" allow="autoplay"></iframe>
+
+  <!-- Ecrã desligado -->
+  <section id="desligado" class="vista"></section>
+
+  <div id="aviso"></div>
+  <div id="offline">Sem ligação ao hub…</div>
+  <script src="ecra.js"></script>
+</body>
+</html>

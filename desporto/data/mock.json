@@ -1,0 +1,417 @@
+{
+  "_aviso": "DADOS FICTÍCIOS para testar o visual. Também serve de ponto de partida do live.json num PC novo (nomes e cores das equipas, zonas das tabelas).",
+  "myTeam": {"code": "FCP"},
+  "teams": {
+    "FCP": {"name": "FC Porto", "c1": "#0d4ea6", "c2": "#ffffff", "country": "PT"},
+    "SLB": {"name": "Benfica", "c1": "#d5121f", "c2": "#ffffff", "country": "PT"},
+    "SCP": {"name": "Sporting", "c1": "#0b7a3b", "c2": "#ffffff", "country": "PT"},
+    "SCB": {"name": "SC Braga", "c1": "#c8102e", "c2": "#f2f2f2", "country": "PT"},
+    "VSC": {"name": "V. Guimarães", "c1": "#f2f2f2", "c2": "#111111", "country": "PT"},
+    "FAM": {"name": "Famalicão", "c1": "#1b3f8f", "c2": "#ffffff", "country": "PT"},
+    "GIL": {"name": "Gil Vicente", "c1": "#c8102e", "c2": "#1b3f8f", "country": "PT"},
+    "EST": {"name": "Estoril", "c1": "#f2d200", "c2": "#1b3f8f", "country": "PT"},
+    "CPI": {"name": "Casa Pia", "c1": "#111111", "c2": "#f2d200", "country": "PT"},
+    "MOR": {"name": "Moreirense", "c1": "#0b7a3b", "c2": "#ffffff", "country": "PT"},
+    "ARO": {"name": "Arouca", "c1": "#f2d200", "c2": "#1b3f8f", "country": "PT"},
+    "RAV": {"name": "Rio Ave", "c1": "#0b7a3b", "c2": "#ffffff", "country": "PT"},
+    "SCL": {"name": "Santa Clara", "c1": "#c8102e", "c2": "#ffffff", "country": "PT"},
+    "BOA": {"name": "Boavista", "c1": "#111111", "c2": "#ffffff", "country": "PT"},
+    "NAC": {"name": "Nacional", "c1": "#111111", "c2": "#ffffff", "country": "PT"},
+    "AMD": {"name": "Estrela", "c1": "#0b7a3b", "c2": "#c8102e", "country": "PT"},
+    "TON": {"name": "Tondela", "c1": "#0b7a3b", "c2": "#f2d200", "country": "PT"},
+    "AVS": {"name": "AVS", "c1": "#0a1f44", "c2": "#d5121f", "country": "PT"},
+    "MCI": {"name": "Man City", "c1": "#6cabdd", "c2": "#ffffff"},
+    "ARS": {"name": "Arsenal", "c1": "#e10600", "c2": "#ffffff"},
+    "LIV": {"name": "Liverpool", "c1": "#b00020", "c2": "#f2c14e"},
+    "CHE": {"name": "Chelsea", "c1": "#0a3d91", "c2": "#ffffff"},
+    "TOT": {"name": "Tottenham", "c1": "#f2f2f2", "c2": "#132257"},
+    "NEW": {"name": "Newcastle", "c1": "#111111", "c2": "#ffffff"},
+    "MUN": {"name": "Man United", "c1": "#da291c", "c2": "#fbe122"},
+    "AVL": {"name": "Aston Villa", "c1": "#670e36", "c2": "#95bfe5"},
+    "BHA": {"name": "Brighton", "c1": "#0057b8", "c2": "#ffffff"},
+    "WHU": {"name": "West Ham", "c1": "#7a263a", "c2": "#1bb1e7"},
+    "EVE": {"name": "Everton", "c1": "#003399", "c2": "#ffffff"},
+    "FUL": {"name": "Fulham", "c1": "#f2f2f2", "c2": "#111111"},
+    "RMA": {"name": "Real Madrid", "c1": "#f2f2f2", "c2": "#c9a227"},
+    "BAR": {"name": "Barcelona", "c1": "#a50044", "c2": "#004d98"},
+    "ATM": {"name": "Atlético", "c1": "#c8102e", "c2": "#1b3f8f"},
+    "VIL": {"name": "Villarreal", "c1": "#f2d200", "c2": "#0a3d91"},
+    "ATH": {"name": "Athletic", "c1": "#d5121f", "c2": "#ffffff"},
+    "BET": {"name": "Betis", "c1": "#0b8a3e", "c2": "#ffffff"},
+    "RSO": {"name": "R. Sociedad", "c1": "#0b4ea2", "c2": "#ffffff"},
+    "SEV": {"name": "Sevilla", "c1": "#f2f2f2", "c2": "#d5121f"},
+    "VAL": {"name": "Valencia", "c1": "#f2f2f2", "c2": "#111111"},
+    "GIR": {"name": "Girona", "c1": "#d5121f", "c2": "#f2f2f2"},
+    "CEL": {"name": "Celta", "c1": "#7ec8e3", "c2": "#ffffff"},
+    "OSA": {"name": "Osasuna", "c1": "#d5121f", "c2": "#0a1f44"},
+    "BAY": {"name": "Bayern", "c1": "#dc052d", "c2": "#ffffff"},
+    "PSG": {"name": "Paris SG", "c1": "#0a1f44", "c2": "#da291c"},
+    "INT": {"name": "Inter", "c1": "#0a1f44", "c2": "#2b7fd6"},
+    "BVB": {"name": "Dortmund", "c1": "#fde100", "c2": "#111111"},
+    "NAP": {"name": "Nápoles", "c1": "#12a0d7", "c2": "#ffffff"},
+    "ROM": {"name": "Roma", "c1": "#8b1a2b", "c2": "#f2b705"},
+    "LYO": {"name": "Lyon", "c1": "#f2f2f2", "c2": "#1b3f8f"},
+    "FEN": {"name": "Fenerbahçe", "c1": "#f2d200", "c2": "#0a1f44"},
+    "AJX": {"name": "Ajax", "c1": "#d5121f", "c2": "#ffffff"},
+    "PAO": {"name": "Panathinaikos", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "FIO": {"name": "Fiorentina", "c1": "#6a2c91", "c2": "#ffffff"},
+    "RPD": {"name": "Rapid Viena", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "LEG": {"name": "Legia", "c1": "#0b7a3b", "c2": "#d5121f"},
+    "CFC": {"name": "Celje", "c1": "#f2d200", "c2": "#0a1f44"},
+    "MCL": {"name": "McLaren", "c1": "#ff8000", "c2": "#111111"},
+    "RBR": {"name": "Red Bull", "c1": "#1b2a5c", "c2": "#e10600"},
+    "MER": {"name": "Mercedes", "c1": "#00d2be", "c2": "#111111"},
+    "FER": {"name": "Ferrari", "c1": "#dc0000", "c2": "#f2d200"},
+    "AMR": {"name": "Aston Martin", "c1": "#006f62", "c2": "#cedc00"},
+    "OKC": {"name": "Thunder", "c1": "#007ac1", "c2": "#ef3b24"},
+    "DEN": {"name": "Nuggets", "c1": "#0e2240", "c2": "#fec524"},
+    "MIN": {"name": "Timberwolves", "c1": "#0c2340", "c2": "#78be20"},
+    "LAL": {"name": "Lakers", "c1": "#552583", "c2": "#fdb927"},
+    "DAL": {"name": "Mavericks", "c1": "#00538c", "c2": "#b8c4ca"},
+    "HOU": {"name": "Rockets", "c1": "#ce1141", "c2": "#c4ced4"},
+    "BOS": {"name": "Celtics", "c1": "#007a33", "c2": "#ffffff"},
+    "NYK": {"name": "Knicks", "c1": "#006bb6", "c2": "#f58426"},
+    "CLE": {"name": "Cavaliers", "c1": "#6f263d", "c2": "#ffb81c"},
+    "MIL": {"name": "Bucks", "c1": "#00471b", "c2": "#eee1c6"},
+    "ORL": {"name": "Magic", "c1": "#0077c0", "c2": "#c4ced4"},
+    "IND": {"name": "Pacers", "c1": "#002d62", "c2": "#fdbb30"},
+    "SAC": {"name": "Kings", "c1": "#5a2d81", "c2": "#63727a"},
+    "SAS": {"name": "Spurs", "c1": "#c4ced4", "c2": "#111111"},
+    "ATL": {"name": "Hawks", "c1": "#e03a3e", "c2": "#c1d32f"},
+    "CRY": {"name": "Crystal Palace", "c1": "#1b458f", "c2": "#c4122e"},
+    "BRE": {"name": "Brentford", "c1": "#e30613", "c2": "#ffffff"},
+    "BOU": {"name": "Bournemouth", "c1": "#da291c", "c2": "#111111"},
+    "NFO": {"name": "Nottm Forest", "c1": "#dd0000", "c2": "#ffffff"},
+    "LEE": {"name": "Leeds", "c1": "#f2f2f2", "c2": "#1d428a"},
+    "WOL": {"name": "Wolves", "c1": "#fdb913", "c2": "#111111"},
+    "SUN": {"name": "Sunderland", "c1": "#eb172b", "c2": "#ffffff"},
+    "BUR": {"name": "Burnley", "c1": "#6c1d45", "c2": "#99d6ea"},
+    "GET": {"name": "Getafe", "c1": "#005999", "c2": "#ffffff"},
+    "RAY": {"name": "Rayo", "c1": "#f2f2f2", "c2": "#e30613"},
+    "ESP": {"name": "Espanyol", "c1": "#0067b1", "c2": "#ffffff"},
+    "MLL": {"name": "Mallorca", "c1": "#c8102e", "c2": "#111111"},
+    "ALA": {"name": "Alavés", "c1": "#0a3d91", "c2": "#ffffff"},
+    "LEV": {"name": "Levante", "c1": "#0a3d91", "c2": "#a50044"},
+    "ELC": {"name": "Elche", "c1": "#f2f2f2", "c2": "#0b7a3b"},
+    "OVI": {"name": "Oviedo", "c1": "#0a3d91", "c2": "#ffffff"},
+    "B04": {"name": "Leverkusen", "c1": "#e32221", "c2": "#111111"},
+    "SGE": {"name": "Frankfurt", "c1": "#111111", "c2": "#e1000f"},
+    "JUV": {"name": "Juventus", "c1": "#f2f2f2", "c2": "#111111"},
+    "ATA": {"name": "Atalanta", "c1": "#1e71b8", "c2": "#111111"},
+    "MON": {"name": "Mónaco", "c1": "#e30613", "c2": "#ffffff"},
+    "MAR": {"name": "Marselha", "c1": "#2faee0", "c2": "#ffffff"},
+    "PSV": {"name": "PSV", "c1": "#e30613", "c2": "#ffffff"},
+    "BRU": {"name": "Club Brugge", "c1": "#0a3d91", "c2": "#111111"},
+    "USG": {"name": "Union SG", "c1": "#f2d200", "c2": "#0a3d91"},
+    "GAL": {"name": "Galatasaray", "c1": "#e30613", "c2": "#f2b705"},
+    "OLY": {"name": "Olympiacos", "c1": "#e30613", "c2": "#ffffff"},
+    "COP": {"name": "Copenhaga", "c1": "#f2f2f2", "c2": "#0a3d91"},
+    "QAR": {"name": "Qarabag", "c1": "#111111", "c2": "#ffffff"},
+    "PRA": {"name": "Slavia Praga", "c1": "#e30613", "c2": "#ffffff"},
+    "BOD": {"name": "Bodø/Glimt", "c1": "#f2d200", "c2": "#111111"},
+    "KAI": {"name": "Kairat", "c1": "#f2d200", "c2": "#111111"},
+    "PAF": {"name": "Pafos", "c1": "#0a3d91", "c2": "#f2d200"},
+    "WIL": {"name": "Williams", "c1": "#00a0de", "c2": "#ffffff"},
+    "ALP": {"name": "Alpine", "c1": "#0093cc", "c2": "#ff87bc"},
+    "VRB": {"name": "Racing Bulls", "c1": "#6692ff", "c2": "#ffffff"},
+    "HAA": {"name": "Haas", "c1": "#f2f2f2", "c2": "#e6002b"},
+    "AUD": {"name": "Audi", "c1": "#9aa0a6", "c2": "#e6002b"},
+    "CAD": {"name": "Cadillac", "c1": "#111111", "c2": "#f2f2f2"},
+    "FEY": {"name": "Feyenoord", "c1": "#d5121f", "c2": "#ffffff"},
+    "CLT": {"name": "Celtic", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "RAN": {"name": "Rangers", "c1": "#0a3d91", "c2": "#ffffff"},
+    "GNK": {"name": "Genk", "c1": "#0a3d91", "c2": "#f2f2f2"},
+    "LUD": {"name": "Ludogorets", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "MID": {"name": "Midtjylland", "c1": "#d5121f", "c2": "#111111"},
+    "BAS": {"name": "Basileia", "c1": "#d5121f", "c2": "#0a3d91"},
+    "LIL": {"name": "Lille", "c1": "#d5121f", "c2": "#0a3d91"},
+    "NIC": {"name": "Nice", "c1": "#d5121f", "c2": "#111111"},
+    "AEK": {"name": "AEK Atenas", "c1": "#f2d200", "c2": "#111111"},
+    "LEC": {"name": "Lech Poznań", "c1": "#0a3d91", "c2": "#ffffff"},
+    "JAG": {"name": "Jagiellonia", "c1": "#f2d200", "c2": "#d5121f"},
+    "OMO": {"name": "Omonia", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "SHA": {"name": "Shamrock", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "SIG": {"name": "Sigma", "c1": "#0a3d91", "c2": "#f2d200"},
+    "HAC": {"name": "Häcken", "c1": "#f2d200", "c2": "#111111"},
+    "NOA": {"name": "Noah", "c1": "#0a3d91", "c2": "#ffffff"},
+    "DRI": {"name": "Drita", "c1": "#d5121f", "c2": "#0a3d91"},
+    "BRD": {"name": "Breidablik", "c1": "#0b7a3b", "c2": "#ffffff"},
+    "ZRI": {"name": "Zrinjski", "c1": "#0a3d91", "c2": "#d5121f"},
+    "ABE": {"name": "Aberdeen", "c1": "#d5121f", "c2": "#ffffff"},
+    "SHE": {"name": "Shelbourne", "c1": "#d5121f", "c2": "#ffffff"},
+    "LAR": {"name": "Larne", "c1": "#d5121f", "c2": "#ffffff"},
+    "MIA": {"name": "Heat", "c1": "#98002e", "c2": "#f9a01b"},
+    "CHI": {"name": "Bulls", "c1": "#ce1141", "c2": "#111111"},
+    "PHI": {"name": "76ers", "c1": "#006bb6", "c2": "#ed174c"},
+    "GSW": {"name": "Warriors", "c1": "#1d428a", "c2": "#ffc72c"},
+    "MEM": {"name": "Grizzlies", "c1": "#5d76a9", "c2": "#12173f"},
+    "PHX": {"name": "Suns", "c1": "#e56020", "c2": "#1d1160"},
+    "CHA": {"name": "Hornets", "c1": "#1d1160", "c2": "#00788c"},
+    "UTA": {"name": "Jazz", "c1": "#002b5c", "c2": "#f9a01b"}
+  },
+  "football": {
+    "pt": {
+      "name": "Liga Portugal",
+      "round": "Jornada 6",
+      "table": [
+        {"team": "FCP", "j": 6, "pts": 16},
+        {"team": "SCP", "j": 6, "pts": 15},
+        {"team": "SLB", "j": 6, "pts": 14},
+        {"team": "SCB", "j": 6, "pts": 13},
+        {"team": "VSC", "j": 6, "pts": 11},
+        {"team": "FAM", "j": 6, "pts": 10},
+        {"team": "GIL", "j": 6, "pts": 9},
+        {"team": "EST", "j": 6, "pts": 8},
+        {"team": "CPI", "j": 6, "pts": 8},
+        {"team": "MOR", "j": 6, "pts": 7},
+        {"team": "ARO", "j": 6, "pts": 6},
+        {"team": "RAV", "j": 6, "pts": 6},
+        {"team": "SCL", "j": 6, "pts": 5},
+        {"team": "BOA", "j": 6, "pts": 5},
+        {"team": "NAC", "j": 6, "pts": 5},
+        {"team": "AMD", "j": 6, "pts": 4},
+        {"team": "TON", "j": 6, "pts": 4},
+        {"team": "AVS", "j": 6, "pts": 3}
+      ],
+      "results": [
+        {
+          "home": "FCP",
+          "away": "SCB",
+          "hs": 2,
+          "as": 1,
+          "ev": [
+            {"m": 23, "s": "h", "p": "Samu"},
+            {"m": 55, "s": "a", "p": "Ricardo Horta"},
+            {"m": 67, "s": "h", "p": "Pepê", "t": "pen"},
+            {"m": 80, "s": "a", "p": "V. Carvalho", "t": "red"}
+          ]
+        },
+        {
+          "home": "SCP",
+          "away": "VSC",
+          "hs": 3,
+          "as": 0,
+          "ev": [
+            {"m": 12, "s": "h", "p": "Suárez"},
+            {"m": 44, "s": "h", "p": "Trincão"},
+            {"m": 60, "s": "a", "p": "T. Händel", "t": "red"},
+            {"m": 71, "s": "h", "p": "Suárez", "t": "pen"}
+          ]
+        },
+        {
+          "home": "SLB",
+          "away": "FAM",
+          "hs": 1,
+          "as": 1,
+          "ev": [
+            {"m": 30, "s": "h", "p": "Pavlidis"},
+            {"m": 62, "s": "h", "p": "Pavlidis", "t": "pen_miss"},
+            {"m": "88", "s": "a", "p": "Gustavo Sá"}
+          ]
+        },
+        {
+          "home": "GIL",
+          "away": "EST",
+          "hs": 2,
+          "as": 0,
+          "ev": [
+            {"m": 19, "s": "h", "p": "Kanya Fujimoto"},
+            {"m": 77, "s": "h", "p": "Zé Carlos"}
+          ]
+        },
+        {
+          "home": "CPI",
+          "away": "MOR",
+          "hs": 1,
+          "as": 2,
+          "ev": [
+            {"m": 8, "s": "a", "p": "Alan Ruiz"},
+            {"m": 51, "s": "h", "p": "Rafael Brito"},
+            {"m": 85, "s": "a", "p": "Ibrahima"}
+          ]
+        },
+        {
+          "home": "ARO",
+          "away": "RAV",
+          "hs": 0,
+          "as": 0,
+          "ev": []
+        },
+        {
+          "home": "SCL",
+          "away": "BOA",
+          "hs": 2,
+          "as": 2,
+          "ev": [
+            {"m": 14, "s": "h", "p": "Gabi Martínez"},
+            {"m": 39, "s": "a", "p": "Bruno Lourenço"},
+            {"m": 58, "s": "a", "p": "Rui Costa", "t": "og"},
+            {"m": 90, "s": "h", "p": "Gabi Martínez", "t": "pen"}
+          ]
+        },
+        {
+          "home": "NAC",
+          "away": "AMD",
+          "hs": 3,
+          "as": 1,
+          "ev": [
+            {"m": 22, "s": "h", "p": "Witi"},
+            {"m": 47, "s": "a", "p": "Cauê"},
+            {"m": 63, "s": "h", "p": "Witi"},
+            {"m": 89, "s": "h", "p": "Hamache"}
+          ]
+        },
+        {
+          "home": "TON",
+          "away": "AVS",
+          "hs": 1,
+          "as": 0,
+          "ev": [
+            {"m": 74, "s": "h", "p": "Cláudio Falcão"}
+          ]
+        }
+      ],
+      "next": [
+        {"home": "SLB", "away": "FCP", "when": "Dom 20:30"},
+        {"home": "SCB", "away": "SCP", "when": "Dom 18:00"},
+        {"home": "VSC", "away": "GIL", "when": "Sáb 20:15"}
+      ],
+      "scorers": [
+        {"name": "Samu", "team": "FCP", "goals": 6},
+        {"name": "Pavlidis", "team": "SLB", "goals": 5},
+        {"name": "Suárez", "team": "SCP", "goals": 5}
+      ]
+    },
+    "en": {"name": "Premier League"},
+    "es": {"name": "La Liga"},
+    "ucl": {
+      "name": "Champions League",
+      "zonas": [
+        {"ate": 8, "rotulo": "Oitavos de final", "cor": "#34d399"},
+        {"ate": 24, "rotulo": "Play-off", "cor": "#60a5fa"},
+        {"ate": 36, "rotulo": "Eliminadas", "cor": "#6b7280"}
+      ]
+    },
+    "uel": {
+      "name": "Liga Europa",
+      "zonas": [
+        {"ate": 8, "rotulo": "Oitavos de final", "cor": "#34d399"},
+        {"ate": 24, "rotulo": "Play-off", "cor": "#60a5fa"}
+      ]
+    },
+    "uecl": {
+      "name": "Liga Conferência",
+      "zonas": [
+        {"ate": 8, "rotulo": "Oitavos de final", "cor": "#34d399"},
+        {"ate": 24, "rotulo": "Play-off", "cor": "#60a5fa"}
+      ]
+    }
+  },
+  "f1": {
+    "drivers": [
+      {"name": "Lando Norris", "team": "MCL", "pts": 312},
+      {"name": "Oscar Piastri", "team": "MCL", "pts": 298},
+      {"name": "Max Verstappen", "team": "RBR", "pts": 271},
+      {"name": "George Russell", "team": "MER", "pts": 240},
+      {"name": "Charles Leclerc", "team": "FER", "pts": 196},
+      {"name": "Lewis Hamilton", "team": "FER", "pts": 178},
+      {"name": "Kimi Antonelli", "team": "MER", "pts": 132},
+      {"name": "Fernando Alonso", "team": "AMR", "pts": 84},
+      {"name": "Alex Albon", "team": "WIL", "pts": 74},
+      {"name": "Isack Hadjar", "team": "RBR", "pts": 66},
+      {"name": "Carlos Sainz", "team": "WIL", "pts": 61},
+      {"name": "Pierre Gasly", "team": "ALP", "pts": 52},
+      {"name": "Nico Hülkenberg", "team": "AUD", "pts": 44},
+      {"name": "Liam Lawson", "team": "VRB", "pts": 39},
+      {"name": "Gabriel Bortoleto", "team": "AUD", "pts": 33},
+      {"name": "Esteban Ocon", "team": "HAA", "pts": 29},
+      {"name": "Lance Stroll", "team": "AMR", "pts": 25},
+      {"name": "Oliver Bearman", "team": "HAA", "pts": 21},
+      {"name": "Arvid Lindblad", "team": "VRB", "pts": 14},
+      {"name": "Franco Colapinto", "team": "ALP", "pts": 9},
+      {"name": "Valtteri Bottas", "team": "CAD", "pts": 5},
+      {"name": "Sergio Pérez", "team": "CAD", "pts": 3}
+    ],
+    "constructors": [
+      {"team": "MCL", "pts": 610},
+      {"team": "FER", "pts": 374},
+      {"team": "MER", "pts": 372},
+      {"team": "RBR", "pts": 337},
+      {"team": "WIL", "pts": 135},
+      {"team": "AMR", "pts": 109},
+      {"team": "AUD", "pts": 77},
+      {"team": "ALP", "pts": 61},
+      {"team": "VRB", "pts": 53},
+      {"team": "HAA", "pts": 50},
+      {"team": "CAD", "pts": 8}
+    ],
+    "next": {"name": "GP de Singapura", "circuit": "Marina Bay", "country": "Singapura", "inHours": 76, "laps": 62, "length": "4,94 km", "turns": 19, "_nota_date": "Com dados reais usa \"date\": \"2026-09-22T13:00:00Z\" em vez de inHours."},
+    "last": {
+      "name": "GP de Itália",
+      "circuit": "Monza",
+      "podium": [
+        {"pos": 1, "name": "Oscar Piastri", "team": "MCL", "time": "1:16:41.2"},
+        {"pos": 2, "name": "Lando Norris", "team": "MCL", "time": "+2.4s"},
+        {"pos": 3, "name": "Charles Leclerc", "team": "FER", "time": "+9.8s"}
+      ],
+      "fastest": "Volta mais rápida: Verstappen, 1:21.4"
+    }
+  },
+  "nba": {
+    "zonas": [
+      {"ate": 6, "rotulo": "Play-offs", "cor": "#34d399"},
+      {"ate": 10, "rotulo": "Play-in", "cor": "#fbbf24"}
+    ],
+    "east": [
+      {"team": "BOS", "w": 58, "l": 24},
+      {"team": "NYK", "w": 55, "l": 27},
+      {"team": "CLE", "w": 53, "l": 29},
+      {"team": "MIL", "w": 50, "l": 32},
+      {"team": "ORL", "w": 47, "l": 35},
+      {"team": "IND", "w": 46, "l": 36},
+      {"team": "MIA", "w": 44, "l": 38},
+      {"team": "ATL", "w": 42, "l": 40},
+      {"team": "CHI", "w": 40, "l": 42},
+      {"team": "PHI", "w": 39, "l": 43}
+    ],
+    "west": [
+      {"team": "OKC", "w": 64, "l": 18},
+      {"team": "DEN", "w": 56, "l": 26},
+      {"team": "MIN", "w": 52, "l": 30},
+      {"team": "LAL", "w": 51, "l": 31},
+      {"team": "DAL", "w": 49, "l": 33},
+      {"team": "HOU", "w": 48, "l": 34},
+      {"team": "SAC", "w": 46, "l": 36},
+      {"team": "GSW", "w": 45, "l": 37},
+      {"team": "MEM", "w": 43, "l": 39},
+      {"team": "PHX", "w": 42, "l": 40}
+    ]
+  },
+  "players": [
+    {
+      "name": "Erling Haaland",
+      "team": "MCI",
+      "sport": "football",
+      "tag": "Futebol · Premier League",
+      "stats": [
+        {"label": "Golos", "value": "8"},
+        {"label": "Jogos", "value": "5"},
+        {"label": "Remates/jogo", "value": "4.6"},
+        {"label": "Min. por golo", "value": "56"}
+      ],
+      "blurb": "Marca, em média, um golo a cada 56 minutos. Dá para um golo entre o café e o jornal."
+    }
+  ],
+  "fun": {
+    "onThisDay": [
+      {"year": 1966, "text": "A Inglaterra ganha o Mundial em Wembley (4-2). Os alemães ainda discutem se a bola entrou."}
+    ],
+    "records": [
+      {"text": "Usain Bolt fez os 100 m em 9,58 s. Tu demoraste mais a ler esta frase."}
+    ],
+    "comparisons": [
+      {"text": "O Haaland já marcou tantos golos como o Estoril, o Arouca e o Tondela juntos."}
+    ]
+  },
+  "utilizador": "Diogo"
+}

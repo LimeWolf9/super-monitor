@@ -1,0 +1,30 @@
+{
+ "demo": true,
+ "mes": "2026-09",
+ "saidas": 1842.5,
+ "entradas": 3150.0,
+ "saidas_normal": 1760.0,
+ "categorias": [
+  {"nome": "Casa (renda)", "valor": 650.0, "normal": 650.0, "objetivo": {"valor": 650.0, "periodo": "mensal", "gasto": 650.0, "estado": "dentro"}},
+  {"nome": "Supermercado", "valor": 342.8, "normal": 310.0, "objetivo": {"valor": 320.0, "periodo": "mensal", "gasto": 342.8, "estado": "acima"}},
+  {"nome": "Restaurantes", "valor": 214.3, "normal": 240.0, "objetivo": {"valor": 250.0, "periodo": "mensal", "gasto": 214.3, "estado": "dentro"}},
+  {"nome": "Combustível", "valor": 135.6, "normal": 120.0},
+  {"nome": "Gás/Luz/Água", "valor": 118.4, "normal": 95.0},
+  {"nome": "Lazer", "valor": 96.0, "normal": 80.0, "sub": [{"nome": "Cinema", "valor": 36.0}, {"nome": "Concertos", "valor": 60.0}]},
+  {"nome": "Seguros", "valor": 85.0, "normal": 85.0, "objetivo": {"valor": 900.0, "periodo": "anual", "gasto": 765.0, "estado": "dentro"}},
+  {"nome": "Telecom", "valor": 49.9, "normal": 49.9},
+  {"nome": "Saúde", "valor": 45.0, "normal": 30.0},
+  {"nome": "Transportes", "valor": 40.0, "normal": 40.0},
+  {"nome": "Vestuário", "valor": 39.5, "normal": 60.0},
+  {"nome": "Encargos bancários", "valor": 26.0, "normal": 26.0}
+ ],
+ "evolucao": [
+  {"mes": "2026-04", "saidas": 1690.0, "entradas": 3100.0},
+  {"mes": "2026-05", "saidas": 1915.0, "entradas": 3100.0},
+  {"mes": "2026-06", "saidas": 1720.0, "entradas": 3150.0},
+  {"mes": "2026-07", "saidas": 2240.0, "entradas": 3150.0},
+  {"mes": "2026-08", "saidas": 1760.0, "entradas": 3150.0},
+  {"mes": "2026-09", "saidas": 1842.5, "entradas": 3150.0}
+ ],
+ "por_categorizar": 2
+}

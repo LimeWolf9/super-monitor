@@ -1,0 +1,215 @@
+# Dashboard desportivo vertical (1080x2560)
+
+Dashboard para um monitor na parede em modo retrato. Os dados vêm de `data/live.json` (reais, gravado pelos atualizadores em `tools/`) e, enquanto esse ficheiro não existir, de `data/mock.json` (fictícios).
+
+## Arrancar
+
+```powershell
+.venv\Scripts\python serve.py
+```
+
+Abre o browser em `http://127.0.0.1:8000/?preview=1`. Parar: `Ctrl+C`.
+Opções: `--port 9000`, `--no-browser`, `--host 0.0.0.0` (para ver noutro dispositivo da rede).
+
+## Ligar e desligar no monitor da parede
+
+Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã inteiro no monitor que estiver na vertical. Para desligar: **Alt+F4** no dashboard; o servidor para sozinho.
+
+- O monitor (LG 34UB67, 2560 × 1080) tem de estar em **Retrato** (Definições > Sistema > Ecrã > Orientação), o que dá exatamente os 1080 × 2560 do dashboard. O pé não roda: precisa de um suporte VESA de parede.
+- O Edge do dashboard usa um perfil próprio (`%LOCALAPPDATA%\dashboard-desportivo\edge`), por isso não mexe nas tuas janelas do Edge.
+- O script está em `tools/iniciar_dashboard.ps1`.
+
+## Categorias (`?cat=`)
+
+- `todos` (ou sem parâmetro): como sempre, futebol (Liga Portugal, Premier League, La Liga, taças europeias), F1, NBA, jogador em destaque e curiosidades.
+- `futebol`: só futebol, e também a **Bundesliga**, a **Ligue 1** e a **Serie A** (resultados, 11 da jornada, tabela e próximos jogos com notícias). Estas três ligas só aparecem aqui, para a volta de "todos" não ficar demasiado longa.
+- `f1`: as 7 cenas da F1 (ver "Categoria F1" mais abaixo).
+- `nba`: um ecrã "Em construção" (`nba-construcao`), com a data de início da época regular (da ESPN).
+
+O comando funciona igual em todas. Com 9 ligas, o `atualizar_futebol.py` demora ~10 s (as ligas vão em paralelo). Uma atualização completa demora ~40 s.
+
+## Comando (MonitorHub e teclado)
+
+Dentro do MonitorHub (pasta `hub/` deste repositório), o dashboard obedece ao comando do telemóvel. O hub abre-o num iframe e manda as ordens por `postMessage` (ver o `PROTOCOLO.md` do hub). O protocolo só se liga dentro de um iframe: pelo `Dashboard.bat` tudo funciona como antes. As teclas fazem o mesmo, o que ajuda a testar sem o hub.
+
+| Botão | Tecla | O que faz |
+|---|---|---|
+| ◀ ▶ | setas ← → | cena anterior / seguinte (a contagem dos 10 s recomeça; em pausa, muda e continua em pausa) |
+| Pausa | Espaço | fica nesta cena, com um ⏸ no topo (e um aviso no hub); outra vez retoma |
+| ▲ ▼ | setas ↑ ↓ | nas cenas `*-proximos`, muda a notícia com foco (contorno); com uma notícia aberta, desliza o texto |
+| OK | Enter | abre a notícia com foco por cima da cena: imagem grande, título, texto completo e fonte. A rotação pausa enquanto estiver aberta |
+| Voltar | Esc | fecha a notícia; sem nada aberto, volta ao menu do hub |
+
+Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_noticias.py` (ESPN: API de artigos; Record: página da notícia), e cada artigo só se vai buscar uma vez.
+
+## Parâmetros do URL (combináveis)
+
+| Parâmetro | O que faz |
+|---|---|
+| `?preview=1` | Mostra o ecrã em retrato dentro de uma moldura, para caber num monitor horizontal |
+| `?scene=f1-gp` | Fixa uma cena em vez de rodar |
+| `?mock=1` | Usa sempre os dados fictícios do `mock.json` |
+| `?cat=futebol` / `nba` / `f1` / `todos` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro = `todos` |
+
+Ids das cenas (com `?cat=futebol` há também `de-*`, `fr-*` e `it-*`; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
+
+Exemplo: `http://127.0.0.1:8000/?preview=1&scene=golos`
+
+Se uma lista não cabe num ecrã, divide-se em páginas (ex.: `ucl-jogos`, `ucl-jogos-2`, `ucl-tabela`, `ucl-tabela-2`). Cada ecrã de resultados é dividido em fatias iguais, uma por jogo, com os marcadores por baixo (se forem muitos, passam a duas colunas e, no limite, aparece "+N"). A Liga Europa e a Conferência mostram só a classificação (os próximos jogos voltam a ser avaliados nas eliminatórias); a NBA mostra a classificação até ao play-in.
+
+A classificação e os próximos jogos estão em ecrãs separados (`*-tabela` e `*-proximos`). Os próximos jogos ocupam uma só página, 2 por linha, e o espaço que sobra fica com as **notícias da liga** (se não couberem os jogos todos e 3 notícias, aparece "+N jogos"). Os **jogos grandes** vão para o topo, com a etiqueta "Destaque": os da equipa em destaque (`myTeam`) e aqueles em que as duas equipas estão no top 6 da tabela (top 8 nas competições europeias; ver `TOP_DESTAQUE` em `web/js/cenas/futebol.js`).
+
+## Onde mexer
+
+- **Dados** → `data/live.json`, ou `data/mock.json` se o live não existir (recarrega sozinho a cada 60 s; ou F5).
+- **Que dados aparecem em cada cena** → `web/js/cenas/` (um ficheiro por modalidade: `futebol.js`, `f1.js`, `nba.js`, `outras.js`; as peças comuns em `base.js`). A ordem da rotação e as categorias estão em `web/js/scenes.js`.
+- **Aspeto** → `web/css/base.css` (estrutura e tamanhos; no fim, o aspeto Liquid Glass), cores das competições em `leagues.css`, fundos ilustrados em `web/js/backgrounds.js`.
+- **Segundos por cena** → `SEGUNDOS_POR_CENA` em `web/js/main.js` (10).
+- **Equipa em destaque** → `myTeam.code` em `live.json` (e no `mock.json`, de onde o live é criado) (FCP).
+- **Nome na saudação do topo** → `utilizador` em `live.json` e `mock.json` ("Bom dia/Boa tarde/Boa noite, Diogo").
+
+## Dados reais
+
+Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogador em destaque e curiosidades.
+
+**Os dados só se atualizam quando se pede** (o `serve.py` já não atualiza sozinho):
+
+- Botão **Atualizar** do comando do MonitorHub (ação `atualizar`; no teclado, tecla **U**): começa logo a atualização. Se já estiver a atualizar, o hub mostra "Já está a atualizar".
+- Durante a atualização aparece uma barra em baixo: "A atualizar: Futebol (2/8) · 0:18 de ~0:38". A estimativa vem do que cada passo demorou da última vez (`data/duracoes.json`). No fim aparece "Atualizado às 10:52" durante uns segundos (ou que parte falhou, que fica com os dados anteriores), e o ecrã recarrega os dados sozinho.
+- Em todos os ecrãs, no canto de baixo: "Dados de hoje 09:12", com a hora da parte desse ecrã (F1, futebol...).
+- Os passos, em série: F1 → futebol → 11 da jornada → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
+- Por baixo: `POST /api/atualizar` começa (recusa com 409 se já houver uma a correr) e `GET /api/atualizar/estado` diz o passo, os feitos de N, o tempo decorrido e o estimado.
+
+**Atualizar sem abrir o dashboard** (ex.: pelo MonitorHub): `.venv\Scripts\python.exe tools\atualizar_tudo.py`, na pasta do projeto. É o mesmo código do botão do dashboard.
+
+- Mostra `[2/8] Futebol...` em cada passo; `--json` dá uma linha JSON por mudança; `--estado` só mostra o estado e sai.
+- Saída: **0** tudo bem; **1** algum passo falhou (última linha do stderr: "Falharam: NBA"); **2** já havia uma atualização a correr (do comando ou do dashboard).
+- Progresso em `data/atualizacao.json` (escrita atómica, atualizado a cada segundo), o mesmo formato do `GET /api/atualizar/estado`:
+  `estado` ("a_correr" / "ok" / "falhou" / "nunca"), `passo`, `feitos`, `total`, `decorrido_s`, `estimativa_s`, `inicio_em`, `terminado_em`, `erro`, `passos` (detalhe).
+- `data/atualizacao.lock` impede duas atualizações ao mesmo tempo (uma tranca com mais de 20 min sem sinal de vida é ignorada). Se o dashboard estiver aberto, mostra a barra de progresso de uma atualização feita assim.
+
+Também se podem correr à mão (todos aceitam `--mostrar`, que só mostra e não grava):
+
+```powershell
+.venv\Scripts\python tools\atualizar_f1.py
+.venv\Scripts\python tools\atualizar_futebol.py
+.venv\Scripts\python tools\atualizar_nba.py
+.venv\Scripts\python tools\atualizar_noticias.py
+.venv\Scripts\python tools\atualizar_destaques.py      # usa os dados dos três de cima
+.venv\Scripts\python tools\atualizar_curiosidades.py   # idem
+```
+
+- O `live.json` é criado a partir do `mock.json` na primeira vez (é por isso que o mock guarda os nomes e as cores das equipas e as zonas das tabelas: num PC novo, como o mini PC, é daí que tudo arranca); depois cada atualizador só troca a sua parte e regista a hora em `_atualizado`. Quando as cinco partes já vieram de fontes reais, o aviso de "DADOS FICTÍCIOS" sai do ficheiro.
+- Se um atualizador falhar (sem rede, API em baixo, formato mudou), o `live.json` fica como estava. A gravação é atómica (`live.tmp` e depois troca).
+- **Uma cena sem dados reais sai da rotação** em vez de mostrar o mock (ver `construirCenas` em `scenes.js`): só entra se a sua parte estiver em `_atualizado` e tiver dados. Ex.: a NBA antes de a época começar, a Liga Conferência antes da 1.ª jornada. Com `?mock=1` aparece a amostra do mock (Liga Portugal, F1, NBA, um destaque e uma curiosidade).
+- A lista de cenas é refeita sempre que os dados são relidos (a cada 60 s): as cenas novas entram sozinhas.
+- Código partilhado pelos atualizadores novos: `tools/comum.py`.
+
+### Fórmula 1 (`atualizar_f1.py`)
+
+- Fonte: API Jolpica (continuação da Ergast).
+- Classificações de pilotos e construtores, próxima corrida (data real, pista desenhada, voltas e comprimento) e última corrida (pódio e volta mais rápida).
+- Os traçados vêm de `data/circuitos/f1-circuits.geojson` (descarregado sozinho da primeira vez). O número de curvas está numa tabela no início do script (`CURVAS`), porque a API não o tem.
+
+### Melhor 11 da jornada (`atualizar_onze.py`)
+
+- Um ecrã por competição com resultados (`<liga>-onze`), logo a seguir aos resultados: um 4-3-3 sobre o relvado, com o emblema, o nome e o motivo ("2 golos", "baliza a zeros").
+- Não há uma fonte aberta com o 11 oficial, por isso é **calculado pelo dashboard** (o ecrã diz isso): a ESPN dá, para cada jogo, o onze de cada equipa, as posições e as estatísticas. Cada jogador soma pontos por golos (5), assistências (3), ser titular (1), vitória (2) ou empate (0,5), baliza a zeros (GR 4, defesas 3, médios 1), defesas do GR (0,7 cada) e perde por golos sofridos, cartões e autogolos (tabela `PONTOS` no script).
+- As estatísticas de cada jogo só se pedem uma vez (cache em `data/cache_onze.json`, fora do git): a primeira vez demora ~1 min, depois só os jogos novos.
+- A Liga Europa e a Conferência não têm (não mostram resultados). Sem dados, o ecrã sai da rotação.
+
+Marcadores: um só ecrã com todas as competições da rotação, pela mesma ordem, 2 por linha e o top 3 de cada uma.
+
+### Categoria F1 (`?cat=f1`)
+
+Pensada para os dias sem corrida, por esta ordem: primeiro a época inteira, depois o próximo GP, por fim a última corrida. Tudo vem de corridas já feitas (o live timing fica para mais tarde). O `atualizar_f1.py` prepara cada parte à parte; se uma falhar, fica a `null` e esse ecrã sai da rotação (nunca se inventa). ~15 s por atualização.
+
+| Cena | O que mostra | Fonte |
+|---|---|---|
+| `f1` | Campeonato de pilotos e construtores, com a diferença para o líder e ▲▼ desde a corrida anterior | Jolpica |
+| `f1-duelos` | Duelo entre colegas das 11 equipas: quem ficou à frente na qualificação e na corrida, e os pontos | Jolpica |
+| `f1-pontos` | Gráfico da evolução dos pontos do top 5, ronda a ronda (cada piloto com a sua cor, fixa) | Jolpica |
+| `f1-gp` | Próxima corrida: pista, voltas, comprimento, contagem | Jolpica + traçados |
+| `f1-fds` | Horário de todas as sessões do fim de semana, na hora de Portugal, e os 5 últimos vencedores no circuito | Jolpica |
+| `f1-ultima` | Resumo da última corrida: pódio, volta mais rápida, quem mais subiu, desistências, paragem mais rápida (tempo na via das boxes) | Jolpica |
+| `f1-pneus` | Estratégia de pneus da última corrida: uma barra por piloto, pela ordem de chegada | OpenF1 (histórico, sem chave) |
+
+Em `todos` continuam só as duas cenas de sempre (`f1` e `f1-gp`), para a volta não crescer; o campeonato já mostra a diferença e as setas.
+
+### Futebol (`atualizar_futebol.py`)
+
+- Fonte: API pública da ESPN (`site.api.espn.com`). Não é oficial: se mudar, o script falha sem estragar nada.
+- As 9 competições: Liga Portugal, Premier League, La Liga, Champions, Liga Europa, Conferência e (só em `?cat=futebol`) Bundesliga, Ligue 1 e Serie A. 5 pedidos por competição; as competições vão em paralelo (~10 s no total).
+- Classificação, resultados da última jornada terminada (golos, penáltis, penáltis falhados, autogolos e vermelhos), jogos da jornada seguinte (hora deste PC, ex.: "Dom 20:30") e os 3 melhores marcadores. Os nomes das competições e as zonas da tabela ficam como estão.
+- A ESPN não diz a jornada de cada jogo: os jogos são agrupados pelas datas (mais de 40 h de intervalo = jornada nova) e o número da jornada é o número de jogos que a maioria das equipas já fez. Os jogos em atraso, isolados, não aparecem.
+- Equipas: o mapa `EQUIPAS` no início do script liga o id da ESPN à sigla (a dos emblemas). As siglas da própria ESPN não servem (para ela "SLB" é o Slovan Bratislava). Uma equipa que não esteja em `teams` é acrescentada com as cores da ESPN, e o emblema que faltar é descarregado da ESPN para `web/img/equipas/`. Um id desconhecido (ex.: equipa promovida na próxima época) dá um aviso: acrescenta-o a `EQUIPAS` e `NOVAS`.
+- Nas taças europeias só está tratada a fase de liga. A partir de fevereiro (eliminatórias), a tabela continua a ser a da fase de liga.
+
+### NBA (`atualizar_nba.py`)
+
+- Fonte: API pública da ESPN.
+- Classificação da época regular por conferência (até ao 10.º, com as zonas de play-off e play-in), jogos da noite passada (dia anterior em Nova Iorque; a pré-época não conta) e líderes da época em pontos, ressaltos e assistências.
+- Antes de a época regular começar não há classificação nem líderes: ficam a `null` e as cenas `nba` e `nba-noite` saem da rotação até haver dados.
+- Corrida ao MVP e ao Rookie do Ano (cena `nba-premios`): odds "futures" das casas de apostas que a ESPN publica (DraftKings), sem chave. As odds passam a probabilidade implícita, normalizada entre os 5 favoritos, e o subtítulo da cena diz a fonte. Antes da época, a linha de cada jogador mostra as odds (ex.: "Odds +210"); depois, as médias da época.
+- Guarda também o melhor marcador da noite (box score de cada jogo), para o jogador em destaque.
+
+### Jogador em destaque (`atualizar_destaques.py`)
+
+Calculado a partir do `live.json`, sem pedidos à rede:
+- Futebol: quem marcou mais golos na última jornada (Liga Portugal, Champions, Premier League, La Liga, Liga Europa). Num empate ganha um jogador da equipa em destaque (`myTeam`).
+- NBA: o melhor marcador da noite passada.
+- F1: o vencedor do último GP, com a posição e os pontos no campeonato.
+
+### Curiosidades (`atualizar_curiosidades.py`)
+
+- **Neste dia na história**: API REST da Wikipédia em português. Primeiro os acontecimentos desportivos do dia; como são raros, completa com os desportistas que nasceram neste dia (portugueses primeiro, depois os mais conhecidos); em último caso, os acontecimentos desportivos da Wikipédia em inglês.
+- **Recordes curiosos**: não há API; vêm de `data/recordes.json` (24 recordes reais) e cada dia começam num diferente. Podes acrescentar mais, desde que sejam factos confirmados.
+- **Comparações absurdas**: calculadas com os dados reais (ex.: os golos do melhor marcador contra os de equipas inteiras, os pontos do líder contra os últimos juntos, os quilómetros do próximo GP contra Lisboa–Porto).
+
+### Notícias (`atualizar_noticias.py`)
+
+- Liga Portugal: RSS do **Record** (`record.pt/rss`), em português, só as notícias da secção Liga Betclic. Testei também A Bola, O Jogo e Maisfutebol: o d'O Jogo e o d'A Bola não têm um feed aberto que funcione, e o do Maisfutebol não tem imagens nem secções.
+- Premier League, La Liga e Champions: notícias da ESPN para essa liga, em inglês (sem vídeos).
+- Só as dos últimos 3 dias, até 6 por liga. A cena mostra a fonte ("Notícias: Record"). Se uma liga não tiver notícias, os jogos ficam com o ecrã todo.
+- O código das notícias está separado do dos jogos (`blocoNoticias` em `web/js/cenas/futebol.js`): se um dia passarem para uma página "Notícias" própria, basta usá-lo noutra cena.
+
+## Pista da F1
+
+O desenho da pista da cena `f1-gp` é feito pelo `atualizar_f1.py` a partir do traçado real do circuito (`data/circuitos/f1-circuits.geojson`, convertido em SVG por `tools/gerar_pista.py`). Os traçados são de https://github.com/bacinger/f1-circuits (dados do OpenStreetMap, licença ODbL); são medidos em mapa, por isso podem diferir ligeiramente da versão oficial.
+
+## Emblemas das equipas
+
+```powershell
+.venv\Scripts\python tools\baixar_emblemas.py            # descarrega os que faltam
+.venv\Scripts\python tools\baixar_emblemas.py MCI ARS    # só estes
+.venv\Scripts\python tools\baixar_emblemas.py --refazer  # tudo de novo
+```
+
+No dia a dia não é preciso: os atualizadores de futebol e NBA descarregam sozinhos o emblema de uma equipa nova (da ESPN). O script serve para repor um emblema estragado. Futebol e NBA vêm da ESPN; as equipas de F1 do site oficial da F1 (`F1_OFICIAL` no script), já sem margens, e as que têm logótipo preto (Mercedes, Aston Martin, Audi, Cadillac) usam a versão branca. O `NFO.svg` (Nottingham Forest) é da Wikipédia. São marcas dos clubes, só para uso pessoal.
+
+## Caras dos jogadores
+
+`tools/atualizar_fotos.py` (corre com os outros quando se atualiza) põe a cara do jogador a seguir ao emblema, nos melhores marcadores (cena `golos`) e no campeonato de pilotos (cena `f1`).
+
+- Futebol, por esta ordem:
+  1. **Facepack do Football Manager** (megapack "cut out" da sortitoutsi), se existir. A pasta vai em `config.local.json` na raiz (fora do git, cada máquina tem o seu), ou na variável de ambiente `FACEPACK_DIR`:
+     ```json
+     { "FACEPACK_DIR": "D:/facepack/faces" }
+     ```
+     Os ficheiros do pack são `face_<id FM>.png`, sem nomes. O id de cada marcador procura-se uma vez no site da sortitoutsi (confirmando o clube) e fica em `data/facepack_ids.json`. Se a pesquisa falhar (ex.: há muitos "João Pedro"), acrescenta-se à mão: `"João Pedro|CHE": 19371552`. A cara é copiada para `web/img/jogadores/`, por isso continua a aparecer mesmo sem o pack (ex.: no mini PC). Se a pasta não existir, este passo é saltado.
+  2. A foto da ESPN pelo id do atleta (a mesma fonte dos marcadores).
+- F1: fotos oficiais do site da F1, recortadas à cara pelo próprio site.
+- As fotos ficam em `web/img/jogadores/` (fora do git), com uma cache (`_cache.json`): só se procuram as dos jogadores que estão nas listas nesse momento (3 marcadores por liga e os pilotos), e cada uma só se descarrega uma vez. Uma tentativa falhada (sem foto, ou um site sem resposta) fica registada e só se repete no dia seguinte.
+- Sem foto, fica um espaço vazio do mesmo tamanho (as linhas continuam alinhadas). São fotos de jogadores, só para uso pessoal.
+
+## Mais tarde: Raspberry Pi
+
+`python serve.py` + Chromium em quiosque, por exemplo:
+`chromium-browser --kiosk "http://localhost:8000/"`.
+Não há dependências para instalar (`requirements.txt` está vazio de propósito).
+
+## Notas
+
+- Equipas: emblemas em `web/img/equipas/<sigla>.png` (clubes, equipas de F1 e NBA). Se faltar algum, aparece o círculo com as cores e a sigla. Nos jogadores usa-se o emblema da equipa.
+- Competições: os símbolos (`web/img/ligas/`) foram descarregados da Wikimedia/Wikipédia e recortados (só o símbolo, sem texto). São marcas dos respetivos donos, só para uso pessoal neste dashboard; não os redistribuas.
+- Os textos de "Neste dia" no mock não correspondem à data de hoje; são só exemplos. Os do live.json são os do dia.
