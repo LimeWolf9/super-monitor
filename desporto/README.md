@@ -9,7 +9,7 @@ Dashboard para um monitor na parede em modo retrato. Os dados vêm de `data/live
 ```
 
 Abre o browser em `http://127.0.0.1:8000/?preview=1`. Parar: `Ctrl+C`.
-Opções: `--port 9000`, `--no-browser`, `--host 0.0.0.0` (para ver noutro dispositivo da rede).
+Opções: `--port 9000`, `--no-browser`, `--host 127.0.0.1` (só este PC; por omissão aceita a rede de casa, para o telemóvel chegar às definições). Ao arrancar mostra o link das definições, com o IP do PC.
 
 ## Ligar e desligar no monitor da parede
 
@@ -21,12 +21,37 @@ Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã i
 
 ## Categorias (`?cat=`)
 
-- `todos` (ou sem parâmetro): como sempre, futebol (Liga Portugal, Premier League, La Liga, taças europeias), F1, NBA, jogador em destaque e curiosidades.
-- `futebol`: só futebol, e também a **Bundesliga**, a **Ligue 1** e a **Serie A** (resultados, 11 da jornada, tabela e próximos jogos com notícias). Estas três ligas só aparecem aqui, para a volta de "todos" não ficar demasiado longa.
+- `todos` (ou sem parâmetro): futebol, F1, NBA, jogador em destaque e curiosidades.
+- `futebol`: só futebol. Nas duas, o futebol são as competições escolhidas em `/definicoes` que jogam nesta semana (ver a secção seguinte).
 - `f1`: as 7 cenas da F1 (ver "Categoria F1" mais abaixo).
 - `nba`: um ecrã "Em construção" (`nba-construcao`), com a data de início da época regular (da ESPN).
 
-O comando funciona igual em todas. Com 9 ligas, o `atualizar_futebol.py` demora ~10 s (as ligas vão em paralelo). Uma atualização completa demora ~40 s.
+O comando funciona igual em todas. Com as 24 competições por defeito, o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~40 s (na primeira vez ~60 s, porque descarrega os emblemas dos clubes e as bandeiras).
+
+## Competições do futebol (`/definicoes`)
+
+O futebol está organizado à volta das competições que se seguem, e **só entram na rotação as que jogam nesta semana**: com um jogo acabado (ou a decorrer) nos últimos 4 dias, ou um jogo marcado para os próximos 7 (`competicaoAtiva` em `web/js/cenas/futebol.js`; as datas vêm de `janela` no `live.json`). Ex.: no fim de semana da Taça de Portugal aparece a Taça em vez da Liga; numa paragem para as seleções aparece a Liga das Nações.
+
+**Escolher**: no telemóvel, `http://<IP do PC>:8000/definicoes` (o `serve.py` mostra o link ao arrancar). Caixas por grupo (a do grupo liga e desliga tudo), **Gravar** ou **Gravar e atualizar já**. Grava em `data/competicoes.json` (fora do git: cada PC tem a sua escolha); o que lá faltar fica com o valor por defeito. As mudanças entram na atualização seguinte (as desligadas saem do `live.json`). A lista, os grupos e os valores por defeito estão em `tools/competicoes.py`.
+
+Por defeito, tudo ligado:
+
+| Grupo | Competições |
+|---|---|
+| Portugal | Liga Portugal, Taça de Portugal. **A Taça da Liga e a Supertaça não têm fonte grátis e sem chave** (a ESPN não as tem; a FotMob e a SofaScore recusam pedidos): aparecem na página, mas não se podem ligar |
+| Inglaterra, Espanha, Alemanha, Itália, França | a liga, e as taças (Taça de Inglaterra, Taça da Liga inglesa, Taça do Rei, Taça da Alemanha, Taça de Itália, Taça de França) **só a partir dos oitavos** |
+| Europa | Liga dos Campeões, Liga Europa, Liga Conferência, Supertaça Europeia |
+| Seleções | **Portugal**: todos os jogos, com os amigáveis. **Brasil** e **Argentina**: só os oficiais (Mundial, qualificação sul-americana, Copa América). **Liga das Nações**: só a Liga A. **Qualificação do Mundial** (Europa) e **do Europeu**: todos os jogos. **Mundial** e **Europeu** (fase final): todos os jogos |
+
+Desligar uma competição de seleções não esconde os jogos de Portugal (ou do Brasil e da Argentina) nessa competição: esses dependem das caixas das seleções.
+
+**Ecrãs**:
+- Ligas: como sempre (resultados, 11 da jornada, tabela, próximos jogos com notícias; a Liga Europa e a Conferência só a tabela) e os marcadores no fim.
+- Taças e seleções (`<chave>-jogos`): os resultados da ronda e, por baixo, os jogos da ronda seguinte, com a fase no subtítulo ("3.ª eliminatória", "Oitavos de final", "Fase de liga · Jornada 4", "Meias-finais · 2.ª mão"). Com poucos jogos, cada resultado leva os marcadores; com muitos (ex.: 27 na 3.ª eliminatória da Taça), passam a cartões compactos, 2 por linha, em páginas iguais. Prolongamento e penáltis: "a.p." e "g.p. 6-5". Os jogos do FC Porto e de Portugal vão para o topo, com a cor de destaque. Notícias da ESPN no espaço que sobrar, se houver.
+- Grupos (`<chave>-grupos`): as tabelas dos grupos (J, DG, PTS), 2 por linha, o de Portugal primeiro. Liga das Nações: os 4 grupos da Liga A. Qualificações e fases finais: os grupos que a ESPN tiver para os jogos deste período.
+- Como nas ligas, a ronda aparece logo que acaba o primeiro jogo, e um ecrã sem dados sai da rotação.
+
+Chaves (para `?scene=`): `tp` Taça de Portugal, `fa`, `efl`, `cdr`, `dfb`, `cit`, `cdf` (taças estrangeiras), `usc` Supertaça Europeia, `unl` Liga das Nações, `wcq` / `euq` qualificações do Mundial (Europa) e do Europeu, `wc` / `euro` fases finais, `ca` Copa América, `wcqs` qualificação sul-americana, `amg` amigáveis de Portugal.
 
 ## Comando (MonitorHub e teclado)
 
@@ -50,8 +75,9 @@ Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_
 | `?scene=f1-gp` | Fixa uma cena em vez de rodar |
 | `?mock=1` | Usa sempre os dados fictícios do `mock.json` |
 | `?cat=futebol` / `nba` / `f1` / `todos` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro = `todos` |
+| `?hoje=2026-10-06T22:00` | Faz de conta que é esse dia, para ver que competições entram na rotação nessa semana (os dados são os mesmos) |
 
-Ids das cenas (com `?cat=futebol` há também `de-*`, `fr-*` e `it-*`; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
+Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
 
 Exemplo: `http://127.0.0.1:8000/?preview=1&scene=golos`
 
@@ -139,7 +165,9 @@ Em `todos` continuam só as duas cenas de sempre (`f1` e `f1-gp`), para a volta 
 ### Futebol (`atualizar_futebol.py`)
 
 - Fonte: API pública da ESPN (`site.api.espn.com`). Não é oficial: se mudar, o script falha sem estragar nada.
-- As 9 competições: Liga Portugal, Premier League, La Liga, Champions, Liga Europa, Conferência e (só em `?cat=futebol`) Bundesliga, Ligue 1 e Serie A. 5 pedidos por competição; as competições vão em paralelo (~10 s no total).
+- As competições escolhidas em `data/competicoes.json` (ver "Competições do futebol"). Nas ligas, 5 pedidos por competição; nas taças e seleções, 3 (os jogos de três meses) e mais 1 para as tabelas dos grupos. Vão 8 em paralelo (~12 s no total). Uma competição que falhe fica com os dados anteriores; as outras atualizam na mesma.
+- Taças e seleções: a fase vem de cada jogo (`season.slug` da ESPN: `3rd-round`, `round-of-16`, `group-stage`, `league-phase`...). As rondas são a fase mais a jornada (fase de grupos: o n.º do jogo de cada equipa) ou a mão (eliminatórias a duas mãos); nos amigáveis, cada janela de jogos. "Só a partir dos oitavos" vai pelo nome da fase (`round-of-16` em diante; na FA Cup a `fifth-round` e na Taça da Liga inglesa a `fourth-round`). A Liga A da Liga das Nações são as seleções dos grupos "Group A1" a "A4" da classificação da ESPN.
+- Seleções e clubes amadores das taças: ficam com a sigla da ESPN (sem aviso) e o nome em português das seleções está em `NOMES_SELECOES`. Portugal é `PRT` (`POR` já era dos Portland Trail Blazers). As bandeiras e os emblemas vêm da ESPN; os clubes que a ESPN não tem ficam com o círculo e a sigla. Os símbolos das competições novas também se descarregam da ESPN (`web/img/ligas/<chave>.png`).
 - Classificação, resultados da última jornada terminada (golos, penáltis, penáltis falhados, autogolos e vermelhos), jogos da jornada seguinte (hora deste PC, ex.: "Dom 20:30") e os 3 melhores marcadores. Os nomes das competições e as zonas da tabela ficam como estão.
 - A ESPN não diz a jornada de cada jogo: os jogos são agrupados pelas datas (mais de 40 h de intervalo = jornada nova) e o número da jornada é o número de jogos que a maioria das equipas já fez. Os jogos em atraso, isolados, não aparecem.
 - Equipas: o mapa `EQUIPAS` no início do script liga o id da ESPN à sigla (a dos emblemas). As siglas da própria ESPN não servem (para ela "SLB" é o Slovan Bratislava). Uma equipa que não esteja em `teams` é acrescentada com as cores da ESPN, e o emblema que faltar é descarregado da ESPN para `web/img/equipas/`. Um id desconhecido (ex.: equipa promovida na próxima época) dá um aviso: acrescenta-o a `EQUIPAS` e `NOVAS`.
@@ -169,7 +197,7 @@ Calculado a partir do `live.json`, sem pedidos à rede:
 ### Notícias (`atualizar_noticias.py`)
 
 - Liga Portugal: RSS do **Record** (`record.pt/rss`), em português, só as notícias da secção Liga Betclic. Testei também A Bola, O Jogo e Maisfutebol: o d'O Jogo e o d'A Bola não têm um feed aberto que funcione, e o do Maisfutebol não tem imagens nem secções.
-- Premier League, La Liga e Champions: notícias da ESPN para essa liga, em inglês (sem vídeos).
+- As outras competições escolhidas que jogam nesta semana (ligas, taças e seleções): notícias da ESPN para essa competição, em inglês (sem vídeos). Nas taças pequenas a ESPN quase nunca tem.
 - Só as dos últimos 3 dias, até 6 por liga. A cena mostra a fonte ("Notícias: Record"). Se uma liga não tiver notícias, os jogos ficam com o ecrã todo.
 - O código das notícias está separado do dos jogos (`blocoNoticias` em `web/js/cenas/futebol.js`): se um dia passarem para uma página "Notícias" própria, basta usá-lo noutra cena.
 
