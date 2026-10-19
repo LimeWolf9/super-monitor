@@ -137,7 +137,7 @@ def nome_na_rede():
     """IP deste PC na rede de casa (para o link das definições); o nome do PC se não der."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("192.168.0.1", 9))   # não envia nada: só escolhe a placa de rede
+            s.connect(("10.255.255.255", 9))   # UDP: não envia nada, só escolhe a placa de rede
             return s.getsockname()[0]
     except OSError:
         return socket.gethostname()
