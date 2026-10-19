@@ -13,3 +13,19 @@
 .league-it   { --accent: #3ad0ff; --tint: #0a2a4f; }   /* Serie A */
 .league-f1   { --accent: #ff3b3b; --tint: #5c0a0a; }   /* Fórmula 1 */
 .league-nba  { --accent: #ff8a1f; --tint: #5c2b00; }   /* NBA */
+
+/* Taças (as estrangeiras só a partir dos oitavos) */
+.league-tp   { --accent: #ffcf4a; --tint: #5a1010; }   /* Taça de Portugal */
+.league-fa   { --accent: #ff5c7a; --tint: #3a0a1e; }   /* Taça de Inglaterra */
+.league-efl  { --accent: #3de0b0; --tint: #08392e; }   /* Taça da Liga inglesa */
+.league-cdr  { --accent: #ffb020; --tint: #5a1010; }   /* Taça do Rei */
+.league-dfb  { --accent: #e6e6e6; --tint: #3a2a10; }   /* Taça da Alemanha */
+.league-cit  { --accent: #4fd2ff; --tint: #0a2f4a; }   /* Taça de Itália */
+.league-cdf  { --accent: #6b9bff; --tint: #0b1f4f; }   /* Taça de França */
+.league-usc  { --accent: #8fc7ff; --tint: #0c2270; }   /* Supertaça Europeia */
+/* Seleções */
+.league-unl  { --accent: #9bdcff; --tint: #0a2347; }   /* Liga das Nações */
+.league-wcq, .league-wc   { --accent: #f0cd5a; --tint: #3d2a00; }   /* Mundial e qualificação */
+.league-euq, .league-euro { --accent: #5aa8ff; --tint: #0a1f4f; }   /* Europeu e qualificação */
+.league-ca, .league-wcqs  { --accent: #ffd400; --tint: #0a3a2a; }   /* Copa América e qualificação sul-americana */
+.league-amg  { --accent: #c0c8d8; --tint: #1f2633; }   /* Amigáveis */

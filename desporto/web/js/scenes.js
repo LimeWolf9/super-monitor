@@ -13,8 +13,8 @@ export { precarregarLogos } from './cenas/base.js';
 // e tem dados; assim nunca se mistura o mock com dados reais. Com o mock.json entra tudo.
 //
 // cat (parâmetro ?cat= do URL, usado pelo submenu do MonitorHub):
-//   todos (ou sem parâmetro) - futebol (sem as ligas novas), F1, NBA, jogador, curiosidades
-//   futebol - só futebol, com a Bundesliga, a Ligue 1 e a Serie A (só aqui, para a volta de "todos" não crescer)
+//   todos (ou sem parâmetro) - futebol, F1, NBA, jogador, curiosidades
+//   futebol - só futebol (as competições escolhidas em /definicoes que jogam nesta semana; ver cenas/futebol.js)
 //   f1      - só as cenas da F1
 //   nba     - o ecrã "Em construção"
 const CATEGORIAS = {
@@ -29,5 +29,5 @@ export function construirCenas(D, cat = 'todos') {
   const naCategoria = CATEGORIAS[cat] || CATEGORIAS.todos;
   const disponivel = (c) => naCategoria(c) && (!reais || reais[c.parte]) && (!c.tem || c.tem(D));
   const [construcao, ...nba] = CENAS_NBA;
-  return [...cenasFutebol(D, cat), construcao, ...CENAS_F1, ...nba, ...CENAS_OUTRAS].filter(disponivel);
+  return [...cenasFutebol(D), construcao, ...CENAS_F1, ...nba, ...CENAS_OUTRAS].filter(disponivel);
 }

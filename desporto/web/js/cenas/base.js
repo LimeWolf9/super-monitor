@@ -1,21 +1,22 @@
 // Peças partilhadas pelas cenas (títulos, logótipos, linhas de tabela, cartão de jogo, caras).
 // Não têm cores nem tamanhos: isso vive no CSS.
-import { esc, badge, teamName, urlEmblema } from '../util.js';
+import { esc, badge, teamName, urlEmblema, minha, temMinha } from '../util.js';
 
-export { esc, badge, teamName };
+export { esc, badge, teamName, minha, temMinha };
 
 // Símbolos das competições (ficheiros em web/img/ligas/), sem placa de fundo.
+// As das taças e das seleções são descarregadas da ESPN pelo atualizar_futebol.py (PNG, versão para fundo escuro).
 const LOGOS = ['pt', 'en', 'es', 'ucl', 'uel', 'uecl', 'de', 'fr', 'it', 'f1', 'nba'];
 // 'mono' = logótipos que ficariam escuros/vermelhos no fundo: mostram-se como silhueta branca (ver .mono no CSS).
 const MONO = ['en', 'es', 'ucl', 'f1', 'fr'];   // fr: o símbolo L1 (2024) é cinzento escuro
-const EXT = { f1: 'webp', de: 'png', fr: 'png', it: 'png' };   // os restantes são .svg
-const urlLogo = (id) => `img/ligas/${id}.${EXT[id] || 'svg'}`;
+const SVG = ['pt', 'en', 'es', 'ucl', 'uel', 'uecl', 'nba'];   // os restantes são .png (e a F1 .webp)
+const urlLogo = (id) => `img/ligas/${id}.${id === 'f1' ? 'webp' : SVG.includes(id) ? 'svg' : 'png'}`;
 // Sem o ficheiro do logótipo (não vêm no repositório: são marcas das competições), o símbolo desaparece.
 const logo = (id, nome) => (id ? `<span class="liga-logo logo-${id}${MONO.includes(id) ? ' mono' : ''}"><img src="${urlLogo(id)}" alt="" onerror="this.parentNode.remove()"></span>` : '');
 
 // Carrega logo os símbolos das competições e das equipas, para não aparecerem "a meio" quando a cena entra.
 export function precarregarLogos(D) {
-  LOGOS.forEach((id) => { new Image().src = urlLogo(id); });
+  [...new Set([...LOGOS, ...Object.keys((D && D.football) || {})])].forEach((id) => { new Image().src = urlLogo(id); });
   Object.keys((D && D.teams) || {}).forEach((code) => { new Image().src = urlEmblema(code); });
 }
 
@@ -45,7 +46,7 @@ export function legenda(zonas, ultimaPos) {
 
 // Linha de classificação: posição, distintivo, nome, e colunas numéricas à direita.
 export function linhaTabela(D, code, pos, colunas, zonaCor) {
-  const eu = code === D.myTeam.code ? ' me' : '';
+  const eu = minha(D, code) ? ' me' : '';
   const zona = zonaCor ? ` zona" style="--zc:${zonaCor}` : '';
   const nums = colunas.map((c) => `<span class="num ${c.cls || ''}">${esc(c.v)}</span>`).join('');
   return `<div class="row${eu}${zona}"><b class="pos">${pos}</b>${badge(D, code)}<span class="name">${esc(teamName(D, code))}</span>${nums}</div>`;
@@ -60,7 +61,7 @@ export function jogo(D, m, simples = false) {
     : m.status === 'adiado' ? '<span class="when adiado">adiado</span>'
     : m.date ? `<span class="when">${esc(dia)} ${esc(m.date)}</span><span class="hora">${esc(hora.join(' '))}</span>`
     : `<span class="when">${esc(m.when)}</span>`;
-  const eu = !simples && (m.home === D.myTeam.code || m.away === D.myTeam.code) ? ' me' : '';
+  const eu = !simples && temMinha(D, m) ? ' me' : '';
   return `<div class="match${eu}">
     <div class="side home"><span class="tn">${esc(teamName(D, m.home))}</span>${badge(D, m.home)}</div>
     <div class="mid">${meio}</div>

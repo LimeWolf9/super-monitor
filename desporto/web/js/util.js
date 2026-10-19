@@ -30,6 +30,16 @@ export function badge(D, code, extra = '') {
     `<img src="${esc(urlEmblema(code))}" alt="" onerror="this.parentNode.classList.add('fail');this.remove()">${esc(code)}</span>`;
 }
 
+// Equipas em destaque: a minha (myTeam.code, o FC Porto) e a minha seleção (myTeam.selecao, Portugal)
+export function minha(D, code) {
+  return code === D.myTeam.code || code === (D.myTeam.selecao || 'PRT');
+}
+export const temMinha = (D, m) => minha(D, m.home) || minha(D, m.away);
+
+// "Agora" do dashboard: a hora do PC, ou ?hoje=2026-10-05T20:00 (para testar a rotação de outra semana)
+const HOJE = new URLSearchParams(location.search).get('hoje');
+export const agora = () => (HOJE ? Date.parse(HOJE) : Date.now());
+
 export function teamName(D, code) {
   return (D.teams[code] && D.teams[code].name) || code;
 }
