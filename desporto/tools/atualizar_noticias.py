@@ -7,7 +7,8 @@ Uso:
 Fontes (sem chave):
 - Liga Portugal: RSS do Record (https://www.record.pt/rss), em português. Ficam só as notícias da secção
   "Liga Betclic" (pelo endereço). O Record é creditado na cena.
-- Premier League, La Liga e Champions: notícias da ESPN para essa liga, em inglês. Os vídeos ficam de fora.
+- As outras competições escolhidas (ligas, taças e seleções; ver competicoes.py): notícias da ESPN para essa
+  competição, em inglês, só das que jogam nesta semana (as que entram na rotação). Os vídeos ficam de fora.
 Só entram as notícias dos últimos 3 dias. Uma liga sem notícias fica com a lista vazia (os jogos ocupam o ecrã).
 Cada notícia leva também o texto completo ("text", até uns 6 parágrafos), para se abrir com o comando: na ESPN vem da
 API de artigos; no Record, dos parágrafos da página da notícia. Cada artigo só se vai buscar uma vez (o texto de uma
@@ -30,9 +31,9 @@ from comum import gravar, ler_dados, pedir, pedir_json
 RSS_RECORD = "https://www.record.pt/rss"
 SECCAO_RECORD = "/futebol/futebol-nacional/liga-betclic/"
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/{liga}/news?limit=25"
-from atualizar_futebol import LIGAS   # noqa: E402  (chave -> liga na ESPN)
+import competicoes   # noqa: E402
 
-LIGAS_ESPN = {k: LIGAS[k] for k in ("en", "es", "ucl", "de", "fr", "it")}   # a Liga Portugal vem do Record
+DIAS_ANTES, DIAS_DEPOIS = 4, 7   # a mesma janela da rotação (competicaoAtiva em web/js/cenas/futebol.js)
 TIPOS_ESPN = {"HeadlineNews", "Story"}   # "Media" são vídeos
 MAX_DIAS = 3
 MAX_NOTICIAS = 6
@@ -144,6 +145,25 @@ def espn(liga, agora, antigas):
     return lista
 
 
+def ativa(L, agora):
+    """A competição joga nesta semana? (sem "janela", dados antigos: sim)"""
+    j = (L or {}).get("janela")
+    if not j:
+        return bool(L)
+    data = lambda t: datetime.fromisoformat(t) if t else None
+    ultimo, proximo = data(j.get("ultimo")), data(j.get("proximo"))
+    return bool(ultimo and agora - ultimo <= timedelta(days=DIAS_ANTES)
+                or proximo and proximo - agora <= timedelta(days=DIAS_DEPOIS))
+
+
+def ligas_espn(dados, agora):
+    """Chave -> liga na ESPN das competições com notícias da ESPN: as escolhidas que jogam nesta semana
+    (a Liga Portugal vem do Record; os amigáveis não têm notícias próprias)."""
+    futebol = dados.get("football") or {}
+    return {chave: liga for chave, _, liga, _, _ in competicoes.a_buscar()
+            if chave not in ("pt", "amg") and ativa(futebol.get(chave), agora)}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mostrar", action="store_true", help="só mostra o resultado, não grava")
@@ -155,7 +175,7 @@ def main():
     # Cada fonte à parte: se uma falhar, as outras entram na mesma e essa liga fica com o que tinha.
     antigas = dados.get("news") or {}
     fontes = {"pt": lambda: record(agora, antigas.get("pt", [])),
-              **{k: (lambda k=k, l=l: espn(l, agora, antigas.get(k, []))) for k, l in LIGAS_ESPN.items()}}
+              **{k: (lambda k=k, l=l: espn(l, agora, antigas.get(k, []))) for k, l in ligas_espn(dados, agora).items()}}
     # As fontes são independentes: vão em paralelo
     with ThreadPoolExecutor(max_workers=4) as ex:
         futuros = {chave: ex.submit(buscar) for chave, buscar in fontes.items()}
