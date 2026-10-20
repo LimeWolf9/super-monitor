@@ -69,6 +69,15 @@ export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, 
     mudar(delta) {
       if (!fixa) ir(delta);
     },
+    // Comando: salta para a primeira cena que cumpra cond (ex.: a 1.ª da F1). false se não houver nenhuma.
+    saltar(cond) {
+      const alvo = scenes.findIndex(cond);
+      if (fixa || alvo < 0) return false;
+      ir(alvo - index);
+      return true;
+    },
+    get cenas() { return scenes; },
+    get indice() { return index; },
     // Comando: pausa (fica nesta cena) ou retoma (a contagem dos segundos recomeça do zero)
     pausar(sim) {
       pausado = sim;

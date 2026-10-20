@@ -7,13 +7,18 @@
 //                       sem notícia em foco não faz nada
 //   voltar              fecha a notícia; sem nada aberto, diz ao hub para voltar ao menu
 //   atualizar           (botão do hub, ou tecla U) atualiza logo os dados, sem passar pelo menu
+//   ir_futebol, ir_f1, ir_nba   (botões do hub, ou teclas 1, 2, 3) salta para o primeiro ecrã desse desporto na
+//                       categoria aberta; só se anunciam os desportos que têm ecrãs nela (ver acoes())
 import { esc } from './util.js';
 
 // "atualizar": botão próprio no comando do hub (começa logo a atualização, sem menu)
 const ACOES = ['esquerda', 'direita', 'cima', 'baixo', 'ok', 'voltar', 'pausa', 'atualizar'];
+// Saltos de desporto: ação -> "sport" das cenas
+const SALTOS = { ir_futebol: 'football', ir_f1: 'f1', ir_nba: 'nba' };
 const TECLAS = {
   ArrowLeft: 'esquerda', ArrowRight: 'direita', ArrowUp: 'cima', ArrowDown: 'baixo',
   Enter: 'ok', Escape: 'voltar', Backspace: 'voltar', ' ': 'pausa', u: 'atualizar', U: 'atualizar',
+  1: 'ir_futebol', 2: 'ir_f1', 3: 'ir_nba',
 };
 const DESLIZAR_PX = 420;   // quanto desce o texto da notícia aberta por cada "baixo"
 
@@ -80,6 +85,11 @@ export function iniciarControlo({ scheduler, getData, dados }) {
       else dados.atualizar();
       return;
     }
+    if (SALTOS[acao]) {
+      if (aberta) fechar();
+      if (!scheduler.saltar((c) => c.sport === SALTOS[acao])) hub({ tipo: 'aviso', texto: 'Sem ecrãs desse desporto aqui' });
+      return;
+    }
     switch (acao) {
       case 'esquerda': case 'direita':
         if (aberta) fechar();
@@ -117,7 +127,17 @@ export function iniciarControlo({ scheduler, getData, dados }) {
     e.preventDefault();
     comando(acao);
   });
-  hub({ tipo: 'pronto', acoes: ACOES });
+  // As ações anunciadas ao hub: as de sempre e um salto por cada desporto que tenha ecrãs na categoria aberta.
+  // Volta a anunciar-se quando a lista de cenas muda e os desportos mudam (ex.: a NBA a começar).
+  const acoes = () => ACOES.concat(Object.keys(SALTOS).filter((a) => scheduler.cenas.some((c) => c.sport === SALTOS[a])));
+  let anunciadas = '';
+  function anunciar() {
+    const lista = acoes();
+    if (lista.join() === anunciadas) return;
+    anunciadas = lista.join();
+    hub({ tipo: 'pronto', acoes: lista });
+  }
+  anunciar();
 
-  return { aoMudarCena };
+  return { aoMudarCena, anunciar };
 }

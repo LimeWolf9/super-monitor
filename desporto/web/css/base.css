@@ -570,3 +570,5 @@ body.pausado #date { visibility: hidden; }   /* o ⏸ fica no sítio da data */
 .pj.destaque .pj-quando { padding-top: 8px; }
 /* Resultados compactos mais baixos (para caberem todos num ecrã): a mesma letra, menos espaço */
 .pjs.denso .pr { padding-top: 6px; padding-bottom: 6px; }
+/* Em que desporto e em que ecrã dele estamos ("Futebol 3/24"), no canto de baixo à esquerda */
+#secao { position: absolute; left: 26px; bottom: 10px; z-index: 6; font-size: 22px; color: var(--muted); opacity: .75; }

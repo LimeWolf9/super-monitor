@@ -31,13 +31,24 @@ async function carregarDados() {
   aplicarCorMinhaEquipa(dados);
 }
 
+// Canto de baixo, à esquerda: em que desporto estamos e em que ecrã dele ("Futebol 3/24")
+const NOMES_SECOES = { football: 'Futebol', f1: 'Fórmula 1', nba: 'NBA', player: 'Destaque', fun: 'Curiosidades', live: 'Ao vivo' };
+let scheduler = null;
+function mostrarSecao(cena) {
+  const el = document.getElementById('secao');
+  if (!el || !scheduler) return;
+  const mesmas = scheduler.cenas.filter((c) => c.sport === cena.sport);
+  const pos = mesmas.indexOf(cena) + 1;
+  el.textContent = `${NOMES_SECOES[cena.sport] || ''}${mesmas.length > 1 && pos ? ` ${pos}/${mesmas.length}` : ''}`;
+}
+
 async function arrancar() {
   iniciarAjuste();
   await carregarDados();
   precarregarLogos(dados);
 
   let controlo = null, dadosUI = null;
-  const scheduler = createScheduler({
+  scheduler = createScheduler({
     host: document.getElementById('scene-host'),
     bar: document.getElementById('progress-bar'),
     scenes: construirCenas(dados, CATEGORIA),
@@ -46,12 +57,13 @@ async function arrancar() {
     fixedId: params.get('scene'),
     aoMudar: (el, cena) => {
       if (controlo) controlo.aoMudarCena(el);
+      mostrarSecao(cena);
       if (dadosUI) dadosUI.aoMudarCena(cena.parte);
     },
   });
   // Recarregar depois de uma atualização pedida no menu "Atualizar dados" (atualizacao.js)
   const recarregar = async () => {
-    try { await carregarDados(); scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); }
+    try { await carregarDados(); scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); if (controlo) controlo.anunciar(); }
     catch (e) { console.warn('Falha a recarregar dados:', e); }
   };
   dadosUI = iniciarAtualizacao({ getData: () => dados, recarregar });
@@ -65,7 +77,7 @@ async function arrancar() {
 
   // Periodicamente volta a ler os dados. Se a rede falhar, mantém os antigos.
   setInterval(async () => {
-    try { await carregarDados(); scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); }
+    try { await carregarDados(); scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); if (controlo) controlo.anunciar(); }
     catch (e) { console.warn('Falha a atualizar dados:', e); }
   }, REFRESCAR_DADOS_MS);
 }
