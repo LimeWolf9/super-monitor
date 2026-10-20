@@ -1,12 +1,12 @@
 """Atualiza todos os dados do dashboard de uma vez, sem precisar do servidor nem do dashboard aberto.
 
 Uso:
-    python tools/atualizar_tudo.py            # corre os 8 atualizadores, um a um, e mostra o progresso
+    python tools/atualizar_tudo.py            # corre os 9 atualizadores, um a um, e mostra o progresso
     python tools/atualizar_tudo.py --json     # uma linha JSON por passo (para o MonitorHub mostrar um loading)
     python tools/atualizar_tudo.py --estado   # só mostra o estado da última atualização (ou da que está a correr)
 
 É o mesmo código que o serve.py usa quando se carrega em "Atualizar" no dashboard:
-- os passos correm em série (F1, futebol, 11 da jornada, NBA, notícias, fotos, destaques, curiosidades); um que
+- os passos correm em série (F1, futebol, 11 da jornada, ClubElo, NBA, notícias, fotos, destaques, curiosidades); um que
   falhe não para os outros, e essa parte fica com os dados anteriores;
 - o progresso fica em data/atualizacao.json (gravado de forma atómica), que o dashboard e o MonitorHub leem:
     estado        "a_correr" | "ok" | "falhou" ("nunca" se ainda não houve nenhuma)
@@ -41,7 +41,7 @@ DURACOES = RAIZ / "data" / "duracoes.json"
 TRANCA_VELHA = 20 * 60   # uma tranca com mais de 20 min é de uma atualização que morreu a meio
 
 # Por esta ordem: os destaques e as curiosidades usam os dados que os outros acabaram de gravar.
-PASSOS = [("atualizar_f1.py", "Fórmula 1"), ("atualizar_futebol.py", "Futebol"), ("atualizar_onze.py", "11 da jornada"),
+PASSOS = [("atualizar_f1.py", "Fórmula 1"), ("atualizar_futebol.py", "Futebol"), ("atualizar_onze.py", "11 da jornada"), ("atualizar_elo.py", "ClubElo"),
           ("atualizar_nba.py", "NBA"), ("atualizar_noticias.py", "Notícias"), ("atualizar_fotos.py", "Fotos"),
           ("atualizar_destaques.py", "Destaques"), ("atualizar_curiosidades.py", "Curiosidades")]
 

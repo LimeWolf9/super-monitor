@@ -125,14 +125,49 @@ const CABECALHO_NOTICIAS = 76;   // subtítulo "Notícias"
 const MIN_NOTICIAS = 3;          // se houver notícias, mostram-se pelo menos estas
 const MAX_NOTICIAS = 6;
 
-// Cartão compacto: as duas equipas em linhas, o dia e a hora à direita.
+// ---------- Probabilidades do ClubElo (tools/atualizar_elo.py) ----------
+// As previsões do ClubElo, quando as há; senão, calculadas a partir do Elo: o resultado esperado da casa
+// (We = 1 / (1 + 10^(-(Elo casa + FATOR_CASA - Elo fora) / 400))) e o empate pela curva que mais se aproxima das
+// previsões do ClubElo (29% entre equipas iguais, menos quando uma é muito melhor).
+const FATOR_CASA = 60;   // pontos de Elo de jogar em casa
+export function probabilidades(D, m) {
+  const E = D.elo;
+  if (!E) return null;
+  const dele = (E.previsoes || {})[`${m.home}-${m.away}`];
+  if (dele) return { p: dele, fonte: 'ClubElo' };
+  const a = (E.porSigla || {})[m.home], b = (E.porSigla || {})[m.away];
+  if (a == null || b == null) return null;
+  const we = 1 / (1 + 10 ** (-(a + FATOR_CASA - b) / 400));
+  const pX = 0.29 * (1 - (2 * we - 1) ** 2);
+  const p1 = Math.max(0, we - pX / 2);
+  return { p: [p1 * 100, pX * 100, Math.max(0, 100 - p1 * 100 - pX * 100)], fonte: 'Elo' };
+}
+
+// Barra 1 X 2 por baixo das equipas: cada parte do tamanho da probabilidade, a do favorito em destaque
+function barraProb(pr) {
+  if (!pr) return '';
+  const [p1, pX, p2] = pr.p.map((v) => Math.round(v));
+  const fav = Math.max(p1, p2) > pX ? (p1 >= p2 ? 0 : 2) : 1;
+  const parte = (v, i, rotulo) => `<span class="pb${i === fav ? ' fav' : ''}" style="flex:${Math.max(v, 12)}">${rotulo} ${v}%</span>`;
+  return `<div class="pj-prob">${parte(p1, 0, '1')}${parte(pX, 1, 'X')}${parte(p2, 2, '2')}</div>`;
+}
+
+// Nota com a fonte das probabilidades, por baixo dos próximos jogos
+function notaProb(D, jogos) {
+  const fontes = new Set(jogos.map((m) => (probabilidades(D, m) || {}).fonte).filter(Boolean));
+  if (!fontes.size) return '';
+  return `<div class="nota prob-nota">1 X 2: ${fontes.has('ClubElo') ? 'previsões do ClubElo' : ''}${fontes.size > 1 ? '; ' : ''}${fontes.has('Elo') ? 'calculadas a partir do Elo do ClubElo' : ''}</div>`;
+}
+
+// Cartão compacto: as duas equipas em linhas, o dia e a hora à direita e, se houver Elo, a barra 1 X 2 por baixo.
 function jogoCompacto(D, m, destaque) {
   const eu = temMinha(D, m) ? ' me' : '';
   const [dia, ...hora] = (m.when || '').split(' ');
   const equipa = (code) => `<div class="pj-eq">${badge(D, code)}<span class="tn">${esc(teamName(D, code))}</span></div>`;
-  return `<div class="pj${eu}${destaque ? ' destaque' : ''}">${equipa(m.home)}${equipa(m.away)}
+  const prob = m.hs == null && m.status !== 'adiado' ? barraProb(probabilidades(D, m)) : '';
+  return `<div class="pj${eu}${destaque ? ' destaque' : ''}${prob ? ' com-prob' : ''}">${equipa(m.home)}${equipa(m.away)}
     <div class="pj-quando"><span class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</span><span class="hora">${esc(hora.join(' '))}</span>
-    ${destaque ? '<span class="tag destaque">Destaque</span>' : ''}</div></div>`;
+    ${destaque ? '<span class="tag destaque">Destaque</span>' : ''}</div>${prob}</div>`;
 }
 
 // Notícias da liga (D.news[chave], de tools/atualizar_noticias.py). Independente dos jogos: se um dia passarem
@@ -180,7 +215,7 @@ function cenaProximos(D, chave) {
   const jornada = !L.nextMixed && L.round && L.round.startsWith('Jornada') ? ' · ' + nomeJornadaSeguinte(L.round) : '';
   return titulo(L.name, `Próximos jogos${jornada}`, chave) +
     `<div class="pjs">${mostrar.map((x) => jogoCompacto(D, x.m, x.d)).join('')}${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>` +
-    blocoNoticias(noticias.slice(0, nNoticias), chave);
+    notaProb(D, mostrar.map((x) => x.m)) + blocoNoticias(noticias.slice(0, nNoticias), chave);
 }
 
 // "Jornada 8" (a última terminada) -> "Jornada 9"
@@ -261,7 +296,7 @@ function cenaTaca(D, chave, k) {
     const resto = p.prox.length - mostrar.length;
     const titulo2 = p.res.length ? subtitulo(`Próximos jogos${L.proxFase ? ' · ' + L.proxFase : ''}`) : '';
     html += `<section class="taca-prox">${titulo2}<div class="pjs">${mostrar.map((m) => jogoCompacto(D, m, temMinha(D, m))).join('')}` +
-      `${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div></section>`;
+      `${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>${notaProb(D, mostrar)}</section>`;
     usado += (p.res.length ? CABECALHO_NOTICIAS : 0) + Math.ceil((mostrar.length + (resto ? 1 : 0)) / 2) * LINHA_PJ;
   }
   // Notícias da competição no espaço que sobra (só na 1.ª página)
@@ -319,6 +354,24 @@ function cenaMarcadores(D) {
     '</div>';
 }
 
+// ---------- Ranking Elo da Europa (ClubElo): o top 10 e, por baixo, os clubes portugueses ----------
+const NOMES_PAISES = { ENG: 'Inglaterra', ESP: 'Espanha', GER: 'Alemanha', ITA: 'Itália', FRA: 'França', POR: 'Portugal',
+  NED: 'Países Baixos', BEL: 'Bélgica', TUR: 'Turquia', SCO: 'Escócia', AUT: 'Áustria', GRE: 'Grécia', CZE: 'Chéquia' };
+function cenaElo(D) {
+  const E = D.elo;
+  const [a, m, d] = (E.data || '').split('-');
+  const linha = (c) => {
+    const nome = c.sigla ? teamName(D, c.sigla) : c.club;
+    return `<div class="row${c.sigla && minha(D, c.sigla) ? ' me' : ''}"><b class="pos">${c.posEuropa}</b>${c.sigla ? badge(D, c.sigla) : '<span class="badge vazio"></span>'}
+      <span class="name">${esc(nome)}<small class="pais">${esc(NOMES_PAISES[c.country] || c.country)}</small></span><span class="num pts">${c.elo}</span></div>`;
+  };
+  const top = E.ranking.filter((c) => c.posEuropa <= 10), pt = E.ranking.filter((c) => c.posEuropa > 10);
+  return titulo('Ranking Elo', `Europa · ClubElo${d ? ` · ${d}/${m}` : ''}`) +
+    `<div class="table elo">${top.map(linha).join('')}</div>` +
+    (pt.length ? `${subtitulo('Portugal')}<div class="table elo">${pt.map(linha).join('')}</div>` : '') +
+    `<div class="nota">Força dos clubes pelo sistema Elo (clubelo.com): sobe com as vitórias, mais contra adversários fortes. Posição entre os clubes europeus.</div>`;
+}
+
 // ---------- Melhor 11 da jornada (tools/atualizar_onze.py): 4-3-3 sobre o relvado ----------
 function cenaOnze(D, chave) {
   const L = D.football[chave], O = L.onze;
@@ -366,5 +419,6 @@ export function cenasFutebol(D) {
     else taca(chave);
   }
   cenas.push({ id: 'golos', sport: 'football', parte: 'futebol', tem: (d) => comMarcadores(d).length > 0, render: (d) => cenaMarcadores(d) });
+  cenas.push({ id: 'elo', sport: 'football', league: 'elo', parte: 'elo', tem: (d) => !!(d.elo && (d.elo.ranking || []).length), render: (d) => cenaElo(d) });
   return cenas;
 }
