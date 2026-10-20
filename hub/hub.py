@@ -135,6 +135,7 @@ class Hub:
     # ------------------------------------------------------------ eventos para os ecrãs
     def estado(self):
         with self.lock:
+            self._sincronizar_atualizacoes()
             app = self.app(self.ativa)
             return {
                 "tipo": "estado",
@@ -286,6 +287,19 @@ class Hub:
         self.emitir_estado()
         threading.Thread(target=self._correr_atualizacao, args=(ident, entrada), daemon=True).start()
         return True
+
+    def _sincronizar_atualizacoes(self):
+        """Apanha as atualizações feitas sem o hub (ex.: dentro do dashboard, ou na linha de comandos).
+
+        Sem isto o menu continuava a dizer "Atualizado há X" da última vez que fosse o hub a atualizar.
+        """
+        for i, a in self.atualizaveis.items():
+            atual = self.atualizacoes.get(i, {})
+            if atual.get("estado") == "a_correr":
+                continue                                  # é o hub que a está a acompanhar
+            p = self._ler_progresso(a) or {}
+            if p.get("estado") in ("ok", "falhou") and p.get("terminado_em") != atual.get("terminado_em"):
+                self.atualizacoes[i] = p
 
     @staticmethod
     def _ler_progresso(entrada):
