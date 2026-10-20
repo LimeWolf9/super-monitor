@@ -5,6 +5,7 @@
     liga      tabela, resultados da jornada, próximos jogos, marcadores e 11 (o comportamento de sempre)
     taca      eliminatórias: um ecrã com os resultados da fase e os jogos seguintes
     selecoes  jogos de seleções (como as taças, e com as tabelas dos grupos quando a ESPN as tem)
+    fonte     uma fonte das notícias (não é uma competição; só se liga e desliga)
   espn=None: não há fonte grátis e sem chave (aparece na página de definições, mas não se pode ligar).
 - ler() devolve {chave: True/False}: o que está no ficheiro, e o valor por defeito (POR_DEFEITO) no que faltar.
 - gravar() guarda a escolha (escrita atómica).
@@ -48,10 +49,19 @@ _LISTA = [
     ("euq",  "Qualificação do Europeu",  "Seleções",   "uefa.euroq",          "selecoes", True, ""),
     ("wc",   "Mundial",                  "Seleções",   "fifa.world",          "selecoes", True, "fase final, todos os jogos"),
     ("euro", "Europeu",                  "Seleções",   "uefa.euro",           "selecoes", True, "fase final, todos os jogos"),
+    # Fontes das notícias (tools/atualizar_noticias.py): não são competições, só se ligam e desligam
+    ("n_record",      "Record",       "Notícias", None, "fonte", True, "Liga Portugal"),
+    ("n_espn",        "ESPN",         "Notícias", None, "fonte", True, "em inglês, por competição"),
+    ("n_abola",       "A Bola",       "Notícias", None, "fonte", True, "só os títulos"),
+    ("n_maisfutebol", "Maisfutebol",  "Notícias", None, "fonte", True, ""),
+    ("n_bbc",         "BBC Sport",    "Notícias", None, "fonte", True, "em inglês"),
+    ("n_marca",       "Marca",        "Notícias", None, "fonte", True, "em espanhol, LaLiga"),
+    ("n_ojogo",       "O Jogo",       "Notícias", None, "fonte", False, "o site proíbe o acesso automático"),
 ]
 COMPETICOES = [dict(zip(("chave", "nome", "grupo", "espn", "tipo", "omissao", "nota"), c)) for c in _LISTA]
 POR_CHAVE = {c["chave"]: c for c in COMPETICOES}
-POR_DEFEITO = {c["chave"]: c["omissao"] for c in COMPETICOES if c["espn"] or c["tipo"] == "equipa"}
+POR_DEFEITO = {c["chave"]: c["omissao"] for c in COMPETICOES
+               if c["espn"] or c["tipo"] == "equipa" or (c["tipo"] == "fonte" and c["chave"] != "n_ojogo")}
 
 # Taças estrangeiras: só a partir dos oitavos (ver fase_conta em atualizar_futebol.py)
 DESDE_OITAVOS = {"fa", "efl", "cdr", "dfb", "cit", "cdf"}

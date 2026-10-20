@@ -9,6 +9,12 @@ Fontes (sem chave):
   "Liga Betclic" (pelo endereço). O Record é creditado na cena.
 - As outras competições escolhidas (ligas, taças e seleções; ver competicoes.py): notícias da ESPN para essa
   competição, em inglês, só das que jogam nesta semana (as que entram na rotação). Os vídeos ficam de fora.
+- Feeds RSS gerais: A Bola, Maisfutebol, BBC Sport (futebol) e Marca (LaLiga). Cada notícia vai para a competição de
+  que fala (o nome da competição e os nomes das suas equipas; ver atribuir()), só entre as que estão na rotação.
+  Só se usa o que vem no feed: título, resumo e imagem (a BBC proíbe extrair conteúdo das páginas).
+  O Jogo não entra: o robots.txt proíbe o acesso automático.
+Cada fonte liga-se e desliga-se em /definicoes (n_record, n_espn, n_abola... em data/competicoes.json).
+As notícias repetidas entre fontes saem (o mesmo endereço, ou mais de metade das palavras do título iguais).
 Só entram as notícias dos últimos 3 dias. Uma liga sem notícias fica com a lista vazia (os jogos ocupam o ecrã).
 Cada notícia leva também o texto completo ("text", até uns 6 parágrafos), para se abrir com o comando: na ESPN vem da
 API de artigos; no Record, dos parágrafos da página da notícia. Cada artigo só se vai buscar uma vez (o texto de uma
@@ -21,6 +27,7 @@ import html
 import json
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -164,6 +171,107 @@ def ligas_espn(dados, agora):
             if chave not in ("pt", "amg") and ativa(futebol.get(chave), agora)}
 
 
+# ---------- Feeds RSS gerais (A Bola, Maisfutebol, BBC, Marca) ----------
+# Não são de uma competição: cada notícia vai para a competição de que fala (palavras-chave e nomes das equipas).
+# Só se usa o que vem no feed (título, resumo, imagem); as páginas das notícias não se vão buscar.
+# O Jogo fica de fora: o robots.txt proíbe o acesso automático.
+# chave em competicoes.json -> (nome, endereço, competição de quem empata, idioma)
+FEEDS = {
+    "n_abola": ("A Bola", "https://www.abola.pt/rss-articles.xml", "pt"),
+    "n_maisfutebol": ("Maisfutebol", "https://maisfutebol.iol.pt/rss", "pt"),
+    "n_bbc": ("BBC Sport", "https://feeds.bbci.co.uk/sport/football/rss.xml", "en"),
+    "n_marca": ("Marca", "https://e00-marca.uecdn.es/rss/futbol/primera-division.xml", "es"),
+}
+MEDIA = "{http://search.yahoo.com/mrss/}"
+# Nomes de cada competição nas notícias (português, inglês e espanhol)
+PALAVRAS = {
+    "pt": ["liga portugal", "liga betclic", "i liga"], "tp": ["taca de portugal"],
+    "en": ["premier league"], "fa": ["fa cup", "taca de inglaterra"], "efl": ["carabao cup", "league cup"],
+    "es": ["laliga", "la liga", "primera division"], "cdr": ["copa del rey", "taca do rei"],
+    "de": ["bundesliga"], "dfb": ["dfb pokal", "taca da alemanha"], "it": ["serie a"], "cit": ["coppa italia"],
+    "fr": ["ligue 1"], "cdf": ["coupe de france"],
+    "ucl": ["champions league", "liga dos campeoes", "champions"], "uel": ["europa league", "liga europa"],
+    "uecl": ["conference league", "liga conferencia"], "usc": ["supertaca europeia", "super cup"],
+    "unl": ["liga das nacoes", "nations league"], "wcq": ["qualificacao para o mundial", "world cup qualif"],
+    "euq": ["qualificacao para o europeu", "euro qualif"], "wc": ["mundial", "world cup"], "euro": ["europeu", "euro 20"],
+    "ca": ["copa america"], "amg": ["amigavel", "friendly"],
+}
+NOMES_CURTOS = 4   # nomes de equipa mais curtos do que isto não contam (ex.: "AVS", "Inter" conta)
+MIN_PONTOS = 2     # uma notícia só entra se falar da competição (3) ou de duas equipas dela (1 + 1)
+
+
+def normalizar(texto):
+    texto = unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode().lower()
+    return " " + " ".join(re.sub(r"[^a-z0-9 ]", " ", texto).split()) + " "
+
+
+def rss(nome, url, agora):
+    raiz = ET.fromstring(pedir(url))
+    lista = []
+    for it in raiz.iter("item"):
+        try:
+            quando = parsedate_to_datetime(it.findtext("pubDate")).astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        descricao = it.findtext("description") or ""
+        img = (it.find(f"{MEDIA}content") if it.find(f"{MEDIA}content") is not None else it.find(f"{MEDIA}thumbnail"))
+        img = img.attrib.get("url") if img is not None else None
+        if not img:   # o Maisfutebol põe a imagem dentro da descrição
+            m = re.search(r'<img[^>]+src="([^"]+)"', descricao)
+            img = m.group(1) if m else None
+        resumo = limpar(descricao)
+        lista.append({"title": limpar(it.findtext("title")), "summary": resumo, "img": img,
+                      "date": quando.isoformat(timespec="seconds"), "source": nome, "url": it.findtext("link"),
+                      "text": [resumo] if resumo else []})
+    limite = agora - timedelta(days=MAX_DIAS)
+    return [n for n in lista if datetime.fromisoformat(n["date"]) >= limite]
+
+
+def palavras_das_competicoes(dados, chaves):
+    """chave -> [(texto normalizado, peso)]: o nome da competição vale 3, o de cada equipa dela vale 1."""
+    futebol, teams = dados.get("football") or {}, dados.get("teams") or {}
+    res = {}
+    for chave in chaves:
+        L = futebol.get(chave) or {}
+        codes = {r["team"] for r in L.get("table", [])} | {m[k] for m in L.get("results", []) + L.get("next", [])
+                                                         for k in ("home", "away") if m.get(k)}
+        nomes = {n for c in codes for n in (teams.get(c, {}).get("name"), teams.get(c, {}).get("espnName"))
+                 if n and len(n) >= NOMES_CURTOS}
+        res[chave] = [(normalizar(p), 3) for p in PALAVRAS.get(chave, []) + [L.get("name", "")] if p] + \
+                     [(normalizar(n), 1) for n in nomes]
+    return res
+
+
+def atribuir(noticia, palavras, preferida):
+    """A competição de que a notícia fala (a de mais pontos, pelo menos MIN_PONTOS), ou None.
+    Empate: a do feed (ex.: a Liga Portugal n'A Bola), senão a 1.ª da lista."""
+    texto = normalizar(f"{noticia['title']} {noticia['summary']}")
+    pontos = {c: sum(peso for p, peso in lista if p in texto) for c, lista in palavras.items()}
+    melhor = max(pontos.values(), default=0)
+    if melhor < MIN_PONTOS:
+        return None
+    empatadas = [c for c, v in pontos.items() if v == melhor]
+    return preferida if preferida in empatadas else empatadas[0]
+
+
+def chave_titulo(n):
+    return {p for p in normalizar(n["title"]).split() if len(p) >= 4}
+
+
+def sem_duplicados(lista):
+    """Tira as notícias repetidas entre fontes (o mesmo endereço, ou títulos com mais de metade das palavras iguais).
+    Fica a primeira, por isso a lista deve vir pela ordem de preferência das fontes."""
+    vistas, res = [], []
+    for n in lista:
+        k = chave_titulo(n)
+        if any(n.get("url") and n.get("url") == v.get("url") or (k and len(k & kv) / len(k | kv) > 0.5)
+               for v, kv in vistas):
+            continue
+        vistas.append((n, k))
+        res.append(n)
+    return res
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mostrar", action="store_true", help="só mostra o resultado, não grava")
@@ -171,22 +279,44 @@ def main():
 
     dados = ler_dados()
     agora = datetime.now(timezone.utc)
-    noticias, falhas = {}, []
+    escolha = competicoes.ler()
+    falhas = []
     # Cada fonte à parte: se uma falhar, as outras entram na mesma e essa liga fica com o que tinha.
     antigas = dados.get("news") or {}
-    fontes = {"pt": lambda: record(agora, antigas.get("pt", [])),
-              **{k: (lambda k=k, l=l: espn(l, agora, antigas.get(k, []))) for k, l in ligas_espn(dados, agora).items()}}
+    ativas = [c for c, *_ in competicoes.a_buscar(escolha) if ativa((dados.get("football") or {}).get(c), agora)]
+    fontes = {}
+    if escolha.get("n_record") and "pt" in ativas:
+        fontes["pt"] = lambda: record(agora, antigas.get("pt", []))
+    if escolha.get("n_espn"):
+        fontes.update({k: (lambda k=k, l=l: espn(l, agora, antigas.get(k, []))) for k, l in ligas_espn(dados, agora).items()})
+    fontes.update({k: (lambda n=n, u=u: rss(n, u, agora)) for k, (n, u, _) in FEEDS.items() if escolha.get(k)})
     # As fontes são independentes: vão em paralelo
     with ThreadPoolExecutor(max_workers=4) as ex:
         futuros = {chave: ex.submit(buscar) for chave, buscar in fontes.items()}
+    porComp, dosFeeds = {}, []
     for chave, f in futuros.items():
         try:
-            noticias[chave] = f.result()
+            res = f.result()
         except Exception as e:
             falhas.append(f"{chave} ({e!r})")
-            noticias[chave] = (dados.get("news") or {}).get(chave, [])
-    if len(falhas) == len(fontes):
+            res = antigas.get(chave, []) if chave not in FEEDS else []
+        if chave in FEEDS:
+            dosFeeds += [(n, FEEDS[chave][2]) for n in res]
+        else:
+            porComp.setdefault(chave, []).extend(res)
+    if fontes and len(falhas) == len(fontes):
         sys.exit(f"Não foi possível atualizar as notícias: {', '.join(falhas)}. O live.json não foi alterado.")
+    # Cada notícia dos feeds gerais vai para a competição de que fala (das que estão na rotação)
+    palavras = palavras_das_competicoes(dados, ativas)
+    for n, preferida in dosFeeds:
+        chave = atribuir(n, palavras, preferida)
+        if chave:
+            porComp.setdefault(chave, []).append(n)
+    # Sem repetidas (as das fontes da competição primeiro), as mais recentes primeiro, até MAX_NOTICIAS
+    noticias = {}
+    for chave, lista in porComp.items():
+        lista = sem_duplicados(lista)
+        noticias[chave] = sorted(lista, key=lambda n: n["date"], reverse=True)[:MAX_NOTICIAS]
 
     if args.mostrar:
         print(json.dumps(noticias, ensure_ascii=False, indent=2))
