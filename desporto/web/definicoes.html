@@ -12,6 +12,9 @@
     body { margin: 0; background: var(--fundo); color: var(--texto); font: 17px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
       padding: 16px 16px 120px; max-width: 640px; margin-inline: auto; -webkit-tap-highlight-color: transparent; }
     h1 { font-size: 24px; margin: 4px 0 4px; }
+    .cabeca { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .cabeca h1 { margin: 0; }
+    #voltar { flex: none; width: auto; min-height: 44px; padding: 0 16px; background: var(--linha); font-size: 16px; }
     .intro { color: var(--apagado); margin: 0 0 18px; font-size: 15px; }
     section { background: var(--painel); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
     label { display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 56px; cursor: pointer; }
@@ -34,8 +37,8 @@
   </style>
 </head>
 <body>
-  <h1>Futebol: competições</h1>
-  <p class="intro">Só entram na rotação as escolhidas que jogam nesta semana (jogos acabados nos últimos 4 dias ou marcados para os próximos 7). As mudanças entram na próxima atualização dos dados.</p>
+  <div class="cabeca"><button id="voltar" type="button">← Voltar</button><h1>Futebol: competições</h1></div>
+  <p class="intro">Só entram as escolhidas que jogam nesta semana: na Última jornada as que jogaram nos últimos 7 dias, na Próxima jornada as que jogam nos próximos 7. As mudanças entram na próxima atualização dos dados.</p>
   <div id="lista">A carregar…</div>
   <div class="barra"><div>
     <div id="estado"></div>
@@ -99,6 +102,17 @@ document.getElementById('atualizar').addEventListener('click', async (ev) => {
     }, 1500);
   } catch (e) { aviso(`Não gravou (${e.message})`); botao.disabled = false; }
 });
+
+// Voltar: ao comando do MonitorHub se veio de lá (?voltar=, só para o mesmo PC), senão à página anterior
+const voltarPara = (() => {
+  try {
+    const u = new URL(new URLSearchParams(location.search).get('voltar') || '');
+    return u.hostname === location.hostname && /^https?:$/.test(u.protocol) ? u.href : null;
+  } catch { return null; }
+})();
+const botaoVoltar = document.getElementById('voltar');
+if (!voltarPara && history.length <= 1) botaoVoltar.hidden = true;   // aberta sozinha: não há para onde voltar
+botaoVoltar.addEventListener('click', () => { if (voltarPara) location.href = voltarPara; else history.back(); });
 
 fetch('/api/competicoes').then((r) => r.json()).then(montar)
   .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });
