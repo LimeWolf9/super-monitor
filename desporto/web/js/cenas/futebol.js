@@ -154,20 +154,28 @@ export function inteirosAte100(valores) {
   return base;
 }
 
-// Barra 1 X 2 por baixo das equipas: cada parte do tamanho da probabilidade, a do favorito em destaque
-function barraProb(pr) {
+// Barra das probabilidades por baixo das equipas, só com as percentagens, pela ordem dos nomes no cartão: a da casa
+// (em cima) à esquerda, o empate ao meio (cor neutra) e a de fora à direita. Cada parte tem a largura exata da sua
+// percentagem; a do favorito vai em destaque. Se o número não couber na parte, fica fora, colado à barra
+// (à esquerda o da casa, à direita o de fora).
+const LARGURA_BARRA = 440;   // px de uma barra num cartão de meia largura
+const PX_LETRA = 10;         // px por letra (16 px de letra) + margens
+const cabe = (texto, v) => texto.length * PX_LETRA + 12 <= (v / 100) * LARGURA_BARRA;
+function barraProb(D, m, pr) {
   if (!pr) return '';
   const [p1, pX, p2] = inteirosAte100(pr.p);
   const fav = Math.max(p1, p2) > pX ? (p1 >= p2 ? 0 : 2) : 1;
-  const parte = (v, i, rotulo) => `<span class="pb${i === fav ? ' fav' : ''}" style="flex:${Math.max(v, 12)}">${rotulo} ${v}%</span>`;
-  return `<div class="pj-prob">${parte(p1, 0, '1')}${parte(pX, 1, 'X')}${parte(p2, 2, '2')}</div>`;
+  const nomes = [teamName(D, m.home), 'Empate', teamName(D, m.away)];
+  const parte = (v, i) => `<span class="pb${i === 1 ? ' empate' : ''}${i === fav ? ' fav' : ''}" style="flex:${v} 1 0" title="${esc(nomes[i])} ${v}%">${cabe(`${v}%`, v) || i === 1 ? `${v}%` : ''}</span>`;
+  const fora = (v, i) => (cabe(`${v}%`, v) ? '' : `<span class="pb-fora${i === fav ? ' fav' : ''}">${v}%</span>`);
+  return `<div class="pj-prob">${fora(p1, 0)}<div class="pb-barra">${parte(p1, 0)}${parte(pX, 1)}${parte(p2, 2)}</div>${fora(p2, 2)}</div>`;
 }
 
 // Nota com a fonte das probabilidades, por baixo dos próximos jogos
 function notaProb(D, jogos) {
   const fontes = new Set(jogos.map((m) => (probabilidades(D, m) || {}).fonte).filter(Boolean));
   if (!fontes.size) return '';
-  return `<div class="nota prob-nota">1 X 2: ${fontes.has('ClubElo') ? 'previsões do ClubElo' : ''}${fontes.size > 1 ? '; ' : ''}${fontes.has('Elo') ? 'calculadas a partir do Elo do ClubElo' : ''}</div>`;
+  return `<div class="nota prob-nota">Probabilidades (casa · empate · fora): ${fontes.has('ClubElo') ? 'previsões do ClubElo' : ''}${fontes.size > 1 ? '; ' : ''}${fontes.has('Elo') ? 'calculadas a partir do Elo do ClubElo' : ''}</div>`;
 }
 
 // Cartão compacto: as duas equipas em linhas, o dia e a hora à direita e, se houver Elo, a barra 1 X 2 por baixo.
@@ -175,7 +183,7 @@ function jogoCompacto(D, m, destaque) {
   const eu = temMinha(D, m) ? ' me' : '';
   const [dia, ...hora] = (m.when || '').split(' ');
   const equipa = (code) => `<div class="pj-eq">${badge(D, code)}<span class="tn">${esc(teamName(D, code))}</span></div>`;
-  const prob = m.hs == null && m.status !== 'adiado' ? barraProb(probabilidades(D, m)) : '';
+  const prob = m.hs == null && m.status !== 'adiado' ? barraProb(D, m, probabilidades(D, m)) : '';
   // "Destaque" numa fita no canto de cima (por baixo da hora ficava colada à barra 1 X 2)
   return `<div class="pj${eu}${destaque ? ' destaque' : ''}${prob ? ' com-prob' : ''}">${destaque ? '<span class="tag destaque fita">Destaque</span>' : ''}${equipa(m.home)}${equipa(m.away)}
     <div class="pj-quando"><span class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</span><span class="hora">${esc(hora.join(' '))}</span></div>${prob}</div>`;
