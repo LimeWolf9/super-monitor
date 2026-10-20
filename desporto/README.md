@@ -26,7 +26,7 @@ Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã i
 - `f1`: as 7 cenas da F1 (ver "Categoria F1" mais abaixo).
 - `nba`: um ecrã "Em construção" (`nba-construcao`), com a data de início da época regular (da ESPN).
 
-O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~40 s (na primeira vez ~60 s, porque descarrega os emblemas dos clubes e as bandeiras).
+O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~55 s (na primeira vez mais,  porque descarrega os emblemas dos clubes e as bandeiras).
 
 ## Competições do futebol (`/definicoes`)
 
@@ -77,7 +77,7 @@ Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_
 | `?cat=futebol` / `nba` / `f1` / `todos` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro = `todos` |
 | `?hoje=2026-10-06T22:00` | Faz de conta que é esse dia, para ver que competições entram na rotação nessa semana (os dados são os mesmos) |
 
-Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
+Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
 
 Exemplo: `http://127.0.0.1:8000/?preview=1&scene=golos`
 
@@ -103,7 +103,7 @@ Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogad
 - Botão **Atualizar** do comando do MonitorHub (ação `atualizar`; no teclado, tecla **U**): começa logo a atualização. Se já estiver a atualizar, o hub mostra "Já está a atualizar".
 - Durante a atualização aparece uma barra em baixo: "A atualizar: Futebol (2/8) · 0:18 de ~0:38". A estimativa vem do que cada passo demorou da última vez (`data/duracoes.json`). No fim aparece "Atualizado às 10:52" durante uns segundos (ou que parte falhou, que fica com os dados anteriores), e o ecrã recarrega os dados sozinho.
 - Em todos os ecrãs, no canto de baixo: "Dados de hoje 09:12", com a hora da parte desse ecrã (F1, futebol...).
-- Os passos, em série: F1 → futebol → 11 da jornada → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
+- Os passos, em série: F1 → futebol → 11 da jornada → ClubElo → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
 - Por baixo: `POST /api/atualizar` começa (recusa com 409 se já houver uma a correr) e `GET /api/atualizar/estado` diz o passo, os feitos de N, o tempo decorrido e o estimado.
 
 **Atualizar sem abrir o dashboard** (ex.: pelo MonitorHub): `.venv\Scripts\python.exe tools\atualizar_tudo.py`, na pasta do projeto. É o mesmo código do botão do dashboard.
@@ -181,6 +181,17 @@ Em `todos` continuam só as duas cenas de sempre (`f1` e `f1-gp`), para a volta 
 - Corrida ao MVP e ao Rookie do Ano (cena `nba-premios`): odds "futures" das casas de apostas que a ESPN publica (DraftKings), sem chave. As odds passam a probabilidade implícita, normalizada entre os 5 favoritos, e o subtítulo da cena diz a fonte. Antes da época, a linha de cada jogador mostra as odds (ex.: "Odds +210"); depois, as médias da época.
 - Guarda também o melhor marcador da noite (box score de cada jogo), para o jogador em destaque.
 
+### ClubElo (`atualizar_elo.py`)
+
+- Fonte: [ClubElo](http://clubelo.com), grátis e sem chave. O ranking vem da API (`api.clubelo.com/AAAA-MM-DD`, CSV); quando a API está em baixo (acontece), da página `clubelo.com/Ranking` (os ~750 primeiros do mundo).
+- **Probabilidades nos próximos jogos** (barra 1 X 2 por baixo de cada jogo, o favorito em destaque): as previsões do ClubElo da página `clubelo.com/Fixtures` (a API das previsões foi desativada; a página só tem os jogos dos próximos dias de algumas ligas). Os outros jogos calculam-se no dashboard a partir do Elo (`probabilidades()` em `web/js/cenas/futebol.js`: 60 pontos de Elo por jogar em casa, e o empate pela curva que mais se aproxima das previsões do ClubElo). A nota por baixo dos jogos diz qual das duas foi usada. Sem Elo de uma das equipas, o jogo fica sem barra.
+- **Ecrã `elo`**: o top 10 da Europa e os clubes portugueses que estiverem no ranking, com a posição entre os europeus.
+- Os nomes do ClubElo ligam-se às siglas pelos nomes das equipas (só no mesmo país); os que não batem certo vão em `NOMES`. ~2 s.
+
+### Understat (xG): não
+
+O robots.txt do Understat proíbe tudo (`Disallow: /`), por isso o xG não entra.
+
 ### Jogador em destaque (`atualizar_destaques.py`)
 
 Calculado a partir do `live.json`, sem pedidos à rede:
@@ -196,7 +207,11 @@ Calculado a partir do `live.json`, sem pedidos à rede:
 
 ### Notícias (`atualizar_noticias.py`)
 
-- Liga Portugal: RSS do **Record** (`record.pt/rss`), em português, só as notícias da secção Liga Betclic. Testei também A Bola, O Jogo e Maisfutebol: o d'O Jogo e o d'A Bola não têm um feed aberto que funcione, e o do Maisfutebol não tem imagens nem secções.
+- Liga Portugal: RSS do **Record** (`record.pt/rss`), em português, só as notícias da secção Liga Betclic.
+- Feeds gerais, que não são de uma competição: **A Bola** (`abola.pt/rss-articles.xml`, só títulos), **Maisfutebol** (`maisfutebol.iol.pt/rss`), **BBC Sport** (`feeds.bbci.co.uk/sport/football/rss.xml`, em inglês) e **Marca** (o feed da Primera División, em espanhol). Cada notícia vai para a competição de que fala, entre as que estão na rotação: o nome da competição vale 3 pontos e o de cada equipa dela 1; entra a de mais pontos, com pelo menos 2 (`atribuir()`). Num empate fica a do feed (A Bola e Maisfutebol: Liga Portugal; BBC: Premier League; Marca: LaLiga). Destes só se usa o que vem no feed (título, resumo, imagem): a BBC proíbe extrair conteúdo das páginas.
+- **O Jogo** não entra: o robots.txt proíbe o acesso automático.
+- As notícias repetidas entre fontes saem (o mesmo endereço, ou mais de metade das palavras do título iguais).
+- Cada fonte liga-se e desliga-se em `/definicoes` (grupo "Notícias").
 - As outras competições escolhidas que jogam nesta semana (ligas, taças e seleções): notícias da ESPN para essa competição, em inglês (sem vídeos). Nas taças pequenas a ESPN quase nunca tem.
 - Só as dos últimos 3 dias, até 6 por liga. A cena mostra a fonte ("Notícias: Record"). Se uma liga não tiver notícias, os jogos ficam com o ecrã todo.
 - O código das notícias está separado do dos jogos (`blocoNoticias` em `web/js/cenas/futebol.js`): se um dia passarem para uma página "Notícias" própria, basta usá-lo noutra cena.
