@@ -20,6 +20,7 @@ import json
 import os
 import posixpath
 import queue
+import re
 import signal
 import socket
 import subprocess
@@ -43,6 +44,11 @@ NO_WINDOWS = os.name == "nt"
 # "sair" fecha a app e volta ao menu de onde ela foi aberta (o ecrã manda-a quando a app não trata o "voltar").
 # "atualizar" só faz sentido numa app que o anuncie (o comando só mostra o botão nesse caso).
 ACOES = {"cima", "baixo", "esquerda", "direita", "ok", "voltar", "pausa", "menu", "energia", "sair", "atualizar"}
+
+
+def e_acao(acao):
+    """Ações conhecidas, mais os atalhos "ir_<sítio>" que uma app anuncia (ex.: ir_f1 salta para a F1)."""
+    return acao in ACOES or bool(re.fullmatch(r"ir_[a-z0-9_]{1,30}", acao))
 CAMPOS_MENU = ("id", "nome", "icone", "descricao", "em_breve", "etiqueta")
 
 
@@ -186,7 +192,7 @@ class Hub:
                 return self.digito(str(valor or ""))
             if acao == "app_acoes":                   # o ecrã conta o que a app anunciou no "pronto"
                 if self.modo == "app" and isinstance(valor, list):
-                    self.acoes_app = [str(a) for a in valor if str(a) in ACOES]
+                    self.acoes_app = [str(a) for a in valor if e_acao(str(a))]
                     self.emitir_estado()
                 return True
             if acao == "atualizar" and app_id:        # botão "Atualizar" de uma entrada, sem abrir a app
@@ -195,7 +201,7 @@ class Hub:
                 if self.modo == "desligado":
                     self.correr_gancho("ao_ligar_ecra")
                 return self.abrir(app_id)
-            if acao not in ACOES:
+            if not e_acao(acao):
                 return False
 
             if acao == "energia":

@@ -49,8 +49,8 @@ copia-o para `apps.local.json`: se existir, o hub usa esse, e o git ignora-o.
 - Com `arrancar`, o hub arranca a app ao abrir e para-a ao sair. Se já estiver a correr
   (ex.: abriste o `Dashboard.bat`), usa-a e não a para.
 - Sem `arrancar` (ex.: o Relógio), é só uma página.
-- Uma entrada com `"apps": [...]` é um **grupo**: abre um submenu (o Desporto tem Futebol,
-  Fórmula 1, NBA e Ver todos). Os filhos herdam do grupo o que não definirem, como o
+- Uma entrada com `"apps": [...]` é um **grupo**: abre um submenu (o Desporto tem Última
+  jornada, Ao vivo e Próxima jornada). Os filhos herdam do grupo o que não definirem, como o
   `arrancar` do servidor. Voltar sai do submenu; Voltar dentro de uma app volta ao
   submenu de onde veio; Menu vai sempre ao inicial. `atalho` é o nome no comando.
 - `preparar` corre um comando antes de mostrar a app, durante o loading (as Despesas

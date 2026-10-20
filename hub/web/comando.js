@@ -43,6 +43,7 @@ function desenhar() {
   document.body.classList.toggle("desligado", estado.modo === "desligado");
   document.body.classList.toggle("pin", estado.modo === "pin");
   document.body.classList.toggle("pode-atualizar", (estado.acoes_app || []).includes("atualizar"));
+  desenharAtalhosApp(estado.acoes_app || []);
   if (estado.modo === "pin") {
     texto = `🔒 ${app ? app.nome : ""}`;
     document.getElementById("pin-titulo").textContent = estado.mensagem
@@ -59,6 +60,22 @@ function desenhar() {
     b.disabled = !!a.em_breve;
     b.classList.toggle("ativa", a.id === estado.ativa);
     b.addEventListener("click", () => enviar({ acao: "abrir", app: a.id }));
+    return b;
+  }));
+}
+
+// ---------------------------------------------------------------- atalhos da app aberta ("ir_<sítio>")
+const NOMES_ATALHOS = { futebol: "⚽ Futebol", f1: "🏎️ F1", nba: "🏀 NBA" };
+let atalhosAtuais = "";
+function desenharAtalhosApp(acoes) {
+  const ir = acoes.filter((a) => a.startsWith("ir_"));
+  if (ir.join() === atalhosAtuais) return;      // não recria os botões a cada evento
+  atalhosAtuais = ir.join();
+  document.getElementById("atalhos-app").replaceChildren(...ir.map((a) => {
+    const sitio = a.slice(3);
+    const b = document.createElement("button");
+    b.textContent = NOMES_ATALHOS[sitio] || sitio.charAt(0).toUpperCase() + sitio.slice(1).replace(/_/g, " ");
+    b.addEventListener("click", () => enviar({ acao: a }));
     return b;
   }));
 }

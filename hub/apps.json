@@ -3,7 +3,7 @@
     "id": "desporto",
     "nome": "Desporto",
     "icone": "🏟️",
-    "descricao": "Futebol, NBA e F1",
+    "descricao": "Futebol, F1 e NBA",
     "saude": "http://127.0.0.1:8000/",
     "arrancar": {
       "pasta": "../desporto",
@@ -24,37 +24,30 @@
     },
     "apps": [
       {
-        "id": "futebol",
-        "nome": "Futebol",
-        "atalho": "Futebol",
-        "icone": "⚽",
-        "descricao": "Ligas, Europa, jogos e notícias",
-        "url": "http://127.0.0.1:8000/?cat=futebol"
+        "id": "ultima",
+        "nome": "Última jornada",
+        "atalho": "Última jornada",
+        "icone": "⏮️",
+        "descricao": "Resultados de futebol, F1 e NBA",
+        "url": "http://127.0.0.1:8000/?cat=ultima"
       },
       {
-        "id": "f1",
-        "nome": "Fórmula 1",
-        "atalho": "F1",
-        "icone": "🏎️",
-        "descricao": "Classificações, corridas e pilotos",
-        "url": "http://127.0.0.1:8000/?cat=f1"
-      },
-      {
-        "id": "nba",
-        "nome": "NBA",
-        "icone": "🏀",
-        "descricao": "A época ainda não começou",
+        "id": "aovivo",
+        "nome": "Ao vivo",
+        "atalho": "Ao vivo",
+        "icone": "🔴",
+        "descricao": "Jogos a decorrer agora",
         "em_breve": true,
         "etiqueta": "Em construção",
-        "url": "http://127.0.0.1:8000/?cat=nba"
+        "url": "http://127.0.0.1:8000/?cat=aovivo"
       },
       {
-        "id": "desporto-todos",
-        "nome": "Ver todos",
-        "atalho": "Desporto (todos)",
-        "icone": "📺",
-        "descricao": "Tudo junto, como até agora",
-        "url": "http://127.0.0.1:8000/?cat=todos"
+        "id": "proxima",
+        "nome": "Próxima jornada",
+        "atalho": "Próxima jornada",
+        "icone": "📅",
+        "descricao": "Jogos e corridas que aí vêm",
+        "url": "http://127.0.0.1:8000/?cat=proxima"
       }
     ]
   },

@@ -15,6 +15,12 @@ Todas as mensagens têm `monitorhub: 1`.
 
 `acao` é uma de: `cima`, `baixo`, `esquerda`, `direita`, `ok`, `voltar`, `pausa`, `atualizar`.
 
+Atalhos `ir_<sítio>` (ex.: `ir_futebol`, `ir_f1`, `ir_nba`): a app anuncia-os nas
+`acoes` do `pronto` e o comando mostra um botão por cada um (Futebol, F1, NBA, ou o
+nome do sítio). Carregar envia `{ tipo: "comando", acao: "ir_f1" }` à app, que salta
+para o primeiro ecrã desse sítio. A app pode voltar a mandar `pronto` com outra lista
+quando o que faz sentido mudar (ex.: sem `ir_nba` no Ao vivo).
+
 `atualizar` vem de um botão próprio do comando ("⟳ Atualizar dados"), que só aparece
 quando a app aberta inclui `"atualizar"` nas `acoes` do `pronto`. A app decide o que
 fazer (ex.: o desporto chama o seu `POST /api/atualizar` e mostra o progresso); pode

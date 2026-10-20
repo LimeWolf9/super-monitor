@@ -37,6 +37,9 @@ body.pin .dpad, body.pin .linha { display: none; }
 
 .largo { display: none; width: 100%; padding: 16px; border-radius: 16px; font-size: 17px; font-weight: 600; margin: -12px 0 28px; }
 body.pode-atualizar .largo { display: block; }
+#atalhos-app { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin: -12px 0 28px; }
+#atalhos-app:empty { display: none; }
+#atalhos-app button { padding: 14px 8px; border-radius: 16px; font-size: 16px; font-weight: 600; }
 .apps-titulo { margin-bottom: 10px; }
 #dados-bloco { margin-bottom: 28px; }
 #dados-bloco:empty, #dados-bloco.vazio { display: none; }
