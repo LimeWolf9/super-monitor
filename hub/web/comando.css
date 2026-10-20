@@ -41,7 +41,7 @@ body.pode-atualizar .largo { display: block; }
 #atalhos-app:empty { display: none; }
 #atalhos-app button { padding: 14px 8px; border-radius: 16px; font-size: 16px; font-weight: 600; }
 .apps-titulo { margin-bottom: 10px; }
-#dados-bloco { margin-bottom: 28px; }
+#dados-bloco { margin: 28px 0 0; }
 #dados-bloco:empty, #dados-bloco.vazio { display: none; }
 .dado { display: flex; align-items: center; gap: 12px; background: var(--painel); border-radius: 16px; padding: 12px 12px 12px 16px; margin-bottom: 10px; }
 .dado .ic { font-size: 24px; }
@@ -51,7 +51,12 @@ body.pode-atualizar .largo { display: block; }
 .dado .s.falhou { color: var(--vermelho); }
 .dado .barra { height: 4px; background: var(--painel2); border-radius: 4px; margin-top: 6px; overflow: hidden; }
 .dado .barra i { display: block; height: 100%; background: var(--destaque); transition: width .4s; }
-.dado button { background: var(--painel2); border-radius: 12px; padding: 10px 14px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.dado button, .dado a.def { background: var(--painel2); border-radius: 12px; padding: 10px 14px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.dado a.def { color: inherit; text-decoration: none; }
+/* Com as Definições, os dois botões passam para uma linha própria quando não cabem ao lado do nome */
+.dado { flex-wrap: wrap; row-gap: 10px; }
+.dado .txt { flex: 1 1 55%; }
+.dado:has(a.def) button, .dado a.def { flex: 1 1 auto; text-align: center; }
 #apps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 #apps button { padding: 16px 12px; border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
 #apps button .ic { font-size: 24px; }

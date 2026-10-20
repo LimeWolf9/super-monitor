@@ -116,6 +116,13 @@ function desenharDados() {
       s.textContent = u.terminado_em ? `Atualizado ${haQuanto(u.terminado_em)}` : "Ainda sem atualizações";
     }
     b.addEventListener("click", () => enviar({ acao: "atualizar", app: u.id }));
+    if (u.definicoes) {   // ex.: "http://{host}:8000/definicoes" -> o mesmo PC a que o telemóvel está ligado
+      const a = document.createElement("a");
+      a.className = "def";
+      a.textContent = "⚙ Definições";
+      a.href = `${u.definicoes.replace("{host}", location.hostname)}?voltar=${encodeURIComponent(location.href)}`;
+      b.before(a);
+    }
     return el;
   }));
 }

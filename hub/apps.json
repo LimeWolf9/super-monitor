@@ -1,6 +1,7 @@
 [
   {
     "id": "desporto",
+    "definicoes": "http://{host}:8000/definicoes",
     "nome": "Desporto",
     "icone": "🏟️",
     "descricao": "Futebol, F1 e NBA",

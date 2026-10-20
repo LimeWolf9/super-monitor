@@ -154,7 +154,9 @@ class Hub:
                 "atalhos": [{**{k: a.get(k) for k in CAMPOS_MENU}, "nome": a.get("atalho") or a["nome"]}
                             for a in self.folhas.values()],
                 # Dados que se podem atualizar sem abrir a app, e como está cada atualização
-                "atualizacoes": [{"id": i, "nome": a["nome"], "icone": a.get("icone"), **self.atualizacoes.get(i, {})}
+                # "definicoes": página de definições da app (ex.: "http://{host}:8000/definicoes"), se tiver
+                "atualizacoes": [{"id": i, "nome": a["nome"], "icone": a.get("icone"), "definicoes": a.get("definicoes"),
+                                  **self.atualizacoes.get(i, {})}
                                  for i, a in self.atualizaveis.items()],
             }
 
