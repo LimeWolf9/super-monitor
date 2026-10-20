@@ -10,8 +10,9 @@ import { iniciarAtualizacao } from './atualizacao.js';
 const SEGUNDOS_POR_CENA = 10;
 const REFRESCAR_DADOS_MS = 60_000;
 const params = new URLSearchParams(location.search);
-// ?cat=futebol | nba | f1 | todos (submenu do MonitorHub); sem parâmetro = todos
-const CATEGORIA = params.get('cat') || 'todos';
+// ?cat=ultima | aovivo | proxima (submenu do MonitorHub; as antigas futebol | f1 | nba | todos continuam);
+// sem parâmetro: a Última jornada e depois a Próxima jornada (ver scenes.js)
+const CATEGORIA = params.get('cat') || null;
 
 let dados = null;
 

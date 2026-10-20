@@ -3,7 +3,7 @@
 import { cenasFutebol } from './cenas/futebol.js';
 import { CENAS_F1 } from './cenas/f1.js';
 import { CENAS_NBA } from './cenas/nba.js';
-import { CENAS_OUTRAS } from './cenas/outras.js';
+import { CENAS_OUTRAS, CENA_AO_VIVO } from './cenas/outras.js';
 
 export { precarregarLogos } from './cenas/base.js';
 
@@ -12,22 +12,43 @@ export { precarregarLogos } from './cenas/base.js';
 // Com dados reais (live.json, que tem "_atualizado"), uma cena só entra se a sua parte veio de uma fonte real
 // e tem dados; assim nunca se mistura o mock com dados reais. Com o mock.json entra tudo.
 //
-// cat (parâmetro ?cat= do URL, usado pelo submenu do MonitorHub):
-//   todos (ou sem parâmetro) - futebol, F1, NBA, jogador, curiosidades
-//   futebol - só futebol (as competições escolhidas em /definicoes que jogam nesta semana; ver cenas/futebol.js)
-//   f1      - só as cenas da F1
-//   nba     - o ecrã "Em construção"
-const CATEGORIAS = {
+// cat (parâmetro ?cat= do URL, usado pelo submenu do MonitorHub). As três de agora, cada uma com todos os desportos:
+//   ultima  - Última jornada: resultados, 11, classificações, grupos e marcadores do futebol; a última corrida e o
+//             campeonato da F1; a noite e as classificações da NBA; o jogador em destaque e as curiosidades
+//   aovivo  - Ao vivo: por agora, um ecrã "Em construção"
+//   proxima - Próxima jornada: os próximos jogos (com o que falta da jornada em curso) e o ranking Elo; o próximo
+//             GP e o horário do fim de semana; a corrida ao MVP da NBA
+//   sem parâmetro (Dashboard.bat): a Última jornada e depois a Próxima jornada
+// As antigas continuam a funcionar até o MonitorHub mudar: todos, futebol, f1, nba.
+const ANTIGAS = {
   todos: (c) => !c.so,
   futebol: (c) => c.sport === 'football',
   f1: (c) => c.sport === 'f1',
   nba: (c) => c.id === 'nba-construcao',
 };
 
-export function construirCenas(D, cat = 'todos') {
+// Fase de cada cena da F1, da NBA e das outras (as do futebol vêm de cenasFutebol)
+const FASE = {
+  f1: 'ultima', 'f1-duelos': 'ultima', 'f1-pontos': 'ultima', 'f1-ultima': 'ultima', 'f1-pneus': 'ultima',
+  'f1-gp': 'proxima', 'f1-fds': 'proxima',
+  nba: 'ultima', 'nba-noite': 'ultima', 'nba-premios': 'proxima', 'nba-construcao': 'proxima',
+  jogador: 'ultima', fun: 'ultima',
+};
+export const CATEGORIAS_NOVAS = ['ultima', 'aovivo', 'proxima'];
+
+export function construirCenas(D, cat) {
   const reais = D._atualizado;
-  const naCategoria = CATEGORIAS[cat] || CATEGORIAS.todos;
-  const disponivel = (c) => naCategoria(c) && (!reais || reais[c.parte]) && (!c.tem || c.tem(D));
+  const disponivel = (c) => (!reais || reais[c.parte]) && (!c.tem || c.tem(D));
   const [construcao, ...nba] = CENAS_NBA;
-  return [...cenasFutebol(D), construcao, ...CENAS_F1, ...nba, ...CENAS_OUTRAS].filter(disponivel);
+  if (!cat || CATEGORIAS_NOVAS.includes(cat)) {
+    if (cat === 'aovivo') return [CENA_AO_VIVO];
+    // O ecrã "NBA em construção" só entra enquanto a época regular não começou (sem classificação)
+    const outras = [...CENAS_F1, construcao, ...nba, ...CENAS_OUTRAS]
+      .filter((c) => c.id !== 'nba-construcao' || !(D.nba && D.nba.east));
+    const daFase = (fase) => [...cenasFutebol(D, fase), ...outras.filter((c) => FASE[c.id] === fase)].filter(disponivel);
+    if (cat === 'ultima' || cat === 'proxima') return daFase(cat);
+    return [...daFase('ultima'), ...daFase('proxima')];
+  }
+  const naCategoria = ANTIGAS[cat] || ANTIGAS.todos;
+  return [...cenasFutebol(D), construcao, ...CENAS_F1, ...nba, ...CENAS_OUTRAS].filter((c) => naCategoria(c) && disponivel(c));
 }

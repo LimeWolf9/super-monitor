@@ -110,9 +110,14 @@ function eDestaque(D, chave, m) {
   return top.has(m.home) && top.has(m.away);
 }
 
+// Jogos da jornada dos resultados que ainda estão por jogar (aparecem nos resultados e também nos próximos jogos)
+export const pendentes = (L) => (L.results || []).filter((m) => m.hs == null && m.status !== 'adiado');
+
 // Próximos jogos por ordem: primeiro os destaques, depois os restantes (cada grupo pela ordem de calendário).
+// Incluem o que falta da jornada em curso.
 function proximosOrdenados(D, chave) {
-  const lista = (D.football[chave].next || []).map((m) => ({ m, d: eDestaque(D, chave, m) }));
+  const L = D.football[chave];
+  const lista = pendentes(L).concat(L.next || []).map((m) => ({ m, d: eDestaque(D, chave, m) }));
   return lista.filter((x) => x.d).concat(lista.filter((x) => !x.d));
 }
 
@@ -231,7 +236,7 @@ function cenaProximos(D, chave) {
   const livre = ALTURA_JOGOS - linhas * LINHA_PJ - CABECALHO_NOTICIAS;
   const nNoticias = Math.min(MAX_NOTICIAS, noticias.length, Math.max(0, Math.floor(livre / ALTURA_NOTICIA)));
   // Com o que falta da jornada em curso e a seguinte misturados, não se diz o número da jornada
-  const jornada = !L.nextMixed && L.round && L.round.startsWith('Jornada') ? ' · ' + nomeJornadaSeguinte(L.round) : '';
+  const jornada = !L.nextMixed && !pendentes(L).length && L.round && L.round.startsWith('Jornada') ? ' · ' + nomeJornadaSeguinte(L.round) : '';
   return titulo(L.name, `Próximos jogos${jornada}`, chave) +
     `<div class="pjs">${mostrar.map((x) => jogoCompacto(D, x.m, x.d)).join('')}${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>` +
     notaProb(D, mostrar.map((x) => x.m)) + blocoNoticias(noticias.slice(0, nNoticias), chave);
@@ -284,10 +289,13 @@ function alturaCartao(linhas, livre) {
   return Math.min(LINHA_PJ - ESPACO_CARTOES, Math.floor((livre - (linhas - 1) * ESPACO_CARTOES) / Math.max(1, linhas)));
 }
 
-function paginasTaca(D, L, chave) {
-  const res = destaquesPrimeiro(D, L.results || []);
-  const prox = destaquesPrimeiro(D, L.next || []);
-  const nProx = prox.length > MAX_PROXIMOS_TACA ? MAX_PROXIMOS_TACA - 1 : prox.length;
+// modo: "resultados" (a ronda toda, os jogos por jogar no seu lugar), "proximos" (o que falta da ronda e a ronda
+// seguinte) ou nada (as duas coisas no mesmo ecrã, como nas categorias antigas ?cat=futebol / todos)
+function paginasTaca(D, L, chave, modo) {
+  const res = modo === 'proximos' ? [] : destaquesPrimeiro(D, L.results || []);
+  const prox = modo === 'resultados' ? [] : destaquesPrimeiro(D, (modo === 'proximos' ? pendentes(L) : []).concat(L.next || []));
+  const maxProx = res.length ? MAX_PROXIMOS_TACA : 2 * Math.floor(ALTURA_JOGOS / LINHA_PJ);
+  const nProx = prox.length > maxProx ? maxProx - 1 : prox.length;
   const altProx = prox.length ? (res.length ? CABECALHO_NOTICIAS : 0) + Math.ceil((nProx + (prox.length > nProx ? 1 : 0)) / 2) * LINHA_PJ : 0;
   const livre1 = ALTURA_JOGOS - altProx;
   let paginas;
@@ -327,12 +335,15 @@ function paginasTaca(D, L, chave) {
   return paginas;
 }
 
-function cenaTaca(D, chave, k) {
+function cenaTaca(D, chave, k, modo) {
   const L = D.football[chave];
-  const paginas = paginasTaca(D, L, chave);
+  const paginas = paginasTaca(D, L, chave, modo);
   const p = paginas[k] || paginas[0];
   const emCurso = L.partial ? ` · ${L.partial.done} de ${L.partial.total} jogos` : '';
-  const sub = p.res.length ? `Resultados · ${L.fase || ''}${emCurso}` : `Próximos jogos${L.proxFase ? ' · ' + L.proxFase : ''}`;
+  // nos próximos jogos: a fase do que falta da ronda em curso, a da ronda seguinte, ou nenhuma se forem as duas
+  const falta = modo === 'proximos' && pendentes(L).length;
+  const faseProx = falta ? ((L.next || []).length ? '' : L.fase) : L.proxFase;
+  const sub = p.res.length ? `Resultados · ${L.fase || ''}${emCurso}` : `Próximos jogos${faseProx ? ' · ' + faseProx : ''}`;
   let html = titulo(L.name, sub + sufixoPagina(k, paginas.length), chave);
   if (p.detalhe) {
     html += `<div class="mresults" style="--n:${p.res.length};--slot:${p.detalhe}px">${p.res.map((m) => jogoDetalhe(D, m, p.detalhe)).join('')}</div>`;
@@ -342,7 +353,7 @@ function cenaTaca(D, chave, k) {
   if (p.prox.length) {
     const mostrar = p.prox.slice(0, p.nProx);
     const resto = p.prox.length - mostrar.length;
-    const titulo2 = p.res.length ? subtitulo(`Próximos jogos${L.proxFase ? ' · ' + L.proxFase : ''}`) : '';
+    const titulo2 = p.res.length ? subtitulo(`Próximos jogos${faseProx ? ' · ' + faseProx : ''}`) : '';
     html += `<section class="taca-prox">${titulo2}<div class="pjs">${mostrar.map((m) => jogoCompacto(D, m, temMinha(D, m))).join('')}` +
       `${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>${notaProb(D, mostrar)}</section>`;
   }
@@ -374,22 +385,27 @@ function cenaGrupos(D, chave, k) {
 
 // Só as que jogam nesta semana: com um jogo acabado (ou a decorrer) nos últimos 4 dias, ou um jogo nos próximos 7.
 // As datas vêm de "janela" (atualizar_futebol.py); sem ela (mock.json) entra sempre.
-const DIAS_ANTES = 4, DIAS_DEPOIS = 7;
-export function competicaoAtiva(L) {
+// Por categoria: na "Última jornada" entram as que tiveram jogos nos últimos 7 dias; na "Próxima jornada" as que
+// têm jogos nos próximos 7. Nas categorias antigas (?cat=futebol, todos), as duas regras juntas (4 dias para trás).
+const DIAS_ANTES = 4, DIAS_DEPOIS = 7, DIAS_ULTIMA = 7;
+export function competicaoAtiva(L, fase) {
   if (!L || !L.janela) return !!L;
   const t = agora(), dia = 86400e3;
   const { ultimo, proximo } = L.janela;
-  return (ultimo != null && t - Date.parse(ultimo) <= DIAS_ANTES * dia && Date.parse(ultimo) <= t + dia)
-    || (proximo != null && Date.parse(proximo) - t <= DIAS_DEPOIS * dia && Date.parse(proximo) >= t - dia);
+  const antes = (dias) => ultimo != null && t - Date.parse(ultimo) <= dias * dia && Date.parse(ultimo) <= t + dia;
+  const depois = proximo != null && Date.parse(proximo) - t <= DIAS_DEPOIS * dia && Date.parse(proximo) >= t - dia;
+  if (fase === 'ultima') return antes(DIAS_ULTIMA);
+  if (fase === 'proxima') return depois;   // (o que falta da jornada em curso também conta: está em proximo)
+  return antes(DIAS_ANTES) || depois;
 }
 
 const eLiga = (L) => !L.tipo || L.tipo === 'liga';
-const ativas = (D) => Object.keys(D.football || {}).filter((k) => competicaoAtiva(D.football[k]));
+const ativas = (D, fase) => Object.keys(D.football || {}).filter((k) => competicaoAtiva(D.football[k], fase));
 
 // Marcadores: as ligas da rotação, 2 por linha, top 3 de cada uma
-const comMarcadores = (D) => ativas(D).filter((k) => eLiga(D.football[k]) && (D.football[k].scorers || []).length);
-function cenaMarcadores(D) {
-  const com = comMarcadores(D);
+const comMarcadores = (D, fase) => ativas(D, fase).filter((k) => eLiga(D.football[k]) && (D.football[k].scorers || []).length);
+function cenaMarcadores(D, fase) {
+  const com = comMarcadores(D, fase);
   return titulo('Marcadores', 'Golos esta época') +
     `<div class="golos-grelha" style="--linhas:${Math.ceil(com.length / 2)}">` +
     com.map((k) =>
@@ -428,40 +444,50 @@ function cenaOnze(D, chave) {
 
 // Todas as cenas de futebol, pela ordem da rotação (a ordem das competições no live.json, que é a de
 // tools/competicoes.py), só das competições que jogam nesta semana (competicaoAtiva).
-// Ligas: resultados (várias páginas), melhor 11, classificação e próximos jogos. Taças e seleções: o ecrã da fase
-// e as tabelas dos grupos. No fim, os marcadores.
-export function cenasFutebol(D) {
+// fase "ultima" (Última jornada): por competição, os resultados (a jornada toda), o 11, a classificação e os grupos;
+//   no fim, os marcadores.
+// fase "proxima" (Próxima jornada): os próximos jogos (com o que falta da jornada em curso); no fim, o ranking Elo.
+// Sem fase (categorias antigas ?cat=futebol / todos): tudo junto, como antes.
+export function cenasFutebol(D, fase) {
   const cenas = [];
   const add = (id, chave, render) => cenas.push({ id, sport: 'football', league: chave, parte: 'futebol', render });
+  const ultima = fase !== 'proxima', proxima = fase !== 'ultima';
   // soTabela: a Liga Europa e a Conferência não mostram os resultados nem os próximos jogos por agora (a fase de
   // liga tem 18 jogos e pouco interesse); voltam a ser avaliadas nas eliminatórias.
   const liga = (chave, soTabela) => {
     const L = D.football[chave];
-    if (!soTabela && (L.results || []).length) {
+    if (ultima && !soTabela && (L.results || []).length) {
       const nj = paginarJogos(L.results).length;
       for (let k = 0; k < nj; k++) add(`${chave}-jogos${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaJogos(d, chave, k));
       if (L.onze && (L.onze.players || []).length === 11) add(`${chave}-onze`, chave, (d) => cenaOnze(d, chave));
     }
-    if ((L.table || []).length) {
+    if (ultima && (L.table || []).length) {
       const nt = paginasTabela(L).length;
       for (let k = 0; k < nt; k++) add(`${chave}-tabela${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaTabela(d, chave, k));
     }
-    if (!soTabela && (L.next || []).length) add(`${chave}-proximos`, chave, (d) => cenaProximos(d, chave));
+    if (proxima && !soTabela && (pendentes(L).length || (L.next || []).length)) add(`${chave}-proximos`, chave, (d) => cenaProximos(d, chave));
   };
   const taca = (chave) => {
     const L = D.football[chave];
-    if ((L.results || []).length || (L.next || []).length) {
-      const np = paginasTaca(D, L, chave).length;
-      for (let k = 0; k < np; k++) add(`${chave}-jogos${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaTaca(d, chave, k));
+    // Sem fase: o ecrã com as duas coisas. Com fase: os resultados ou os próximos jogos
+    const modo = fase === 'ultima' ? 'resultados' : fase === 'proxima' ? 'proximos' : undefined;
+    const temJogos = modo === 'resultados' ? (L.results || []).length
+      : modo === 'proximos' ? pendentes(L).length + (L.next || []).length : (L.results || []).length + (L.next || []).length;
+    if (temJogos) {
+      const sufixo = modo === 'proximos' ? '-proximos' : '-jogos';
+      const np = paginasTaca(D, L, chave, modo).length;
+      for (let k = 0; k < np; k++) add(`${chave}${sufixo}${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaTaca(d, chave, k, modo));
     }
-    const ng = paginasGrupos(L).length;
-    for (let k = 0; k < ng; k++) add(`${chave}-grupos${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaGrupos(d, chave, k));
+    if (ultima) {
+      const ng = paginasGrupos(L).length;
+      for (let k = 0; k < ng; k++) add(`${chave}-grupos${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaGrupos(d, chave, k));
+    }
   };
-  for (const chave of ativas(D)) {
+  for (const chave of ativas(D, fase)) {
     if (eLiga(D.football[chave])) liga(chave, chave === 'uel' || chave === 'uecl');
     else taca(chave);
   }
-  cenas.push({ id: 'golos', sport: 'football', parte: 'futebol', tem: (d) => comMarcadores(d).length > 0, render: (d) => cenaMarcadores(d) });
-  cenas.push({ id: 'elo', sport: 'football', league: 'elo', parte: 'elo', tem: (d) => !!(d.elo && (d.elo.ranking || []).length), render: (d) => cenaElo(d) });
+  if (ultima) cenas.push({ id: 'golos', sport: 'football', parte: 'futebol', tem: (d) => comMarcadores(d, fase).length > 0, render: (d) => cenaMarcadores(d, fase) });
+  if (proxima) cenas.push({ id: 'elo', sport: 'football', league: 'elo', parte: 'elo', tem: (d) => !!(d.elo && (d.elo.ranking || []).length), render: (d) => cenaElo(d) });
   return cenas;
 }

@@ -27,3 +27,13 @@ export const CENAS_OUTRAS = [
     },
   },
 ];
+
+// ?cat=aovivo: por agora, um ecrã só, "Em construção"
+export const CENA_AO_VIVO = {
+  id: 'aovivo-construcao', sport: 'live', parte: 'futebol',
+  render: () => titulo('Ao vivo', 'Em construção') + `<section class="block construcao">
+    <div class="cons-icone">📡</div>
+    <div class="cons-titulo">Os jogos a decorrer vão aparecer aqui</div>
+    <div class="cons-texto">Resultados ao minuto dos jogos das competições que segues, da F1 e da NBA. Ainda está a ser preparado.</div>
+  </section>`,
+};
