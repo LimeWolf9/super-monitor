@@ -21,10 +21,18 @@ Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã i
 
 ## Categorias (`?cat=`)
 
-- `todos` (ou sem parâmetro): futebol, F1, NBA, jogador em destaque e curiosidades.
-- `futebol`: só futebol. Nas duas, o futebol são as competições escolhidas em `/definicoes` que jogam nesta semana (ver a secção seguinte).
-- `f1`: as 7 cenas da F1 (ver "Categoria F1" mais abaixo).
-- `nba`: um ecrã "Em construção" (`nba-construcao`), com a data de início da época regular (da ESPN).
+Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/scenes.js`):
+
+| `?cat=` | Nome | O que tem |
+|---|---|---|
+| `ultima` | Última jornada | Futebol: os resultados da última jornada ou eliminatória de cada competição (a jornada toda: os jogos por jogar ficam no seu lugar, com o dia e a hora), o 11 da jornada, as classificações, os grupos e os marcadores. F1: a última corrida, os pneus, os duelos, a evolução dos pontos e o campeonato. NBA: a noite passada e as classificações. No fim, o jogador em destaque e as curiosidades |
+| `aovivo` | Ao vivo | Por agora, um ecrã "Em construção" |
+| `proxima` | Próxima jornada | Futebol: tudo o que está por jogar até ao fim da próxima jornada, incluindo o que falta da jornada em curso (esses jogos aparecem nas duas categorias), com a barra das probabilidades e as notícias; o ranking Elo. F1: o próximo GP e o horário do fim de semana. NBA: a corrida ao MVP (e o "Em construção" até a época começar) |
+| (sem parâmetro) | | A Última jornada e depois a Próxima jornada (é o que o `Dashboard.bat` mostra) |
+
+- O futebol são as competições escolhidas em `/definicoes`: na Última jornada as que tiveram jogos nos últimos 7 dias, na Próxima as que têm jogos nos próximos 7.
+- As jornadas agrupam-se pelas datas dos jogos: mais de 40 h sem jogos separa duas jornadas (assim uma jornada de fim de semana e a de meio da semana a seguir ficam separadas). Nas taças e seleções conta a fase de cada jogo.
+- As categorias antigas (`todos`, `futebol`, `f1`, `nba`) continuam a funcionar enquanto o MonitorHub as usar.
 
 O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~55 s (na primeira vez mais,  porque descarrega os emblemas dos clubes e as bandeiras).
 
@@ -61,6 +69,7 @@ Dentro do MonitorHub (pasta `hub/` deste repositório), o dashboard obedece ao c
 |---|---|---|
 | ◀ ▶ | setas ← → | cena anterior / seguinte (a contagem dos 10 s recomeça; em pausa, muda e continua em pausa) |
 | Pausa | Espaço | fica nesta cena, com um ⏸ no topo (e um aviso no hub); outra vez retoma |
+| Futebol / F1 / NBA | 1 / 2 / 3 | salta para o primeiro ecrã desse desporto na categoria aberta (ações `ir_futebol`, `ir_f1`, `ir_nba`; o dashboard só anuncia ao hub as dos desportos que têm ecrãs nessa categoria). No canto de baixo, à esquerda, aparece onde estás: "Futebol 3/24" |
 | ▲ ▼ | setas ↑ ↓ | nas cenas `*-proximos`, muda a notícia com foco (contorno); com uma notícia aberta, desliza o texto |
 | OK | Enter | abre a notícia com foco por cima da cena: imagem grande, título, texto completo e fonte. A rotação pausa enquanto estiver aberta |
 | Voltar | Esc | fecha a notícia; sem nada aberto, volta ao menu do hub |
@@ -74,7 +83,7 @@ Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_
 | `?preview=1` | Mostra o ecrã em retrato dentro de uma moldura, para caber num monitor horizontal |
 | `?scene=f1-gp` | Fixa uma cena em vez de rodar |
 | `?mock=1` | Usa sempre os dados fictícios do `mock.json` |
-| `?cat=futebol` / `nba` / `f1` / `todos` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro = `todos` |
+| `?cat=ultima` / `aovivo` / `proxima` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro: a Última jornada e depois a Próxima |
 | `?hoje=2026-10-06T22:00` | Faz de conta que é esse dia, para ver que competições entram na rotação nessa semana (os dados são os mesmos) |
 
 Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
