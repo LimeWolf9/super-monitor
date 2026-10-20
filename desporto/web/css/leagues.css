@@ -30,3 +30,4 @@
 .league-ca, .league-wcqs  { --accent: #ffd400; --tint: #0a3a2a; }   /* Copa América e qualificação sul-americana */
 .league-amg  { --accent: #c0c8d8; --tint: #1f2633; }   /* Amigáveis */
 .league-elo  { --accent: #8fd18f; --tint: #10331a; }   /* Ranking Elo (ClubElo) */
+.league-tl   { --accent: #7fb2ff; --tint: #0b1f4f; }   /* Taça da Liga (opcional, API da Liga Portugal) */

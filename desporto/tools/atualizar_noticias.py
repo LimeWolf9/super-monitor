@@ -185,7 +185,7 @@ FEEDS = {
 MEDIA = "{http://search.yahoo.com/mrss/}"
 # Nomes de cada competição nas notícias (português, inglês e espanhol)
 PALAVRAS = {
-    "pt": ["liga portugal", "liga betclic", "i liga"], "tp": ["taca de portugal"],
+    "pt": ["liga portugal", "liga betclic", "i liga"], "tp": ["taca de portugal"], "tl": ["taca da liga", "allianz cup"],
     "en": ["premier league"], "fa": ["fa cup", "taca de inglaterra"], "efl": ["carabao cup", "league cup"],
     "es": ["laliga", "la liga", "primera division"], "cdr": ["copa del rey", "taca do rei"],
     "de": ["bundesliga"], "dfb": ["dfb pokal", "taca da alemanha"], "it": ["serie a"], "cit": ["coppa italia"],
@@ -284,6 +284,8 @@ def main():
     # Cada fonte à parte: se uma falhar, as outras entram na mesma e essa liga fica com o que tinha.
     antigas = dados.get("news") or {}
     ativas = [c for c, *_ in competicoes.a_buscar(escolha) if ativa((dados.get("football") or {}).get(c), agora)]
+    if escolha.get("tl") and ativa((dados.get("football") or {}).get("tl"), agora):   # vem de outro passo
+        ativas.append("tl")
     fontes = {}
     if escolha.get("n_record") and "pt" in ativas:
         fontes["pt"] = lambda: record(agora, antigas.get("pt", []))

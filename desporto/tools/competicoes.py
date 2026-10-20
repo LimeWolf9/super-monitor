@@ -7,6 +7,8 @@
     selecoes  jogos de seleções (como as taças, e com as tabelas dos grupos quando a ESPN as tem)
     fonte     uma fonte das notícias (não é uma competição; só se liga e desliga)
   espn=None: não há fonte grátis e sem chave (aparece na página de definições, mas não se pode ligar).
+  espn="ligaportugal": a Taça da Liga, que vem da API do site da Liga Portugal (tools/atualizar_taca_liga.py) e
+  não do atualizar_futebol.py. Vem desligada (os termos da Liga Portugal só permitem uso pessoal).
 - ler() devolve {chave: True/False}: o que está no ficheiro, e o valor por defeito (POR_DEFEITO) no que faltar.
 - gravar() guarda a escolha (escrita atómica).
 
@@ -24,7 +26,7 @@ FICHEIRO = Path(__file__).resolve().parent.parent / "data" / "competicoes.json"
 _LISTA = [
     ("pt",   "Liga Portugal",            "Portugal",   "por.1",               "liga", True, ""),
     ("tp",   "Taça de Portugal",         "Portugal",   "por.taca.portugal",   "taca", True, ""),
-    ("tl",   "Taça da Liga",             "Portugal",   None,                  "taca", True, "sem fonte grátis"),
+    ("tl",   "Taça da Liga",             "Portugal",   "ligaportugal",        "taca", False, "API do site da Liga Portugal: uso pessoal"),
     ("stp",  "Supertaça",                "Portugal",   None,                  "taca", True, "sem fonte grátis"),
     ("en",   "Premier League",           "Inglaterra", "eng.1",               "liga", True, ""),
     ("fa",   "Taça de Inglaterra",       "Inglaterra", "eng.fa",              "taca", True, "a partir dos oitavos"),
@@ -111,7 +113,7 @@ def a_buscar(escolha=None):
     """
     escolha = escolha or ler()
     lista = [(c["chave"], c["nome"], c["espn"], c["tipo"], None) for c in COMPETICOES
-             if c["tipo"] in ("liga", "taca") and c["espn"] and escolha.get(c["chave"])]
+             if c["tipo"] in ("liga", "taca") and c["espn"] and c["espn"] != "ligaportugal" and escolha.get(c["chave"])]
     for chave, nome, espn, liga_toda, equipas, so_liga_a in FONTES_SELECOES:
         todos = bool(liga_toda and escolha.get(liga_toda))
         ids = {SELECOES[e] for e in equipas if escolha.get(e)}

@@ -42,7 +42,7 @@ EUROPA = {"ENG", "ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "TUR", "SCO", 
           "GEO", "ARM", "LAT", "LIT", "EST", "FAR", "AND", "SMR", "GIB", "LIE"}
 TOP = 10
 # País do ClubElo -> competições do live.json com equipas desse país (para ligar os nomes)
-PAIS_COMPETICOES = {"POR": ["pt", "tp"], "ENG": ["en", "fa", "efl"], "ESP": ["es", "cdr"], "GER": ["de", "dfb"],
+PAIS_COMPETICOES = {"POR": ["pt", "tp", "tl"], "ENG": ["en", "fa", "efl"], "ESP": ["es", "cdr"], "GER": ["de", "dfb"],
                     "ITA": ["it", "cit"], "FRA": ["fr", "cdf"]}
 EUROPEIAS = ["ucl", "uel", "uecl"]
 # Nomes do ClubElo que não batem certo com os das equipas (nome do ClubElo -> sigla)

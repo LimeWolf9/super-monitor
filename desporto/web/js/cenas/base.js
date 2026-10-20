@@ -8,7 +8,7 @@ export { esc, badge, teamName, minha, temMinha };
 // As das taças e das seleções são descarregadas da ESPN pelo atualizar_futebol.py (PNG, versão para fundo escuro).
 const LOGOS = ['pt', 'en', 'es', 'ucl', 'uel', 'uecl', 'de', 'fr', 'it', 'f1', 'nba'];
 // 'mono' = logótipos que ficariam escuros/vermelhos no fundo: mostram-se como silhueta branca (ver .mono no CSS).
-const MONO = ['en', 'es', 'ucl', 'f1', 'fr'];   // fr: o símbolo L1 (2024) é cinzento escuro
+const MONO = ['en', 'es', 'ucl', 'f1', 'fr', 'tl'];   // fr: o símbolo L1 (2024) é cinzento escuro; tl: azul-escuro
 const SVG = ['pt', 'en', 'es', 'ucl', 'uel', 'uecl', 'nba'];   // os restantes são .png (e a F1 .webp)
 const urlLogo = (id) => `img/ligas/${id}.${id === 'f1' ? 'webp' : SVG.includes(id) ? 'svg' : 'png'}`;
 // Sem o ficheiro do logótipo (não vêm no repositório: são marcas das competições), o símbolo desaparece.

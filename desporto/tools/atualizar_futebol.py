@@ -740,6 +740,11 @@ def main():
             falhas.append(f"{chave} ({e})")
             if antigo.get(chave):
                 futebol[chave] = antigo[chave]
+    if competicoes.ler().get("tl") and antigo.get("tl"):   # a Taça da Liga é do atualizar_taca_liga.py: fica
+        futebol = {**{k: v for k, v in futebol.items()}, "tl": antigo["tl"]}
+        ordem = [k for k in futebol if k != "tl"]
+        i = ordem.index("tp") + 1 if "tp" in ordem else len(ordem)
+        futebol = {k: futebol[k] for k in ordem[:i] + ["tl"] + ordem[i:]}
     if falhas and len(falhas) == len(lista):
         sys.exit(f"Não foi possível atualizar o futebol ({'; '.join(falhas)}). O live.json não foi alterado.")
 
