@@ -560,3 +560,9 @@ body.pausado #date { visibility: hidden; }   /* o ⏸ fica no sítio da data */
 .badge.vazio { visibility: hidden; }
 .scene-elo .sub { margin-top: 26px; }
 .table.elo .row .pos { width: 76px; }
+/* "Destaque" numa fita no canto de cima do cartão (por baixo da hora ficava colada à barra 1 X 2) */
+.pj { position: relative; }
+.pj .tag.fita { position: absolute; top: -12px; right: 18px; margin: 0; font-size: 17px; z-index: 1; }
+.pj.destaque .pj-quando { padding-top: 8px; }
+/* Resultados compactos mais baixos (para caberem todos num ecrã): a mesma letra, menos espaço */
+.pjs.denso .pr { padding-top: 6px; padding-bottom: 6px; }

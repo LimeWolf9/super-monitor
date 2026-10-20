@@ -143,10 +143,21 @@ export function probabilidades(D, m) {
   return { p: [p1 * 100, pX * 100, Math.max(0, 100 - p1 * 100 - pX * 100)], fonte: 'Elo' };
 }
 
+// Percentagens inteiras que somam sempre 100: normaliza (as do ClubElo vêm a somar 99,9 a 100,1) e arredonda
+// pelo maior resto (arredondar cada uma à parte dava 99 ou 101 num jogo em cada cinco).
+export function inteirosAte100(valores) {
+  const total = valores.reduce((t, v) => t + v, 0) || 1;
+  const exatos = valores.map((v) => (v * 100) / total);
+  const base = exatos.map(Math.floor);
+  let falta = 100 - base.reduce((t, v) => t + v, 0);
+  exatos.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (falta-- > 0) base[i] += 1; });
+  return base;
+}
+
 // Barra 1 X 2 por baixo das equipas: cada parte do tamanho da probabilidade, a do favorito em destaque
 function barraProb(pr) {
   if (!pr) return '';
-  const [p1, pX, p2] = pr.p.map((v) => Math.round(v));
+  const [p1, pX, p2] = inteirosAte100(pr.p);
   const fav = Math.max(p1, p2) > pX ? (p1 >= p2 ? 0 : 2) : 1;
   const parte = (v, i, rotulo) => `<span class="pb${i === fav ? ' fav' : ''}" style="flex:${Math.max(v, 12)}">${rotulo} ${v}%</span>`;
   return `<div class="pj-prob">${parte(p1, 0, '1')}${parte(pX, 1, 'X')}${parte(p2, 2, '2')}</div>`;
@@ -165,9 +176,9 @@ function jogoCompacto(D, m, destaque) {
   const [dia, ...hora] = (m.when || '').split(' ');
   const equipa = (code) => `<div class="pj-eq">${badge(D, code)}<span class="tn">${esc(teamName(D, code))}</span></div>`;
   const prob = m.hs == null && m.status !== 'adiado' ? barraProb(probabilidades(D, m)) : '';
-  return `<div class="pj${eu}${destaque ? ' destaque' : ''}${prob ? ' com-prob' : ''}">${equipa(m.home)}${equipa(m.away)}
-    <div class="pj-quando"><span class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</span><span class="hora">${esc(hora.join(' '))}</span>
-    ${destaque ? '<span class="tag destaque">Destaque</span>' : ''}</div>${prob}</div>`;
+  // "Destaque" numa fita no canto de cima (por baixo da hora ficava colada à barra 1 X 2)
+  return `<div class="pj${eu}${destaque ? ' destaque' : ''}${prob ? ' com-prob' : ''}">${destaque ? '<span class="tag destaque fita">Destaque</span>' : ''}${equipa(m.home)}${equipa(m.away)}
+    <div class="pj-quando"><span class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</span><span class="hora">${esc(hora.join(' '))}</span></div>${prob}</div>`;
 }
 
 // Notícias da liga (D.news[chave], de tools/atualizar_noticias.py). Independente dos jogos: se um dia passarem
@@ -255,41 +266,70 @@ const destaquesPrimeiro = (D, lista) => lista.filter((m) => temMinha(D, m)).conc
 const ALTURA_DETALHE = 190;   // px mínimos de um resultado com os marcadores (senão passa a compacto, 2 por linha)
 const MAX_PROXIMOS_TACA = 8;  // jogos seguintes no ecrã da fase (o resto fica em "+N jogos")
 
-// Páginas do ecrã da fase: a 1.ª tem os jogos seguintes por baixo dos resultados; as outras, só resultados.
-function paginasTaca(D, L) {
+// Páginas do ecrã da fase. Os resultados compactos (2 por linha) encolhem até ALTURA_MIN_CARTAO para caberem
+// num só ecrã (os 27 jogos da 3.ª eliminatória da Taça cabem); só se nem assim couberem é que se parte, em
+// páginas iguais. Os jogos seguintes vão na 1.ª página e as notícias da competição no espaço que sobrar de
+// cada página (notícias diferentes em cada uma).
+const ALTURA_MIN_CARTAO = 128;   // px: abaixo disto os nomes deixam de se ler bem a 2-3 metros
+const ESPACO_CARTOES = 12;       // px entre linhas (o "gap" do .pjs)
+function alturaCartao(linhas, livre) {
+  return Math.min(LINHA_PJ - ESPACO_CARTOES, Math.floor((livre - (linhas - 1) * ESPACO_CARTOES) / Math.max(1, linhas)));
+}
+
+function paginasTaca(D, L, chave) {
   const res = destaquesPrimeiro(D, L.results || []);
   const prox = destaquesPrimeiro(D, L.next || []);
   const nProx = prox.length > MAX_PROXIMOS_TACA ? MAX_PROXIMOS_TACA - 1 : prox.length;
-  const altProx = prox.length ? CABECALHO_NOTICIAS + Math.ceil((nProx + (prox.length > nProx ? 1 : 0)) / 2) * LINHA_PJ : 0;
+  const altProx = prox.length ? (res.length ? CABECALHO_NOTICIAS : 0) + Math.ceil((nProx + (prox.length > nProx ? 1 : 0)) / 2) * LINHA_PJ : 0;
   const livre1 = ALTURA_JOGOS - altProx;
-  if (!res.length) return [{ res: [], prox, nProx, livre: livre1 }];
-  if (res.length * ALTURA_DETALHE <= livre1) return [{ res, prox, nProx, detalhe: true, livre: livre1 }];
-  // Quantas páginas são precisas e, depois, os jogos repartidos por igual (27 jogos: 14 + 13, e não 26 + 1)
-  const porPag1 = Math.max(2, Math.floor(livre1 / LINHA_PJ) * 2);
-  const porPag = Math.floor(ALTURA_JOGOS / LINHA_PJ) * 2;
-  const n = 1 + Math.ceil(Math.max(0, res.length - porPag1) / porPag);
-  const tam = Math.min(porPag1, Math.ceil(res.length / n));
-  const paginas = [{ res: res.slice(0, tam), prox, nProx, livre: livre1 }];
-  const tamOutras = Math.ceil((res.length - tam) / Math.max(1, n - 1));
-  for (let i = tam; i < res.length; i += tamOutras) paginas.push({ res: res.slice(i, i + tamOutras), prox: [], nProx: 0, livre: ALTURA_JOGOS });
+  let paginas;
+  if (!res.length) {
+    paginas = [{ res: [], prox, nProx, usado: altProx }];
+  } else if (res.length * ALTURA_DETALHE <= livre1) {
+    const fatia = Math.min(ALTURA_MAX_JOGO, Math.floor(livre1 / res.length));
+    paginas = [{ res, prox, nProx, detalhe: fatia, usado: fatia * res.length + altProx }];
+  } else {
+    const linhas = Math.ceil(res.length / 2);
+    const h1 = alturaCartao(linhas, livre1);
+    if (h1 >= ALTURA_MIN_CARTAO) {   // cabe tudo num ecrã
+      paginas = [{ res, prox, nProx, cartao: h1, usado: linhas * (h1 + ESPACO_CARTOES) + altProx }];
+    } else {   // páginas iguais (os jogos seguintes vão na 1.ª)
+      const porPag = 2 * Math.floor((ALTURA_JOGOS + ESPACO_CARTOES) / (ALTURA_MIN_CARTAO + ESPACO_CARTOES));
+      const n = Math.ceil((res.length + (prox.length ? Math.ceil(altProx / LINHA_PJ) * 2 : 0)) / porPag);
+      const tam = 2 * Math.ceil(res.length / n / 2);
+      paginas = [];
+      for (let i = 0; i < res.length; i += tam) {
+        const r = res.slice(i, i + tam), primeira = i === 0;
+        const livre = primeira ? livre1 : ALTURA_JOGOS;
+        const h = Math.max(ALTURA_MIN_CARTAO, alturaCartao(Math.ceil(tam / 2), livre));
+        paginas.push({ res: r, prox: primeira ? prox : [], nProx: primeira ? nProx : 0, cartao: h,
+                       usado: Math.ceil(r.length / 2) * (h + ESPACO_CARTOES) + (primeira ? altProx : 0) });
+      }
+    }
+  }
+  // Notícias: no espaço que sobrar de cada página, sem repetir
+  const noticias = noticiasDaLiga(D, chave);
+  let usadas = 0;
+  for (const pg of paginas) {
+    const cabem = Math.floor((ALTURA_JOGOS - pg.usado - CABECALHO_NOTICIAS) / ALTURA_NOTICIA);
+    const n = Math.max(0, Math.min(MAX_NOTICIAS, noticias.length - usadas, cabem));
+    pg.noticias = noticias.slice(usadas, usadas + n);
+    usadas += n;
+  }
   return paginas;
 }
 
 function cenaTaca(D, chave, k) {
   const L = D.football[chave];
-  const paginas = paginasTaca(D, L);
+  const paginas = paginasTaca(D, L, chave);
   const p = paginas[k] || paginas[0];
   const emCurso = L.partial ? ` · ${L.partial.done} de ${L.partial.total} jogos` : '';
   const sub = p.res.length ? `Resultados · ${L.fase || ''}${emCurso}` : `Próximos jogos${L.proxFase ? ' · ' + L.proxFase : ''}`;
   let html = titulo(L.name, sub + sufixoPagina(k, paginas.length), chave);
-  let usado = 0;
   if (p.detalhe) {
-    const fatia = Math.min(ALTURA_MAX_JOGO, Math.floor(p.livre / p.res.length));
-    html += `<div class="mresults" style="--n:${p.res.length};--slot:${fatia}px">${p.res.map((m) => jogoDetalhe(D, m, fatia)).join('')}</div>`;
-    usado = fatia * p.res.length;
+    html += `<div class="mresults" style="--n:${p.res.length};--slot:${p.detalhe}px">${p.res.map((m) => jogoDetalhe(D, m, p.detalhe)).join('')}</div>`;
   } else if (p.res.length) {
-    html += `<div class="pjs">${p.res.map((m) => resultadoCompacto(D, m)).join('')}</div>`;
-    usado = Math.ceil(p.res.length / 2) * LINHA_PJ;
+    html += `<div class="pjs${p.cartao < LINHA_PJ - ESPACO_CARTOES ? ' denso' : ''}" style="grid-auto-rows:${p.cartao}px">${p.res.map((m) => resultadoCompacto(D, m)).join('')}</div>`;
   }
   if (p.prox.length) {
     const mostrar = p.prox.slice(0, p.nProx);
@@ -297,13 +337,8 @@ function cenaTaca(D, chave, k) {
     const titulo2 = p.res.length ? subtitulo(`Próximos jogos${L.proxFase ? ' · ' + L.proxFase : ''}`) : '';
     html += `<section class="taca-prox">${titulo2}<div class="pjs">${mostrar.map((m) => jogoCompacto(D, m, temMinha(D, m))).join('')}` +
       `${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>${notaProb(D, mostrar)}</section>`;
-    usado += (p.res.length ? CABECALHO_NOTICIAS : 0) + Math.ceil((mostrar.length + (resto ? 1 : 0)) / 2) * LINHA_PJ;
   }
-  // Notícias da competição no espaço que sobra (só na 1.ª página)
-  if (k === 0) {
-    const n = Math.min(MAX_NOTICIAS, noticiasDaLiga(D, chave).length, Math.floor((ALTURA_JOGOS - usado - CABECALHO_NOTICIAS) / ALTURA_NOTICIA));
-    if (n > 0) html += blocoNoticias(noticiasDaLiga(D, chave).slice(0, n), chave);
-  }
+  if (p.noticias.length) html += blocoNoticias(p.noticias, chave);
   return html;
 }
 
@@ -408,7 +443,7 @@ export function cenasFutebol(D) {
   const taca = (chave) => {
     const L = D.football[chave];
     if ((L.results || []).length || (L.next || []).length) {
-      const np = paginasTaca(D, L).length;
+      const np = paginasTaca(D, L, chave).length;
       for (let k = 0; k < np; k++) add(`${chave}-jogos${k ? '-' + (k + 1) : ''}`, chave, (d) => cenaTaca(d, chave, k));
     }
     const ng = paginasGrupos(L).length;
