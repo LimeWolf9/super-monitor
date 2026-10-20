@@ -1,4 +1,4 @@
-// Cenas da NBA. Em ?cat=nba só aparece o ecrã "Em construção" (so: 'nba').
+// Cenas da NBA (a categoria de cada uma está em FASE, em scenes.js).
 import { esc, badge, titulo, subtitulo, corDaZona, legenda, linhaTabela, listaJogos } from './base.js';
 
 // Corrida a um prémio (MVP, Rookie do Ano): nome, números, barra e percentagem.
@@ -15,8 +15,8 @@ const dataExtenso = (iso) => { const [, m, d] = iso.split('-').map(Number); retu
 
 export const CENAS_NBA = [
   {
-    // ?cat=nba: enquanto a parte da NBA não está pronta, um ecrã só, com a data de início da época regular
-    id: 'nba-construcao', sport: 'nba', league: 'nba', parte: 'nba', so: 'nba',
+    // Enquanto a época regular não começa (na Próxima jornada): um ecrã com a data de início
+    id: 'nba-construcao', sport: 'nba', league: 'nba', parte: 'nba',
     render: (D) => {
       const inicio = D.nba && D.nba.regularStart;
       const dias = inicio ? Math.ceil((Date.parse(`${inicio}T12:00:00`) - Date.now()) / 86400e3) : null;

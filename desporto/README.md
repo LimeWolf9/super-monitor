@@ -32,7 +32,6 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
 
 - O futebol são as competições escolhidas em `/definicoes`: na Última jornada as que tiveram jogos nos últimos 7 dias, na Próxima as que têm jogos nos próximos 7.
 - As jornadas agrupam-se pelas datas dos jogos: mais de 40 h sem jogos separa duas jornadas (assim uma jornada de fim de semana e a de meio da semana a seguir ficam separadas). Nas taças e seleções conta a fase de cada jogo.
-- As categorias antigas (`todos`, `futebol`, `f1`, `nba`) continuam a funcionar enquanto o MonitorHub as usar.
 
 O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~55 s (na primeira vez mais,  porque descarrega os emblemas dos clubes e as bandeiras).
 
@@ -86,7 +85,7 @@ Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_
 | `?cat=ultima` / `aovivo` / `proxima` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro: a Última jornada e depois a Próxima |
 | `?hoje=2026-10-06T22:00` | Faz de conta que é esse dia, para ver que competições entram na rotação nessa semana (os dados são os mesmos) |
 
-Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções; com `?cat=nba`, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
+Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções, `nba-construcao`, `aovivo-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
 
 Exemplo: `http://127.0.0.1:8000/?preview=1&scene=golos`
 
@@ -155,7 +154,7 @@ Também se podem correr à mão (todos aceitam `--mostrar`, que só mostra e nã
 
 Marcadores: um só ecrã com todas as competições da rotação, pela mesma ordem, 2 por linha e o top 3 de cada uma.
 
-### Categoria F1 (`?cat=f1`)
+### Cenas da F1
 
 Pensada para os dias sem corrida, por esta ordem: primeiro a época inteira, depois o próximo GP, por fim a última corrida. Tudo vem de corridas já feitas (o live timing fica para mais tarde). O `atualizar_f1.py` prepara cada parte à parte; se uma falhar, fica a `null` e esse ecrã sai da rotação (nunca se inventa). ~15 s por atualização.
 
@@ -169,7 +168,7 @@ Pensada para os dias sem corrida, por esta ordem: primeiro a época inteira, dep
 | `f1-ultima` | Resumo da última corrida: pódio, volta mais rápida, quem mais subiu, desistências, paragem mais rápida (tempo na via das boxes) | Jolpica |
 | `f1-pneus` | Estratégia de pneus da última corrida: uma barra por piloto, pela ordem de chegada | OpenF1 (histórico, sem chave) |
 
-Em `todos` continuam só as duas cenas de sempre (`f1` e `f1-gp`), para a volta não crescer; o campeonato já mostra a diferença e as setas.
+Na Última jornada entram o campeonato, os duelos, os pontos, a última corrida e os pneus; na Próxima jornada, o próximo GP e o horário do fim de semana.
 
 ### Futebol (`atualizar_futebol.py`)
 

@@ -1,4 +1,4 @@
-// Monta a rotação. Cada cena é um objeto { id, sport, league, parte, so, tem(D), render(D, ctx) } que devolve HTML;
+// Monta a rotação. Cada cena é um objeto { id, sport, league, parte, tem(D), render(D, ctx) } que devolve HTML;
 // as cenas vivem em cenas/ (uma pasta por modalidade). Não têm cores nem tamanhos: isso vive no CSS.
 import { cenasFutebol } from './cenas/futebol.js';
 import { CENAS_F1 } from './cenas/f1.js';
@@ -18,14 +18,7 @@ export { precarregarLogos } from './cenas/base.js';
 //   aovivo  - Ao vivo: por agora, um ecrã "Em construção"
 //   proxima - Próxima jornada: os próximos jogos (com o que falta da jornada em curso) e o ranking Elo; o próximo
 //             GP e o horário do fim de semana; a corrida ao MVP da NBA
-//   sem parâmetro (Dashboard.bat): a Última jornada e depois a Próxima jornada
-// As antigas continuam a funcionar até o MonitorHub mudar: todos, futebol, f1, nba.
-const ANTIGAS = {
-  todos: (c) => !c.so,
-  futebol: (c) => c.sport === 'football',
-  f1: (c) => c.sport === 'f1',
-  nba: (c) => c.id === 'nba-construcao',
-};
+//   sem parâmetro (Dashboard.bat), ou outro valor: a Última jornada e depois a Próxima jornada
 
 // Fase de cada cena da F1, da NBA e das outras (as do futebol vêm de cenasFutebol)
 const FASE = {
@@ -40,15 +33,11 @@ export function construirCenas(D, cat) {
   const reais = D._atualizado;
   const disponivel = (c) => (!reais || reais[c.parte]) && (!c.tem || c.tem(D));
   const [construcao, ...nba] = CENAS_NBA;
-  if (!cat || CATEGORIAS_NOVAS.includes(cat)) {
-    if (cat === 'aovivo') return [CENA_AO_VIVO];
-    // O ecrã "NBA em construção" só entra enquanto a época regular não começou (sem classificação)
-    const outras = [...CENAS_F1, construcao, ...nba, ...CENAS_OUTRAS]
-      .filter((c) => c.id !== 'nba-construcao' || !(D.nba && D.nba.east));
-    const daFase = (fase) => [...cenasFutebol(D, fase), ...outras.filter((c) => FASE[c.id] === fase)].filter(disponivel);
-    if (cat === 'ultima' || cat === 'proxima') return daFase(cat);
-    return [...daFase('ultima'), ...daFase('proxima')];
-  }
-  const naCategoria = ANTIGAS[cat] || ANTIGAS.todos;
-  return [...cenasFutebol(D), construcao, ...CENAS_F1, ...nba, ...CENAS_OUTRAS].filter((c) => naCategoria(c) && disponivel(c));
+  if (cat === 'aovivo') return [CENA_AO_VIVO];
+  // O ecrã "NBA em construção" só entra enquanto a época regular não começou (sem classificação)
+  const outras = [...CENAS_F1, construcao, ...nba, ...CENAS_OUTRAS]
+    .filter((c) => c.id !== 'nba-construcao' || !(D.nba && D.nba.east));
+  const daFase = (fase) => [...cenasFutebol(D, fase), ...outras.filter((c) => FASE[c.id] === fase)].filter(disponivel);
+  if (cat === 'ultima' || cat === 'proxima') return daFase(cat);
+  return [...daFase('ultima'), ...daFase('proxima')];
 }

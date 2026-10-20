@@ -290,7 +290,7 @@ function alturaCartao(linhas, livre) {
 }
 
 // modo: "resultados" (a ronda toda, os jogos por jogar no seu lugar), "proximos" (o que falta da ronda e a ronda
-// seguinte) ou nada (as duas coisas no mesmo ecrã, como nas categorias antigas ?cat=futebol / todos)
+// seguinte) ou nada (as duas coisas no mesmo ecrã)
 function paginasTaca(D, L, chave, modo) {
   const res = modo === 'proximos' ? [] : destaquesPrimeiro(D, L.results || []);
   const prox = modo === 'resultados' ? [] : destaquesPrimeiro(D, (modo === 'proximos' ? pendentes(L) : []).concat(L.next || []));
@@ -386,8 +386,8 @@ function cenaGrupos(D, chave, k) {
 // Só as que jogam nesta semana: com um jogo acabado (ou a decorrer) nos últimos 4 dias, ou um jogo nos próximos 7.
 // As datas vêm de "janela" (atualizar_futebol.py); sem ela (mock.json) entra sempre.
 // Por categoria: na "Última jornada" entram as que tiveram jogos nos últimos 7 dias; na "Próxima jornada" as que
-// têm jogos nos próximos 7. Nas categorias antigas (?cat=futebol, todos), as duas regras juntas (4 dias para trás).
-const DIAS_ANTES = 4, DIAS_DEPOIS = 7, DIAS_ULTIMA = 7;
+// têm jogos nos próximos 7. Sem categoria, qualquer das duas.
+const DIAS_DEPOIS = 7, DIAS_ULTIMA = 7;
 export function competicaoAtiva(L, fase) {
   if (!L || !L.janela) return !!L;
   const t = agora(), dia = 86400e3;
@@ -396,7 +396,7 @@ export function competicaoAtiva(L, fase) {
   const depois = proximo != null && Date.parse(proximo) - t <= DIAS_DEPOIS * dia && Date.parse(proximo) >= t - dia;
   if (fase === 'ultima') return antes(DIAS_ULTIMA);
   if (fase === 'proxima') return depois;   // (o que falta da jornada em curso também conta: está em proximo)
-  return antes(DIAS_ANTES) || depois;
+  return antes(DIAS_ULTIMA) || depois;
 }
 
 const eLiga = (L) => !L.tipo || L.tipo === 'liga';
@@ -447,7 +447,7 @@ function cenaOnze(D, chave) {
 // fase "ultima" (Última jornada): por competição, os resultados (a jornada toda), o 11, a classificação e os grupos;
 //   no fim, os marcadores.
 // fase "proxima" (Próxima jornada): os próximos jogos (com o que falta da jornada em curso); no fim, o ranking Elo.
-// Sem fase (categorias antigas ?cat=futebol / todos): tudo junto, como antes.
+// Sem fase: tudo junto (as duas).
 export function cenasFutebol(D, fase) {
   const cenas = [];
   const add = (id, chave, render) => cenas.push({ id, sport: 'football', league: chave, parte: 'futebol', render });

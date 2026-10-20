@@ -49,7 +49,7 @@ export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, 
     if (!scenes.length) { timer = setTimeout(() => ir(1), seconds * 1000); return; }   // sem cenas: espera por dados
     const antes = index;
     index = ((index + delta) % scenes.length + scenes.length) % scenes.length;
-    // Uma só cena (ex.: ?cat=nba): não a volta a desenhar a cada volta, só reagenda
+    // Uma só cena (ex.: ?cat=aovivo): não a volta a desenhar a cada volta, só reagenda
     if (scenes.length === 1 && atual && antes === index) { agendar(); return; }
     if (delta > 0 && index < antes && atual) pass++;
     montar(scenes[index], true);

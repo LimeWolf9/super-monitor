@@ -1,4 +1,4 @@
-// Cenas da Fórmula 1. As que têm "so: 'f1'" só entram em ?cat=f1.
+// Cenas da Fórmula 1 (a categoria de cada uma está em FASE, em scenes.js).
 import { targetMs } from '../util.js';
 import { esc, badge, teamName, titulo, subtitulo, cara, temCaras } from './base.js';
 
@@ -89,7 +89,7 @@ export const CENAS_F1 = [
   },
   {
     // Duelo entre colegas de equipa: quem ficou à frente na qualificação e na corrida
-    id: 'f1-duelos', sport: 'f1', league: 'f1', parte: 'f1', so: 'f1',
+    id: 'f1-duelos', sport: 'f1', league: 'f1', parte: 'f1',
     tem: (D) => (D.f1.h2h || []).length > 0,
     render: (D) => {
       const barra = (a, b) => { const t = a + b || 1; return `<div class="duelo-barra"><i style="width:${(a / t) * 100}%"></i></div>`; };
@@ -105,7 +105,7 @@ export const CENAS_F1 = [
   },
   {
     // Gráfico da evolução dos pontos do top 5
-    id: 'f1-pontos', sport: 'f1', league: 'f1', parte: 'f1', so: 'f1',
+    id: 'f1-pontos', sport: 'f1', league: 'f1', parte: 'f1',
     tem: (D) => !!(D.f1.evolution && D.f1.evolution.series.length && D.f1.evolution.rounds.length > 1),
     render: (D) => titulo('Fórmula 1', 'Pontos ao longo da época · top 5', 'f1') + `<section class="block graf">${graficoPontos(D)}</section>`,
   },
@@ -130,7 +130,7 @@ export const CENAS_F1 = [
   },
   {
     // Próximo GP: todas as sessões na hora de Portugal e os últimos vencedores no circuito
-    id: 'f1-fds', sport: 'f1', league: 'f1', parte: 'f1', so: 'f1',
+    id: 'f1-fds', sport: 'f1', league: 'f1', parte: 'f1',
     tem: (D) => !!(D.f1.weekend && D.f1.weekend.sessions && D.f1.weekend.sessions.length),
     render: (D) => {
       const w = D.f1.weekend;
@@ -147,7 +147,7 @@ export const CENAS_F1 = [
   },
   {
     // Resumo da última corrida
-    id: 'f1-ultima', sport: 'f1', league: 'f1', parte: 'f1', so: 'f1',
+    id: 'f1-ultima', sport: 'f1', league: 'f1', parte: 'f1',
     tem: (D) => !!(D.f1.last && D.f1.last.podium && D.f1.summary),
     render: (D) => {
       const L = D.f1.last, S = D.f1.summary;
@@ -172,7 +172,7 @@ export const CENAS_F1 = [
   },
   {
     // Estratégia de pneus da última corrida (OpenF1): uma barra por piloto, pela ordem de chegada
-    id: 'f1-pneus', sport: 'f1', league: 'f1', parte: 'f1', so: 'f1',
+    id: 'f1-pneus', sport: 'f1', league: 'f1', parte: 'f1',
     tem: (D) => !!(D.f1.stints && D.f1.stints.drivers && D.f1.stints.drivers.length),
     render: (D) => {
       const S = D.f1.stints;
