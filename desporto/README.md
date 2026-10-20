@@ -38,7 +38,7 @@ Por defeito, tudo ligado:
 
 | Grupo | Competições |
 |---|---|
-| Portugal | Liga Portugal, Taça de Portugal. **A Taça da Liga e a Supertaça não têm fonte grátis e sem chave** (a ESPN não as tem; a FotMob e a SofaScore recusam pedidos): aparecem na página, mas não se podem ligar |
+| Portugal | Liga Portugal, Taça de Portugal. A **Taça da Liga** é opcional e vem desligada (ver "Taça da Liga (opcional)"). **A Supertaça não tem fonte grátis e sem chave** (não está na ESPN nem na API da Liga Portugal, porque é da FPF): aparece na página, mas não se pode ligar |
 | Inglaterra, Espanha, Alemanha, Itália, França | a liga, e as taças (Taça de Inglaterra, Taça da Liga inglesa, Taça do Rei, Taça da Alemanha, Taça de Itália, Taça de França) **só a partir dos oitavos** |
 | Europa | Liga dos Campeões, Liga Europa, Liga Conferência, Supertaça Europeia |
 | Seleções | **Portugal**: todos os jogos, com os amigáveis. **Brasil** e **Argentina**: só os oficiais (Mundial, qualificação sul-americana, Copa América). **Liga das Nações**: só a Liga A. **Qualificação do Mundial** (Europa) e **do Europeu**: todos os jogos. **Mundial** e **Europeu** (fase final): todos os jogos |
@@ -103,7 +103,7 @@ Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogad
 - Botão **Atualizar** do comando do MonitorHub (ação `atualizar`; no teclado, tecla **U**): começa logo a atualização. Se já estiver a atualizar, o hub mostra "Já está a atualizar".
 - Durante a atualização aparece uma barra em baixo: "A atualizar: Futebol (2/8) · 0:18 de ~0:38". A estimativa vem do que cada passo demorou da última vez (`data/duracoes.json`). No fim aparece "Atualizado às 10:52" durante uns segundos (ou que parte falhou, que fica com os dados anteriores), e o ecrã recarrega os dados sozinho.
 - Em todos os ecrãs, no canto de baixo: "Dados de hoje 09:12", com a hora da parte desse ecrã (F1, futebol...).
-- Os passos, em série: F1 → futebol → 11 da jornada → ClubElo → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
+- Os passos, em série: F1 → futebol → Taça da Liga → 11 da jornada → ClubElo → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
 - Por baixo: `POST /api/atualizar` começa (recusa com 409 se já houver uma a correr) e `GET /api/atualizar/estado` diz o passo, os feitos de N, o tempo decorrido e o estimado.
 
 **Atualizar sem abrir o dashboard** (ex.: pelo MonitorHub): `.venv\Scripts\python.exe tools\atualizar_tudo.py`, na pasta do projeto. É o mesmo código do botão do dashboard.
@@ -180,6 +180,15 @@ Em `todos` continuam só as duas cenas de sempre (`f1` e `f1-gp`), para a volta 
 - Antes de a época regular começar não há classificação nem líderes: ficam a `null` e as cenas `nba` e `nba-noite` saem da rotação até haver dados.
 - Corrida ao MVP e ao Rookie do Ano (cena `nba-premios`): odds "futures" das casas de apostas que a ESPN publica (DraftKings), sem chave. As odds passam a probabilidade implícita, normalizada entre os 5 favoritos, e o subtítulo da cena diz a fonte. Antes da época, a linha de cada jogador mostra as odds (ex.: "Odds +210"); depois, as médias da época.
 - Guarda também o melhor marcador da noite (box score de cada jogo), para o jogador em destaque.
+
+### Taça da Liga (opcional, `atualizar_taca_liga.py`)
+
+- Mostra a Taça da Liga (Allianz Cup) como as outras taças: os resultados da ronda, os jogos seguintes, a fase no subtítulo e o FC Porto em destaque.
+- A ESPN não a tem: os dados vêm da **API pública do site da Liga Portugal** (`ligaportugal.pt/api/v1/competition/...`, sem chave). A época calcula-se sozinha (a partir de julho, a nova).
+- **Vem desligada.** Os termos de utilização da Liga Portugal só permitem uso pessoal e não comercial: quem a ligar deve lê-los e respeitá-los (`ligaportugal.pt/pages/termos-e-condicoes`).
+- **Ligar**: em `/definicoes`, grupo Portugal, caixa "Taça da Liga", e **Gravar e atualizar já**.
+- Nada do que vem desta API vai para o git: os resultados ficam no `data/live.json` e os emblemas em `web/img/`, ambos fora do git. Este repositório não tem nenhuma cópia desses dados.
+- É um passo próprio da atualização: se falhar, fica o que estava; desligada, sai do `live.json`.
 
 ### ClubElo (`atualizar_elo.py`)
 
