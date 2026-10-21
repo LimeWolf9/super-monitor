@@ -1,26 +1,43 @@
 # Super Monitor
 
 Um monitor de 34" na parede, rodado na vertical, que funciona como uma "TV" de casa:
-um menu de apps (desporto, despesas do casal, e o que vier), comandado pelo telemóvel.
-Cada app só corre enquanto está escolhida.
+um ecrã de repouso (o Início) e apps (desporto, despesas do casal, e o que vier), escolhidas e
+comandadas pelo telemóvel. Cada app só corre enquanto está escolhida.
 
 Projeto pessoal, feito em Python (só biblioteca padrão no hub e no desporto) e
 HTML/CSS/JS sem frameworks.
 
 <p align="center">
-  <img src="docs/capturas/hub-menu.png" width="200" alt="Menu do hub no monitor">
+  <img src="docs/capturas/inicio.png" width="200" alt="Início do hub no monitor">
   <img src="docs/capturas/comando.png" width="200" alt="Comando no telemóvel">
   <img src="docs/capturas/desporto-resultados.png" width="200" alt="Resultados da Liga Portugal">
   <img src="docs/capturas/despesas-demo.png" width="200" alt="Despesas do mês (dados fictícios)">
 </p>
 
-> Todas as capturas usam dados fictícios (`?mock=1` no desporto, "Despesas (demo)" no hub).
+> Todas as capturas usam dados fictícios (`?mock=1` no desporto e no Início, "Despesas (demo)" no hub).
+
+## Versão 1.0
+
+A primeira versão fechada do ecrã (tag `v1.0`):
+
+- **Hub:** na parede só o Início (hora, tempo, os jogos de hoje, o FC Porto, a F1, a seleção quando joga nas
+  próximas 2 semanas, notícias), o código, o loading e a app aberta. As apps escolhem-se no comando do
+  telemóvel, agrupadas; ⌂ volta sempre ao Início. Tudo no estilo "Liquid Glass".
+- **Desporto:** três categorias, **Última jornada**, **Ao vivo** (os jogos a decorrer, a atualizar a cada 30 s,
+  com acompanhamento dos escolhidos e destaque dos golos) e **Próxima jornada** (com o que falta da jornada em
+  curso primeiro). Futebol das competições escolhidas, Fórmula 1 e **NBA** (classificação, noite passada, esta
+  noite e prémios). O tempo de cada ecrã depende de quanto mostra.
+- **Despesas:** só totais do mês e os objetivos, com **PIN** (o bloqueio cresce a cada 5 erros) e uma versão
+  demo com dados inventados.
+- **Fontes e definições:** em `/definicoes` escolhem-se as competições e vê-se como correu cada fonte; o comando
+  diz que fontes falharam na última atualização. Configuração local fora do git (`apps.local.json` e
+  `config.local.json` só com o que muda).
 
 ## As partes
 
 | Pasta | O que é |
 |---|---|
-| [`hub/`](hub/) | **MonitorHub.** Servidor (Python, stdlib) com a lista de apps em `apps.json`. O monitor abre sempre a mesma página (menu, ecrã de carregamento, app ativa num iframe); o telemóvel abre `/comando`, uma PWA com setas, OK, voltar, pausa, menu e ⏻. Arranca e para o processo de cada app a pedido. |
+| [`hub/`](hub/) | **MonitorHub.** Servidor (Python, stdlib) com a lista de apps em `apps.json`. O monitor abre sempre a mesma página (o Início, o ecrã de carregamento, a app ativa num iframe); o telemóvel abre `/comando`, uma PWA com as apps, setas, OK, voltar, pausa, ⌂ Início e ⏻. Arranca e para o processo de cada app a pedido. |
 | [`desporto/`](desporto/) | **Dashboard desportivo** 1080×2560: futebol (Liga Portugal, Premier League, La Liga, Bundesliga, Ligue 1, Serie A e taças europeias), Fórmula 1 e NBA, com notícias. Cenas em rotação, controladas pelo comando. Todas as fontes são públicas e sem chave de API (ESPN, Jolpica F1, OpenF1, Record RSS, Wikipédia). |
 | [despesas-casal](https://github.com/LimeWolf9/despesas-casal) (repositório à parte) | **Despesas do casal.** App Streamlit + SQLite que importa extractos bancários em PDF, valida cada um pelos saldos, e categoriza por regras que aprendem com um clique. Exporta só totais (sem movimentos nem saldo) para a página do monitor (`hub/web/apps/despesas.html`). Tem modo demo com dados inventados. |
 
@@ -40,7 +57,7 @@ HTML/CSS/JS sem frameworks.
 - **Atualizar sem abrir a app:** o hub corre o atualizador de uma app e mostra o progresso
   no comando, lendo um JSON de estado que a app escreve.
 - **Código por app:** uma app pode pedir um PIN, marcado no teclado do comando e verificado
-  só no servidor (5 erros = 1 minuto bloqueado).
+  só no servidor (a cada 5 erros o bloqueio cresce: 1, 5, 15 e 60 minutos).
 - **Ecrã desligado:** ⏻ fecha a app e apaga o ecrã; o `config.json` tem ganchos para
   desligar o monitor a sério (ex.: Home Assistant, no futuro).
 
@@ -78,7 +95,7 @@ no monitor que estiver na vertical.
 
 - Correr tudo num mini PC (Linux + Docker) ligado ao monitor, com as apps a arrancar em containers.
 - Home Assistant a mandar os mesmos comandos que o telemóvel (ligar o monitor, abrir uma app).
-- NBA quando começar a época; tempos ao vivo da F1.
+- A F1 ao vivo (o Ao vivo já tem o sítio para ela).
 
 ## Licença
 
