@@ -9,6 +9,8 @@ data/competicoes.json por GET/POST /api/competicoes (ver tools/competicoes.py).
 Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a decorrer agora (tools/aovivo.py, 30 s
 de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json. GET /api/aovivo/cara?pid=&nome=&sigla=
 dá a cara de quem marcou. Os mapas de base estão em web/mapas/; o OSM à volta dos estádios em data/estadios_osm/.
+Estádios (na página /definicoes): GET /api/estadios dá o progresso do "tools/estadios.py --todos" e o fim do registo;
+POST /api/estadios/continuar arranca-o num processo à parte (409 se já estiver a correr).
 
 Os dados só se atualizam quando se pede (no dashboard: o botão "atualizar" do comando, ou a tecla U). O pedido chega por POST /api/atualizar; GET /api/atualizar/estado diz em que passo vai.
 É o mesmo código de "python tools/atualizar_tudo.py" (que atualiza sem o servidor, ex.: pelo MonitorHub): os
@@ -21,6 +23,7 @@ import argparse
 import json
 import posixpath
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -36,6 +39,7 @@ sys.path.insert(0, str(RAIZ / "tools"))
 import atualizar_tudo   # noqa: E402  (o mesmo código do comando "python tools/atualizar_tudo.py")
 import competicoes      # noqa: E402  (a lista das competições e a escolha em data/competicoes.json)
 import aovivo           # noqa: E402  (os jogos a decorrer: GET /api/aovivo, para o ecrã Ao vivo)
+import estadios         # noqa: E402  (o --todos dos estádios do mapa: GET /api/estadios)
 
 def comecar_atualizacao():
     """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub)."""
@@ -46,6 +50,25 @@ def comecar_atualizacao():
         if atualizar_tudo.a_correr():
             break
         time.sleep(0.05)
+    return True
+
+
+def continuar_estadios():
+    """Arranca "tools/estadios.py --todos" num processo à parte, que continua mesmo se o servidor parar.
+    False se já houver um a correr (a tranca dele)."""
+    if estadios.todos_a_correr():
+        return False
+    flags = 0
+    if sys.platform == "win32":   # sem janela e fora do grupo do servidor
+        flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    with open(estadios.REGISTO, "ab") as registo:
+        subprocess.Popen([sys.executable, "-u", str(RAIZ / "tools" / "estadios.py"), "--todos"], cwd=RAIZ,
+                         stdin=subprocess.DEVNULL, stdout=registo, stderr=subprocess.STDOUT,
+                         creationflags=flags, close_fds=True)
+    for _ in range(40):   # espera que a tranca exista, para o estado devolvido já dizer "a correr"
+        if estadios.todos_a_correr():
+            break
+        time.sleep(0.1)
     return True
 
 
@@ -108,6 +131,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.responder_json(estado_atual())
         if caminho == "/api/competicoes":
             return self.responder_json(definicoes())
+        if caminho == "/api/estadios":
+            return self.responder_json(estadios.estado_todos())
         if caminho == "/api/aovivo":
             # ?seguir=id1,id2: os jogos seguidos vêm sempre, mesmo acabados; ?simular=1: os de ontem a fingir
             q = parse_qs(urlsplit(self.path).query)
@@ -138,6 +163,9 @@ class Handler(SimpleHTTPRequestHandler):
             except (ValueError, AttributeError) as e:
                 return self.responder_json({"erro": str(e)}, 400)
             return self.responder_json({"ligadas": competicoes.gravar(escolha)})
+        if caminho == "/api/estadios/continuar":
+            comecou = continuar_estadios()
+            return self.responder_json({"comecou": comecou, **estadios.estado_todos()}, 202 if comecou else 409)
         if caminho != "/api/atualizar":
             return self.send_error(404)
         comecou = comecar_atualizacao()
@@ -146,7 +174,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def log_message(self, formato, *args):
         # str(): nos erros (send_error) o 1.º argumento é um HTTPStatus, não o pedido
-        if "/api/atualizar/estado" not in (str(args[0]) if args else ""):   # o dashboard pergunta a cada segundo
+        pedido = str(args[0]) if args else ""
+        if "/api/atualizar/estado" not in pedido and "/api/estadios " not in pedido:   # perguntam a cada poucos segundos
             super().log_message(formato, *args)
 
     def end_headers(self):

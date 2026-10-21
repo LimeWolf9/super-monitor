@@ -44,6 +44,15 @@
     .fonte.falhou .sim { color: #ff6b6b; }
     .fonte .erro { color: #ff9b9b; font-size: 14px; overflow-wrap: anywhere; }
     .fonte.aviso .erro { color: #ffd88a; }
+    /* Estádios do mapa: o "tools/estadios.py --todos" (GET /api/estadios, POST /api/estadios/continuar) */
+    #estadios { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+    #estadios .linha { display: flex; gap: 12px; align-items: baseline; }
+    #estadios .linha .nota { margin-left: auto; text-align: right; }
+    .progresso { height: 8px; border-radius: 4px; background: var(--linha); overflow: hidden; }
+    .progresso > div { height: 100%; background: var(--cor); width: 0; transition: width .4s; }
+    #estadios pre { margin: 0; padding: 10px; border-radius: 10px; background: var(--fundo); color: var(--apagado);
+      font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #estadios .ok { color: var(--ok); } #estadios .mal { color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -53,6 +62,9 @@
   <h2>Fontes</h2>
   <p class="intro">Como correu cada fonte na última vez que se tentou: ✓ trouxe dados, ⚠ respondeu sem dados, ✗ falhou (fica com os dados anteriores).</p>
   <section id="fontes">A carregar…</section>
+  <h2>Estádios do mapa</h2>
+  <p class="intro">Coordenadas e ruas (OpenStreetMap) dos estádios de todos os jogos da época, para o mapa do Ao vivo não ter de esperar. Fase A: coordenadas; fase B: ruas, ~1 minuto por estádio. Se parar (ex.: o PC desligou), "Continuar download" retoma onde ficou.</p>
+  <section id="estadios">A carregar…</section>
   <div class="barra"><div>
     <div id="estado"></div>
     <button id="gravar">Gravar</button>
@@ -150,6 +162,36 @@ async function mostrarFontes() {
   } catch (e) { caixa.textContent = `Não consegui ler as fontes (${e.message}).`; }
 }
 mostrarFontes();
+
+// Estádios do mapa: o estado do --todos, a cada 10 s
+const FASE = { lista: 'a juntar os jogos da época', A: 'fase A: coordenadas', B: 'fase B: ruas (OpenStreetMap)', fim: 'feito' };
+const duracao = (s) => s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.round(s % 3600 / 60)).padStart(2, '0')} min` : `${Math.max(1, Math.round(s / 60))} min`;
+async function mostrarEstadios() {
+  const caixa = document.getElementById('estadios');
+  try {
+    const e = await (await fetch('/api/estadios', { cache: 'no-store' })).json();
+    const titulo = e.a_correr ? `<span class="ok">● A correr</span> · ${esc(FASE[e.fase] || '')}`
+      : e.estado === 'ok' ? '<span class="ok">✓ Feito</span>'
+      : e.estado ? `<span class="mal">■ Parado</span>${e.erro ? ` · ${esc(e.erro)}` : ''}` : 'Ainda não correu';
+    const pct = e.total ? Math.round(100 * e.feitos / e.total) : 0;
+    const falta = e.a_correr && e.estimativa_s ? `falta ~${duracao(Math.max(0, e.estimativa_s - e.decorrido_s))}` : '';
+    caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${falta ? ` · ${falta}` : ''}</span></div>
+      ${e.total ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}
+      ${e.passo ? `<span class="nota">${esc(e.passo)}</span>` : ''}
+      ${e.registo && e.registo.length ? `<pre>${esc(e.registo.slice(-5).join('
+'))}</pre>` : ''}
+      <button id="continuar" ${e.a_correr ? 'disabled' : ''}>${e.a_correr ? 'A descarregar…' : 'Continuar download'}</button>`;
+    caixa.querySelector('#continuar').addEventListener('click', async (ev) => {
+      ev.currentTarget.disabled = true;
+      const r = await fetch('/api/estadios/continuar', { method: 'POST' });
+      if (r.status === 409) aviso('Os estádios já estavam a descarregar.');
+      else aviso(r.ok ? 'A descarregar os estádios.' : `Não arrancou (HTTP ${r.status})`, r.ok);
+      mostrarEstadios();
+    });
+  } catch (e) { caixa.textContent = `Não consegui ler o estado dos estádios (${e.message}).`; }
+}
+mostrarEstadios();
+setInterval(mostrarEstadios, 10000);
 
 fetch('/api/competicoes').then((r) => r.json()).then(montar)
   .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });

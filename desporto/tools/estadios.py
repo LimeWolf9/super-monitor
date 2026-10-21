@@ -577,7 +577,11 @@ def preparar(venues, mostrar=print):
 
 PROGRESSO = RAIZ / "data" / "estadios_todos.json"   # o progresso, no formato do data/atualizacao.json
 MESES = 8                    # os jogos de hoje até ao fim da época (os estádios de todas as equipas)
-PAUSA_TODOS = 5.0            # mais calma do que no resto: são centenas de pedidos seguidos
+PAUSA_TODOS = 5.0            # Overpass (fase B): mais calma do que no resto, são centenas de pedidos seguidos
+PAUSA_WIKIDATA = 1.0         # Wikidata (fase A): ~1 pedido por segundo chega (cada estádio são ~4 pedidos)
+REGISTO = RAIZ / "data" / "estadios_todos.log"    # o que o --todos escreve (pela página /definicoes ou à mão)
+TRANCA_TODOS = RAIZ / "data" / "estadios_todos.lock"
+TRANCA_VELHA_S = 120         # a tranca toca-se a cada 20 s: mais velha do que isto é de um --todos que morreu
 RONDAS = 4                   # voltas aos que deram erro de rede (cada uma ao fim de REPETIR_ERRO_S)
 
 
@@ -654,6 +658,32 @@ def duplicados(futebol, mostrar):
     mostrar(f"Duplicados prováveis: {n} (só listados, nada se apagou)")
 
 
+def todos_a_correr():
+    """Há um --todos a correr (aqui ou noutro processo)? Pela tranca, que ele toca a cada 20 s."""
+    try:
+        return time.time() - TRANCA_TODOS.stat().st_mtime < TRANCA_VELHA_S
+    except OSError:
+        return False
+
+
+def estado_todos(linhas=12):
+    """Para a página /definicoes: o progresso (data/estadios_todos.json), se está mesmo a correr, e o fim do registo."""
+    try:
+        estado = json.loads(PROGRESSO.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        estado = {"estado": None}
+    try:
+        with open(REGISTO, "rb") as f:
+            f.seek(max(0, f.seek(0, 2) - 8000))
+            fim = f.read().decode("utf-8", "replace").splitlines()[-linhas:]
+    except OSError:
+        fim = []
+    vivo = todos_a_correr()
+    if estado.get("estado") == "a correr" and not vivo:
+        estado["estado"] = "parado"   # o processo morreu a meio (ex.: o PC desligou): continua com --todos
+    return {**estado, "a_correr": vivo, "registo": fim}
+
+
 def todos():
     """Prepara já todos os estádios da época, para o mapa nunca ter de esperar.
 
@@ -661,11 +691,27 @@ def todos():
     estádios de futebol que faltam, um de cada vez, o do jogo mais próximo primeiro. Grava depois de cada estádio:
     se parar a meio, volta a correr e continua onde ficou. Os erros de rede repetem-se ao fim de 15 minutos
     (RONDAS vezes); um estádio que não se encontrou fica para o dia seguinte (como no resto). O progresso fica em
-    data/estadios_todos.json."""
-    global PAUSA
-    PAUSA = max(PAUSA, PAUSA_TODOS)
+    data/estadios_todos.json; a tranca (data/estadios_todos.lock) impede dois ao mesmo tempo."""
+    if todos_a_correr():
+        print("Já há um --todos a correr (data/estadios_todos.lock).")
+        return
+    TRANCA_TODOS.write_text(str(time.time()), encoding="utf-8")
+    vivo = threading.Event()
+
+    def tocar():   # a tranca é o sinal de que está vivo (a página /definicoes e o botão "Continuar" leem-na)
+        while not vivo.wait(20):
+            TRANCA_TODOS.touch()
+    threading.Thread(target=tocar, daemon=True).start()
+    try:
+        _todos()
+    finally:
+        vivo.set()
+        TRANCA_TODOS.unlink(missing_ok=True)
+
+
+def _todos():
     t0 = time.time()
-    estado = {"estado": "a correr", "passo": "Estádios: lista", "feitos": 0, "total": 0, "decorrido_s": 0,
+    estado = {"estado": "a correr", "fase": "lista", "passo": "Estádios: lista", "feitos": 0, "total": 0, "decorrido_s": 0,
               "estimativa_s": None, "inicio_em": time.strftime("%Y-%m-%dT%H:%M:%S"), "terminado_em": None, "erro": None}
 
     def gravar_progresso(**mudar):
@@ -678,6 +724,16 @@ def todos():
         print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
 
     gravar_progresso()
+    try:
+        _fases(gravar_progresso, mostrar, t0)
+    except Exception as ex:
+        mostrar(f"Erro: {ex!r} (corre outra vez --todos para continuar)")
+        gravar_progresso(estado="erro", erro=str(ex)[:200], terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        raise
+
+
+def _fases(gravar_progresso, mostrar, t0):
+    global PAUSA
     lista = _todos_venues(mostrar)
     estadios_ = [(quando, info(v, d), d) for quando, v, d in lista]
     estadios_ = [(q, e, d) for q, e, d in estadios_ if e]
@@ -687,8 +743,13 @@ def todos():
     # Fase A: só as coordenadas
     a_fazer = [e for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is None]
     mostrar(f"Fase A: coordenadas de {len(a_fazer)} estádios (os outros já estão)")
+    PAUSA = PAUSA_WIKIDATA
+    sem_osm = sum(1 for _q, e in futebol if not ficheiro_osm(e["id"]).exists())
+    t1 = time.time()
     for i, e in enumerate(a_fazer, 1):
-        gravar_progresso(passo=f"Coordenadas: {e['nome']}", feitos=i - 1, total=len(a_fazer))
+        media = (time.time() - t1) / (i - 1) if i > 1 else 6
+        gravar_progresso(fase="A", passo=f"Coordenadas: {e['nome']}", feitos=i - 1, total=len(a_fazer),
+                         estimativa_s=round(time.time() - t0 + media * (len(a_fazer) - i + 1) + 65 * sem_osm))
         r = resolver(e, False)
         mostrar(f"A {i}/{len(a_fazer)} {e['nome']} ({e.get('cidade') or '?'}): "
                 + (f"{r['lat']}, {r['lon']} ({r.get('fonte')})" if r.get("lat") is not None else f"sem coordenadas {r.get('erro') or ''}"))
@@ -696,6 +757,7 @@ def todos():
     mostrar(f"Fase A feita: {com}/{len(estadios_)} com coordenadas")
 
     # Fase B: o OSM, o do jogo mais próximo primeiro (a lista já vem por data)
+    PAUSA = max(PAUSA, PAUSA_TODOS)
     for ronda in range(RONDAS):
         a_fazer = [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)
                    and ler().get(e["id"], {}).get("lat") is not None]
@@ -703,12 +765,13 @@ def todos():
             break
         if ronda:
             mostrar(f"Ronda {ronda + 1}: {len(a_fazer)} com erro de rede; a esperar {REPETIR_ERRO_S // 60} minutos")
+            gravar_progresso(passo=f"À espera {REPETIR_ERRO_S // 60} min para repetir {len(a_fazer)} com erro de rede")
             time.sleep(REPETIR_ERRO_S + 5)
         mostrar(f"Fase B: OpenStreetMap de {len(a_fazer)} estádios (~1 minuto cada)")
         t1 = time.time()
         for i, e in enumerate(a_fazer, 1):
             media = (time.time() - t1) / (i - 1) if i > 1 else 60
-            gravar_progresso(passo=f"OpenStreetMap: {e['nome']}", feitos=i - 1, total=len(a_fazer),
+            gravar_progresso(fase="B", passo=f"OpenStreetMap: {e['nome']}", feitos=i - 1, total=len(a_fazer),
                              estimativa_s=round(time.time() - t0 + media * (len(a_fazer) - i + 1)))
             r = resolver(e, True)
             ok = ficheiro_osm(e["id"]).exists()
@@ -721,7 +784,7 @@ def todos():
     osm = sum(1 for _q, e in futebol if ficheiro_osm(e["id"]).exists())
     com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
     fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap"
-    gravar_progresso(estado="ok", passo=None, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"), feitos=estado["total"], erro=None)
+    gravar_progresso(estado="ok", fase="fim", passo=fim, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"), feitos=osm, total=len(futebol), erro=None)
     mostrar("Feito: " + fim)
     duplicados([e for _q, e in futebol], mostrar)
 

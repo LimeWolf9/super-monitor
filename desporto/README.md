@@ -277,6 +277,9 @@ ainda não tem coordenadas fica fora do mapa, mas com o cartão.
   progresso fica em `data/estadios_todos.json` (formato do `data/atualizacao.json`).
   Cada chave da ESPN descarrega-se uma vez. No fim, o registo lista (sem apagar nem juntar) os estádios que parecem
   o mesmo com chaves diferentes: o ponto de um dentro do contorno do estádio do outro.
+  Na página `/definicoes` (secção "Estádios do mapa") vê-se o estado, a fase, feitos/total, o tempo que falta e o
+  fim do registo; o botão "Continuar download" arranca o `--todos` num processo à parte se não estiver a correr
+  (`GET /api/estadios`, `POST /api/estadios/continuar`; a tranca `data/estadios_todos.lock` impede dois ao mesmo tempo).
 - **Mapas de base**: `web/mapas/europa.json`, `america_norte.json`, `america_sul.json` (países a 50 m; cidades, costa,
   rios e lagos a 10 m para o meio do zoom; o da América do Norte, da NBA, só tem os países e os estados dos EUA), gerados por `tools/gerar_mapas.py` a partir do Natural Earth. Guardam
   longitude/latitude; a projeção (Lambert azimutal de áreas iguais, centrada em cada continente) faz-se no browser.

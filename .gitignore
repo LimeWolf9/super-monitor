@@ -28,3 +28,4 @@ hub/config.local.json
 
 # Lista privada da verificação antes de cada commit
 .privado.txt
+desporto/data/estadios_todos.lock
