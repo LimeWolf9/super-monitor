@@ -35,12 +35,15 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
   pergunta ao servidor a cada 30 s enquanto está aberto (`GET /api/aovivo`, com 30 s de cache), e não grava no `live.json`.
   Vai à ESPN só nas competições ligadas que jogam hoje (segundo o `live.json`), à Liga Portugal quando há jogo da Taça da
   Liga e à NBA. A lista mostra os jogos a decorrer, por competição, com o resultado e o minuto; os do FC Porto e de
-  Portugal vêm marcados. ▲▼ foco, OK marca/desmarca, ▶ (ou "Acompanhar") abre o acompanhamento: até 4 cartões por ecrã
-  (◀▶ mudam de página) com os golos, penáltis e vermelhos; um golo num jogo seguido mostra "⚽ GOLO" durante uns
-  segundos, e um jogo que acabe fica com "Terminado". ↩ volta à lista, e na lista ao menu do hub. Sem jogos: "Sem jogos
-  ao vivo" e o próximo jogo. A F1 ainda não (o sítio para a acrescentar é `FONTES` em `ao_vivo()`).
-  Para testar sem jogos a decorrer: `?cat=aovivo&simular=1` (os jogos de ontem a fingir que estão a decorrer, 6 min de
-  jogo por minuto real).
+  Portugal vêm marcados. ▲▼ foco, OK marca/desmarca, ▶ (ou "Acompanhar") abre o acompanhamento (ver "Mapa do Ao
+  vivo" abaixo): o mapa dos estádios em cima e os cartões por baixo, 2 por linha e até 6 por página (com mais jogos as
+  páginas trocam sozinhas a cada 10 s; ◀▶ também trocam), com os golos, penáltis e vermelhos; um jogo que acabe fica
+  com "Terminado". ↩ volta à lista, e na lista ao menu do hub. Sem jogos: "Sem jogos ao vivo" e o próximo jogo. A F1
+  ainda não (o sítio para a acrescentar é `FONTES` em `ao_vivo()`).
+  Para testar sem jogos a decorrer: `?cat=aovivo&simular=1` (os jogos de ontem, futebol e NBA, a fingir que estão a
+  decorrer: começam no minuto 55 e andam 1 minuto a cada 2 s; aos 10 s entra um golo inventado num jogo seguido).
+  Só com o `simular=1`: `&seguir=futebol6,nba2` (segue os primeiros N de cada desporto, ou ids), `&vista=seguir` (abre
+  logo o acompanhamento) e `&golo=LIV` (a equipa do golo inventado).
 - As jornadas agrupam-se pelas datas dos jogos: mais de 40 h sem jogos separa duas jornadas (assim uma jornada de fim de semana e a de meio da semana a seguir ficam separadas). Nas taças e seleções conta a fase de cada jogo.
 
 O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~55 s (na primeira vez mais,  porque descarrega os emblemas dos clubes e as bandeiras).
@@ -243,6 +246,38 @@ Calculado a partir do `live.json`, sem pedidos à rede:
 - As outras competições escolhidas que jogam nesta semana (ligas, taças e seleções): notícias da ESPN para essa competição, em inglês (sem vídeos). Nas taças pequenas a ESPN quase nunca tem.
 - Só as dos últimos 3 dias, até 6 por liga. A cena mostra a fonte ("Notícias: Record"). Se uma liga não tiver notícias, os jogos ficam com o ecrã todo.
 - O código das notícias está separado do dos jogos (`blocoNoticias` em `web/js/cenas/futebol.js`): se um dia passarem para uma página "Notícias" própria, basta usá-lo noutra cena.
+
+## Mapa do Ao vivo
+
+No acompanhamento, quando todos os jogos seguidos são no mesmo continente (Europa, América do Norte para a NBA, ou
+América do Sul para o Brasil e a Argentina), aparece em cima um mapa (`web/js/mapa.js`) com um ponto a pulsar em cada
+estádio (azul o FC Porto e Portugal, verde os outros) e um balão de vidro com o estádio, os emblemas, o resultado e o
+minuto; os balões arrumam-se sozinhos para não se taparem. Continentes misturados: só os cartões. Um jogo cujo estádio
+ainda não tem coordenadas fica fora do mapa, mas com o cartão.
+
+- **Acontecimentos** (só no futebol): a cada resposta comparam-se os golos, penáltis, autogolos, penáltis falhados e
+  vermelhos de cada jogo seguido com os da resposta anterior. Os novos entram numa fila, pela ordem em que chegam. Cada
+  um: voo "à GTA" até ao estádio (3,8 s, zoom logarítmico até ~1,1 km), o desenho do estádio posto sobre o relvado real
+  com as ruas, linhas de comboio e metro, água, parques e prédios à volta (OpenStreetMap), o destaque (tipo, cara e nome
+  de quem foi, minuto, emblemas e resultado com o lado que mudou a cor) e o nome do estádio durante 5 s (3 s se houver
+  mais de 3 à espera), e o voo de volta (2,4 s). O cartão do jogo brilha entretanto. Sem mapa, só o destaque.
+- **NBA**: mapa dos EUA (e do Canadá, para Toronto) com os pontos e o resultado/período; sem zoom nem destaques.
+- **Estádios** (`tools/estadios.py`): o estádio de cada jogo vem da ESPN (o mesmo scoreboard); as coordenadas da
+  Wikidata (pesquisa pelo nome, P625, confirmada pela cidade; senão a cidade), em `data/estadios.json`. No futebol, o
+  OpenStreetMap à volta (Overpass: ruas num raio de 2,5 km mais as estradas grandes até 15 km, prédios a 350 m, o
+  estádio e o relvado, que dá o centro e o ângulo do desenho), já simplificado, em `data/estadios_osm/<id>.json`.
+  Ambos são cache local (fora do git). Pedidos um de cada vez, com pausa e User-Agent próprio: na atualização à mão
+  (passo "Estádios", `tools/atualizar_estadios.py`: os jogos dos próximos 7 dias que faltam, até 7 minutos por
+  atualização; o Overpass demora ~1 min por estádio) e, num jogo a decorrer sem eles, em fundo pelo servidor.
+- **Mapas de base**: `web/mapas/europa.json`, `america_norte.json`, `america_sul.json` (países a 50 m; cidades, costa,
+  rios e lagos a 10 m para o meio do zoom; o da América do Norte, da NBA, só tem os países e os estados dos EUA), gerados por `tools/gerar_mapas.py` a partir do Natural Earth. Guardam
+  longitude/latitude; a projeção (Lambert azimutal de áreas iguais, centrada em cada continente) faz-se no browser.
+- **Caras**: `GET /api/aovivo/cara` procura na cache das fotos (`web/img/jogadores/`), no facepack (pelo id em
+  `data/facepack_ids.json`) e na ESPN pelo id do atleta; sem cara, aparece o emblema da equipa.
+
+**Créditos**: mapas de base do [Natural Earth](https://www.naturalearthdata.com/) (domínio público). Ruas e estádios
+© [contribuidores do OpenStreetMap](https://www.openstreetmap.org/copyright) (licença ODbL; o mapa mostra
+"© OpenStreetMap" enquanto está perto). Coordenadas dos estádios da [Wikidata](https://www.wikidata.org/) (CC0).
 
 ## Pista da F1
 
