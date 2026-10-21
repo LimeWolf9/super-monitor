@@ -604,37 +604,130 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
   background: var(--accent); color: #04140b; border: 3px solid transparent; }
 .av-acompanhar.vazio { background: var(--vidro); color: var(--muted); font-size: 34px; font-weight: 600; }
 
-.av-cartoes { flex: 1; display: grid; gap: 22px; grid-template-rows: repeat(var(--n, 4), minmax(0, 1fr)); }
-.av-cartoes.n1 { --n: 1; } .av-cartoes.n2 { --n: 2; } .av-cartoes.n3 { --n: 3; } .av-cartoes.n4 { --n: 4; }
-.av-cartao { display: flex; flex-direction: column; gap: 14px; padding: 26px 30px; border-radius: 40px; overflow: hidden;
-  background: var(--vidro); border: 3px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); }
-.av-cartao.me { background: color-mix(in srgb, var(--me) 72%, transparent); }
-.av-cartao.terminado { opacity: .78; }
-.av-comp { font: 700 28px var(--font-head); letter-spacing: 3px; text-transform: uppercase; color: var(--muted); text-align: center; }
-.av-placar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 20px; }
-.av-placar .av-eq { flex-direction: column; text-align: center; justify-content: center; gap: 12px; font-size: 40px; }
-.av-placar .av-eq .badge { width: 120px; height: 120px; font-size: 32px; }
-.av-placar .av-eq .tn { white-space: normal; line-height: 1.05; }
-.av-placar .av-res { font-size: 130px; }
-.av-placar .av-min { font-size: 38px; }
 .av-acont { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); overflow: hidden; min-height: 0; flex: 1; }
 .av-evs { display: flex; flex-direction: column; gap: 6px; font-size: 36px; min-width: 0; }
 .av-evs:first-child { align-items: flex-end; }
 .av-evs .ev-i { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
 .av-evs .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .av-evs .min { color: var(--muted); }
-.av-cartoes.n3 .av-placar .av-res, .av-cartoes.n4 .av-placar .av-res { font-size: 96px; }
-.av-cartoes.n3 .av-placar .av-eq .badge, .av-cartoes.n4 .av-placar .av-eq .badge { width: 84px; height: 84px; }
-.av-cartoes.n4 .av-placar .av-eq { font-size: 32px; gap: 8px; }
-.av-cartoes.n4 .av-evs { font-size: 32px; gap: 2px; }
 
-/* Destaque de golo, por cima de tudo durante uns segundos */
+/* Destaque do acontecimento sem mapa, por cima de tudo durante uns segundos (.av-destaque, mais abaixo) */
 #golo { position: absolute; left: 40px; right: 40px; top: 38%; z-index: 20; display: flex; justify-content: center; pointer-events: none; }
 #golo[hidden] { display: none; }
-.golo-caixa { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 48px 60px; border-radius: 48px; width: 100%;
-  background: var(--accent); color: #04140b; text-align: center; box-shadow: 0 30px 90px rgba(0, 0, 0, .6);
-  animation: golo .6s cubic-bezier(.2, 1.6, .4, 1); }
-.golo-caixa.me { background: var(--me); color: #fff; }
-.golo-caixa b { font: 900 130px/1 var(--font-head); letter-spacing: 4px; }
-.golo-caixa span { font: 700 50px/1.2 var(--font-head); }
-@keyframes golo { from { transform: scale(.6); opacity: 0; } }
+
+/* ---------- Ao vivo, acompanhamento: o mapa (js/mapa.js) em cima e os cartões por baixo, 2 por linha ---------- */
+.scene-aovivo .scene-title { position: relative; z-index: 5; }
+.av-mapa { position: absolute; left: 0; right: 0; top: 210px; height: 1290px; overflow: hidden; }
+.av-mapa > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.av-mapa::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background: linear-gradient(#05060a 0, transparent 120px, transparent calc(100% - 110px), #05060a 100%); }
+.av-base .terra { fill: rgba(150, 190, 220, .10); stroke: rgba(190, 220, 255, .30); stroke-width: 1.2; }
+.av-base .terra.pt { fill: rgba(34, 209, 123, .10); }
+.av-base .lago { fill: #08121e; stroke: rgba(190, 220, 255, .22); stroke-width: 1; }
+.av-base .estados { fill: none; stroke: rgba(190, 220, 255, .22); stroke-width: 1; }
+.av-base * { vector-effect: non-scaling-stroke; }
+.av-base .detalhe .urb { fill: rgba(255, 214, 120, .10); stroke: rgba(255, 214, 120, .35); stroke-width: 1; }
+.av-base .detalhe .costa { fill: none; stroke: rgba(190, 220, 255, .7); stroke-width: 2; }
+.av-base .detalhe .rio { fill: none; stroke: rgba(74, 163, 255, .6); stroke-width: 2.5; }
+.av-base .osm path { fill: none; }
+.av-base .osm .agua { fill: rgba(74, 163, 255, .18); stroke: rgba(74, 163, 255, .35); stroke-width: 1; fill-rule: evenodd; }
+.av-base .osm .parque { fill: rgba(34, 209, 123, .08); stroke: rgba(34, 209, 123, .25); stroke-width: 1; }
+.av-base .osm .edif { fill: rgba(190, 220, 255, .07); stroke: rgba(190, 220, 255, .22); stroke-width: 1; }
+.av-base .osm .rio { stroke: rgba(74, 163, 255, .6); stroke-width: 3; }
+.av-base .osm .ferro { stroke: rgba(255, 255, 255, .22); stroke-width: 2; stroke-dasharray: 8 6; }
+.av-base .osm .metro { stroke: rgba(74, 163, 255, .45); stroke-width: 2.5; }
+.av-base .osm .menor { stroke: rgba(190, 220, 255, .20); stroke-width: 1.5; }
+.av-base .osm .media { stroke: rgba(190, 220, 255, .42); stroke-width: 3; }
+.av-base .osm .maior { stroke: rgba(255, 214, 120, .55); stroke-width: 5; }
+.av-base .osm .estadio { fill: rgba(34, 209, 123, .06); stroke: rgba(34, 209, 123, .6); stroke-width: 2; }
+.av-base .estadio .bancada { fill: rgba(190, 220, 255, .10); stroke: rgba(210, 235, 255, .75); stroke-width: 2.5; }
+.av-base .estadio .bancada2 { fill: rgba(190, 220, 255, .06); stroke: rgba(210, 235, 255, .35); stroke-width: 1.5; }
+.av-base .estadio .degrau { fill: none; stroke: rgba(210, 235, 255, .18); stroke-width: 1; }
+.av-base .estadio .relva { fill: rgba(34, 209, 123, .22); stroke: rgba(34, 209, 123, .9); stroke-width: 2; }
+.av-base .estadio .risca { fill: none; stroke: rgba(255, 255, 255, .7); stroke-width: 1.5; }
+.av-base .estadio .cobertura { fill: none; stroke: rgba(74, 163, 255, .55); stroke-width: 1.5; stroke-dasharray: 6 6; }
+.av-grelha line { stroke: rgba(190, 220, 255, .10); stroke-width: 1; }
+.av-linhas line { stroke: rgba(255, 255, 255, .55); stroke-width: 2.5; }
+.av-linhas { transition: opacity .6s; }
+.av-sitios, .av-camada { position: absolute; inset: 0; }
+.av-camada { z-index: 2; }
+.av-sitio { position: absolute; left: 0; top: 0; margin-top: -19px; padding-left: 22px; font: 600 28px var(--font); color: rgba(255, 255, 255, .7); white-space: nowrap; }
+.av-sitio::before { content: ""; position: absolute; left: 0; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: rgba(255, 255, 255, .6); }
+
+.av-ponto { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity .6s; }
+.av-ponto i { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px var(--accent); }
+.av-ponto b { position: absolute; left: -32px; top: -32px; width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--accent); opacity: .5; animation: av-pulso 2s infinite; }
+@keyframes av-pulso { 0% { transform: scale(.5); opacity: .8; } 100% { transform: scale(1.4); opacity: 0; } }
+.av-ponto.me i { background: #4aa3ff; box-shadow: 0 0 24px #4aa3ff; }
+.av-ponto.me b { border-color: #4aa3ff; }
+.av-pop { position: absolute; left: 0; top: 0; padding: 14px 20px; border-radius: 26px; background: var(--vidro); border: 1.5px solid var(--vidro-borda);
+  box-shadow: var(--vidro-sombra); background-color: rgba(14, 20, 30, .55); backdrop-filter: blur(18px); white-space: nowrap; transition: opacity .6s; }
+.av-pop.me { background-color: color-mix(in srgb, var(--me) 55%, transparent); }
+.av-pop .comp { font: 600 20px var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+.av-pop .placar { display: flex; align-items: center; gap: 14px; }
+.av-pop .placar .badge { width: 54px; height: 54px; font-size: 16px; border-width: 4px; flex: none; }
+.av-pop .placar .tn { font: 700 30px var(--font); }
+.av-pop .placar .res { font: 800 46px var(--font); min-width: 100px; text-align: center; }
+.av-pop .min { display: inline-flex; align-items: center; gap: 8px; font: 700 24px var(--font); color: var(--accent); }
+.av-pop .min.fim { color: var(--muted); }
+.av-pop .min i { width: 12px; height: 12px; border-radius: 50%; background: #ff3b3b; display: inline-block; animation: pisca 1.2s ease-in-out infinite; }
+.av-mapa.esconde .av-pop, .av-mapa.esconde .av-linhas { opacity: 0; }
+.av-credito { position: absolute; right: 24px; bottom: 120px; z-index: 6; font: 500 20px var(--font); color: rgba(255, 255, 255, .7); opacity: 0; transition: opacity .6s; }
+
+/* Destaque do acontecimento (golo, penálti, vermelho): vidro, a cara de quem foi, o resultado com o lado que mudou */
+.av-destaque { position: absolute; left: 50%; top: 40px; z-index: 6; transform: translateX(-50%) scale(.9); opacity: 0; transition: opacity .5s, transform .5s;
+  padding: 26px 44px; border-radius: 40px; border: 2px solid color-mix(in srgb, var(--accent) 80%, transparent); background: var(--vidro); background-color: rgba(10, 30, 20, .65);
+  box-shadow: 0 0 80px color-mix(in srgb, var(--accent) 45%, transparent), var(--vidro-sombra); backdrop-filter: blur(20px); white-space: nowrap; text-align: center; }
+.av-destaque.on { opacity: 1; transform: translateX(-50%) scale(1); }
+.av-destaque.vermelho { border-color: rgba(255, 59, 59, .85); background-color: rgba(40, 10, 12, .65); box-shadow: 0 0 80px rgba(255, 59, 59, .4), var(--vidro-sombra); }
+.av-destaque .tipo { font: 900 100px/1 var(--font); color: var(--accent); letter-spacing: 4px; }
+.av-destaque.vermelho .tipo { color: #ff5a5a; }
+.av-destaque .quem { display: flex; align-items: center; justify-content: center; gap: 22px; font: 700 50px var(--font); margin-top: 10px; }
+.av-destaque .quem .cara { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; background: rgba(255, 255, 255, .12); border: 3px solid var(--accent); flex: none; }
+.av-destaque .quem .sem-cara { display: grid; place-items: center; }
+.av-destaque .quem .sem-cara .badge { width: 84px; height: 84px; font-size: 24px; }
+.av-destaque .placar { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 14px; }
+.av-destaque .placar .badge { width: 92px; height: 92px; font-size: 26px; }
+.av-destaque .placar .res { font: 800 86px/1 var(--font); }
+.av-destaque .placar .res u { text-decoration: none; color: var(--accent); }
+.av-nome-estadio { position: absolute; left: 50%; bottom: 130px; z-index: 6; transform: translateX(-50%); font: 700 40px var(--font); letter-spacing: 6px; text-transform: uppercase;
+  color: rgba(255, 255, 255, .85); opacity: 0; transition: opacity .8s; text-align: center; white-space: nowrap; }
+.av-nome-estadio small { display: block; font: 500 28px var(--font); letter-spacing: 2px; color: var(--muted); margin-top: 6px; text-transform: none; }
+.av-nome-estadio.on { opacity: 1; }
+/* Sem mapa (jogos de continentes diferentes): o mesmo destaque, sem o zoom, no meio do ecrã */
+#golo .av-destaque { position: relative; left: auto; top: auto; transform: scale(.9); }
+#golo .av-destaque.on { transform: scale(1); }
+
+/* Cartões: 2 por linha, até 6 por página (as páginas trocam sozinhas) */
+.av-grelha-cartoes { position: absolute; left: 30px; right: 30px; top: 1520px; bottom: 30px; z-index: 4; display: grid;
+  grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 20px; transition: opacity .5s; }
+.av-grelha-cartoes.sem-mapa { top: 230px; }
+.av-c { display: flex; flex-direction: column; min-height: 0; padding: 16px 20px; border-radius: 28px; overflow: hidden;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); background-color: rgba(14, 20, 30, .5);
+  transition: box-shadow .4s, outline-color .4s; outline: 5px solid transparent; }
+.av-c.me { background-color: color-mix(in srgb, var(--me) 45%, transparent); }
+.av-c.terminado { opacity: .78; }
+.av-c.flash { outline-color: var(--accent); box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent), var(--vidro-sombra); }
+.av-c .cab { font: 600 19px var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; display: flex; gap: 10px; white-space: nowrap; }
+.av-c .cab b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.av-c .cab .av-min { margin-left: auto; font-size: 24px; letter-spacing: 0; flex: none; }
+.av-c .av-min i { width: 11px; height: 11px; }
+.av-c .placar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; margin: 10px 0 4px; }
+.av-c .eq { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 700 26px var(--font); text-align: center; min-width: 0; }
+.av-c .eq .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.av-c .eq .badge { width: 76px; height: 76px; font-size: 22px; border-width: 5px; }
+.av-c .av-res { font: 800 72px/1 var(--font); padding: 0 6px; }
+.av-c .av-res i { padding: 0 4px; }
+.av-c .av-acont { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); margin-top: 6px; }
+.av-c .av-evs { font: 500 21px/1.35 var(--font); color: var(--muted); gap: 0; }
+.av-c .av-evs .ev-i { gap: 6px; }
+.sem-mapa .av-c { padding: 24px 28px; border-radius: 36px; }
+.sem-mapa .av-c .cab { font-size: 24px; }
+.sem-mapa .av-c .cab .av-min { font-size: 32px; }
+.sem-mapa .av-c .eq { font-size: 32px; gap: 10px; }
+.sem-mapa .av-c .eq .badge { width: 110px; height: 110px; font-size: 30px; }
+.sem-mapa .av-c .av-res { font-size: 96px; }
+.av-c.nba .av-res { font-size: 58px; }   /* 3 algarismos de cada lado */
+.sem-mapa .av-c.nba .av-res { font-size: 70px; }
+.sem-mapa .av-c.nba .eq .badge { width: 90px; height: 90px; }
+.sem-mapa .av-c .av-evs { font-size: 27px; }
