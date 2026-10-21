@@ -46,8 +46,6 @@
         "atalho": "Ao vivo",
         "icone": "🔴",
         "descricao": "Jogos a decorrer agora",
-        "em_breve": true,
-        "etiqueta": "Em construção",
         "url": "http://127.0.0.1:8000/?cat=aovivo"
       },
       {

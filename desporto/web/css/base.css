@@ -574,3 +574,67 @@ body.pausado #date { visibility: hidden; }   /* o ⏸ fica no sítio da data */
 .pjs.denso .pr { padding-top: 6px; padding-bottom: 6px; }
 /* Em que desporto e em que ecrã dele estamos ("Futebol 3/24"), no canto de baixo à esquerda */
 #secao { position: absolute; left: 26px; bottom: 10px; z-index: 6; font-size: 22px; color: var(--muted); opacity: .75; }
+
+/* ---------- Ao vivo (?cat=aovivo, js/aovivo.js): lista dos jogos a decorrer e acompanhamento ---------- */
+body.aovivo #progress { visibility: hidden; }   /* não há rotação */
+.scene-aovivo { overflow: hidden; }
+.av-lista { display: flex; flex-direction: column; gap: 14px; overflow: hidden; flex: 1; }
+.av-grupo { display: flex; flex-direction: column; gap: 10px; }
+.av-linha { display: grid; grid-template-columns: 56px minmax(0, 1fr) 230px minmax(0, 1fr); align-items: center; gap: 12px;
+  min-height: 112px; padding: 0 22px; border-radius: 28px; background: var(--vidro); border: 3px solid var(--vidro-borda);
+  box-shadow: var(--vidro-sombra); }
+.av-linha.me { background: color-mix(in srgb, var(--me) 70%, transparent); }
+.av-linha.foco, .av-acompanhar.foco { border-color: #fff; box-shadow: 0 0 0 5px var(--accent), var(--vidro-sombra); }
+.av-check { width: 48px; height: 48px; border-radius: 14px; border: 4px solid var(--muted); display: grid; place-items: center;
+  font: 800 34px var(--font-head); color: #06210f; }
+.av-linha.seguido .av-check { background: var(--accent); border-color: var(--accent); }
+.av-eq { display: flex; align-items: center; gap: 14px; min-width: 0; font-size: 36px; font-weight: 600; }
+.av-eq.casa { justify-content: flex-end; text-align: right; }
+.av-eq .badge { width: 66px; height: 66px; font-size: 20px; border-width: 5px; flex: none; }
+.av-eq .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.av-meio { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.av-res { font: 800 62px/1 var(--font-head); white-space: nowrap; }
+.av-res i { font-style: normal; color: var(--muted); padding: 0 8px; }
+.av-min { font: 700 28px var(--font-head); color: var(--accent); display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
+.av-min i { width: 14px; height: 14px; border-radius: 50%; background: #ff3b3b; animation: pisca 1.2s ease-in-out infinite; }
+.av-min.pausa i { background: var(--muted); animation: none; }
+.av-min.fim { color: var(--muted); }
+@keyframes pisca { 50% { opacity: .25; } }
+.av-acompanhar { margin-top: 8px; padding: 30px; border-radius: 28px; text-align: center; font: 800 44px var(--font-head);
+  background: var(--accent); color: #04140b; border: 3px solid transparent; }
+.av-acompanhar.vazio { background: var(--vidro); color: var(--muted); font-size: 34px; font-weight: 600; }
+
+.av-cartoes { flex: 1; display: grid; gap: 22px; grid-template-rows: repeat(var(--n, 4), minmax(0, 1fr)); }
+.av-cartoes.n1 { --n: 1; } .av-cartoes.n2 { --n: 2; } .av-cartoes.n3 { --n: 3; } .av-cartoes.n4 { --n: 4; }
+.av-cartao { display: flex; flex-direction: column; gap: 14px; padding: 26px 30px; border-radius: 40px; overflow: hidden;
+  background: var(--vidro); border: 3px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); }
+.av-cartao.me { background: color-mix(in srgb, var(--me) 72%, transparent); }
+.av-cartao.terminado { opacity: .78; }
+.av-comp { font: 700 28px var(--font-head); letter-spacing: 3px; text-transform: uppercase; color: var(--muted); text-align: center; }
+.av-placar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 20px; }
+.av-placar .av-eq { flex-direction: column; text-align: center; justify-content: center; gap: 12px; font-size: 40px; }
+.av-placar .av-eq .badge { width: 120px; height: 120px; font-size: 32px; }
+.av-placar .av-eq .tn { white-space: normal; line-height: 1.05; }
+.av-placar .av-res { font-size: 130px; }
+.av-placar .av-min { font-size: 38px; }
+.av-acont { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); overflow: hidden; min-height: 0; flex: 1; }
+.av-evs { display: flex; flex-direction: column; gap: 6px; font-size: 36px; min-width: 0; }
+.av-evs:first-child { align-items: flex-end; }
+.av-evs .ev-i { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.av-evs .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-evs .min { color: var(--muted); }
+.av-cartoes.n3 .av-placar .av-res, .av-cartoes.n4 .av-placar .av-res { font-size: 96px; }
+.av-cartoes.n3 .av-placar .av-eq .badge, .av-cartoes.n4 .av-placar .av-eq .badge { width: 84px; height: 84px; }
+.av-cartoes.n4 .av-placar .av-eq { font-size: 32px; gap: 8px; }
+.av-cartoes.n4 .av-evs { font-size: 32px; gap: 2px; }
+
+/* Destaque de golo, por cima de tudo durante uns segundos */
+#golo { position: absolute; left: 40px; right: 40px; top: 38%; z-index: 20; display: flex; justify-content: center; pointer-events: none; }
+#golo[hidden] { display: none; }
+.golo-caixa { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 48px 60px; border-radius: 48px; width: 100%;
+  background: var(--accent); color: #04140b; text-align: center; box-shadow: 0 30px 90px rgba(0, 0, 0, .6);
+  animation: golo .6s cubic-bezier(.2, 1.6, .4, 1); }
+.golo-caixa.me { background: var(--me); color: #fff; }
+.golo-caixa b { font: 900 130px/1 var(--font-head); letter-spacing: 4px; }
+.golo-caixa span { font: 700 50px/1.2 var(--font-head); }
+@keyframes golo { from { transform: scale(.6); opacity: 0; } }

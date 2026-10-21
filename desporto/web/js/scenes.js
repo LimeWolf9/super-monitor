@@ -3,7 +3,7 @@
 import { cenasFutebol } from './cenas/futebol.js';
 import { CENAS_F1 } from './cenas/f1.js';
 import { CENAS_NBA } from './cenas/nba.js';
-import { CENAS_OUTRAS, CENA_AO_VIVO } from './cenas/outras.js';
+import { CENAS_OUTRAS } from './cenas/outras.js';
 
 export { precarregarLogos } from './cenas/base.js';
 
@@ -15,7 +15,7 @@ export { precarregarLogos } from './cenas/base.js';
 // cat (parâmetro ?cat= do URL, usado pelo submenu do MonitorHub). As três de agora, cada uma com todos os desportos:
 //   ultima  - Última jornada: resultados, 11, classificações, grupos e marcadores do futebol; a última corrida e o
 //             campeonato da F1; a noite e as classificações da NBA; o jogador em destaque e as curiosidades
-//   aovivo  - Ao vivo: por agora, um ecrã "Em construção"
+//   aovivo  - Ao vivo: não usa cenas (é o aovivo.js, chamado pelo main.js)
 //   proxima - Próxima jornada: os próximos jogos (com o que falta da jornada em curso) e o ranking Elo; o próximo
 //             GP e o horário do fim de semana; a corrida ao MVP da NBA
 //   sem parâmetro (Dashboard.bat), ou outro valor: a Última jornada e depois a Próxima jornada
@@ -33,7 +33,6 @@ export function construirCenas(D, cat) {
   const reais = D._atualizado;
   const disponivel = (c) => (!reais || reais[c.parte]) && (!c.tem || c.tem(D));
   const [construcao, ...nba] = CENAS_NBA;
-  if (cat === 'aovivo') return [CENA_AO_VIVO];
   // O ecrã "NBA em construção" só entra enquanto a época regular não começou (sem classificação)
   const outras = [...CENAS_F1, construcao, ...nba, ...CENAS_OUTRAS]
     .filter((c) => c.id !== 'nba-construcao' || !(D.nba && D.nba.east));

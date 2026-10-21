@@ -5,7 +5,7 @@ import { agora } from '../util.js';
 
 // Um evento do jogo (golo, penálti, penálti falhado, autogolo, vermelho).
 // O nome vai num <span class="p"> próprio: se não couber, é cortado com reticências e o minuto fica sempre visível.
-function evento(e) {
+export function evento(e) {
   const nome = `<span class="p">${esc(e.p)}</span>`;
   const min = `<span class="min">${esc(e.m)}'</span>`;
   const bola = '<i class="ball"></i>';

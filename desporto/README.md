@@ -26,11 +26,21 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
 | `?cat=` | Nome | O que tem |
 |---|---|---|
 | `ultima` | Última jornada | Futebol: os resultados da última jornada ou eliminatória de cada competição (a jornada toda: os jogos por jogar ficam no seu lugar, com o dia e a hora), o 11 da jornada, as classificações, os grupos e os marcadores. F1: a última corrida, os pneus, os duelos, a evolução dos pontos e o campeonato. NBA: a noite passada e as classificações. No fim, o jogador em destaque e as curiosidades |
-| `aovivo` | Ao vivo | Por agora, um ecrã "Em construção" |
-| `proxima` | Próxima jornada | Futebol: tudo o que está por jogar até ao fim da próxima jornada, incluindo o que falta da jornada em curso (esses jogos aparecem nas duas categorias), com a barra das probabilidades e as notícias; o ranking Elo. F1: o próximo GP e o horário do fim de semana. NBA: a corrida ao MVP (e o "Em construção" até a época começar) |
+| `aovivo` | Ao vivo | O "presente", com atualização contínua (ver abaixo): a lista dos jogos a decorrer agora e o acompanhamento dos que escolheres |
+| `proxima` | Próxima jornada | Futebol: tudo o que está por jogar até ao fim da próxima jornada, incluindo o que falta da jornada em curso (esses jogos aparecem nas duas categorias; na Próxima vêm primeiro, com o subtítulo "Jornada 3 · faltam 9 jogos", e depois a jornada seguinte), com a barra das probabilidades e as notícias; o ranking Elo. F1: o próximo GP e o horário do fim de semana. NBA: a corrida ao MVP (e o "Em construção" até a época começar) |
 | (sem parâmetro) | | A Última jornada e depois a Próxima jornada (é o que o `Dashboard.bat` mostra) |
 
 - O futebol são as competições escolhidas em `/definicoes`: na Última jornada as que tiveram jogos nos últimos 7 dias, na Próxima as que têm jogos nos próximos 7.
+- **Ao vivo** (`web/js/aovivo.js` e `tools/aovivo.py`): o passado e o futuro só mudam quando se atualiza; o Ao vivo
+  pergunta ao servidor a cada 30 s enquanto está aberto (`GET /api/aovivo`, com 30 s de cache), e não grava no `live.json`.
+  Vai à ESPN só nas competições ligadas que jogam hoje (segundo o `live.json`), à Liga Portugal quando há jogo da Taça da
+  Liga e à NBA. A lista mostra os jogos a decorrer, por competição, com o resultado e o minuto; os do FC Porto e de
+  Portugal vêm marcados. ▲▼ foco, OK marca/desmarca, ▶ (ou "Acompanhar") abre o acompanhamento: até 4 cartões por ecrã
+  (◀▶ mudam de página) com os golos, penáltis e vermelhos; um golo num jogo seguido mostra "⚽ GOLO" durante uns
+  segundos, e um jogo que acabe fica com "Terminado". ↩ volta à lista, e na lista ao menu do hub. Sem jogos: "Sem jogos
+  ao vivo" e o próximo jogo. A F1 ainda não (o sítio para a acrescentar é `FONTES` em `ao_vivo()`).
+  Para testar sem jogos a decorrer: `?cat=aovivo&simular=1` (os jogos de ontem a fingir que estão a decorrer, 6 min de
+  jogo por minuto real).
 - As jornadas agrupam-se pelas datas dos jogos: mais de 40 h sem jogos separa duas jornadas (assim uma jornada de fim de semana e a de meio da semana a seguir ficam separadas). Nas taças e seleções conta a fase de cada jogo.
 
 O comando funciona igual em todas. Com as 25 fontes por defeito (só as ligadas em `/definicoes`: as desligadas não se pedem), o `atualizar_futebol.py` demora ~12 s (vão 8 em paralelo). Uma atualização completa demora ~55 s (na primeira vez mais,  porque descarrega os emblemas dos clubes e as bandeiras).
@@ -85,7 +95,7 @@ Código: `web/js/controlo.js`. O texto completo das notícias vem do `atualizar_
 | `?cat=ultima` / `aovivo` / `proxima` | Só uma categoria (é o que o submenu do MonitorHub usa). Sem parâmetro: a Última jornada e depois a Próxima |
 | `?hoje=2026-10-06T22:00` | Faz de conta que é esse dia, para ver que competições entram na rotação nessa semana (os dados são os mesmos) |
 
-Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções, `nba-construcao`, `aovivo-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
+Ids das cenas (também `de-*`, `fr-*`, `it-*`, e `tp-jogos`, `unl-jogos`, `unl-grupos`... das taças e seleções, `nba-construcao`): `pt-jogos`, `pt-tabela`, `pt-proximos`, `en-jogos`, `en-tabela`, `en-proximos`, `es-jogos`, `es-tabela`, `es-proximos`, `ucl-jogos`, `pt-onze` (e `en-onze`, `es-onze`, `ucl-onze`...), `ucl-tabela`, `ucl-proximos`, `uel-tabela`, `uecl-tabela`, `golos`, `elo`, `f1`, `f1-gp`, `nba`, `nba-noite`, `nba-premios`, `jogador`, `fun`.
 
 Exemplo: `http://127.0.0.1:8000/?preview=1&scene=golos`
 

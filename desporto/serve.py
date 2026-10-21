@@ -6,6 +6,9 @@ Uso:  python serve.py            (abre o browser sozinho)
 Definições do futebol (que competições seguir): http://<pc>:8000/definicoes, feita para o telemóvel. Lê e grava
 data/competicoes.json por GET/POST /api/competicoes (ver tools/competicoes.py).
 
+Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1] dá os jogos a decorrer agora (tools/aovivo.py, 30 s de cache);
+o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json.
+
 Os dados só se atualizam quando se pede (no dashboard: o botão "atualizar" do comando, ou a tecla U). O pedido chega por POST /api/atualizar; GET /api/atualizar/estado diz em que passo vai.
 É o mesmo código de "python tools/atualizar_tudo.py" (que atualiza sem o servidor, ex.: pelo MonitorHub): os
 atualizadores correm em série; o progresso fica em data/atualizacao.json e uma tranca impede duas ao mesmo tempo.
@@ -24,13 +27,14 @@ import webbrowser
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 RAIZ = Path(__file__).parent.resolve()
 PASTA_WEB = RAIZ / "web"
 sys.path.insert(0, str(RAIZ / "tools"))
 import atualizar_tudo   # noqa: E402  (o mesmo código do comando "python tools/atualizar_tudo.py")
 import competicoes      # noqa: E402  (a lista das competições e a escolha em data/competicoes.json)
+import aovivo           # noqa: E402  (os jogos a decorrer: GET /api/aovivo, para o ecrã Ao vivo)
 
 def comecar_atualizacao():
     """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub)."""
@@ -103,6 +107,14 @@ class Handler(SimpleHTTPRequestHandler):
             return self.responder_json(estado_atual())
         if caminho == "/api/competicoes":
             return self.responder_json(definicoes())
+        if caminho == "/api/aovivo":
+            # ?seguir=id1,id2: os jogos seguidos vêm sempre, mesmo acabados; ?simular=1: os de ontem a fingir
+            q = parse_qs(urlsplit(self.path).query)
+            seguir = [i for i in ",".join(q.get("seguir", [])).split(",") if i][:30]
+            try:
+                return self.responder_json(aovivo.ao_vivo(seguir, simulado=q.get("simular") == ["1"]))
+            except Exception as e:   # o Ao vivo não pode deitar o servidor abaixo
+                return self.responder_json({"erro": str(e), "jogos": [], "proximo": None, "teams": {}}, 502)
         return super().do_GET()
 
     def do_POST(self):

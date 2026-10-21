@@ -59,6 +59,17 @@ async function arrancar() {
   await carregarDados();
   precarregarLogos(dados);
 
+  // Ao vivo: sem rotação de cenas; a página dos jogos a decorrer (aovivo.js) trata do comando e pergunta ao servidor
+  if (CATEGORIA === 'aovivo') {
+    const { iniciarAoVivo } = await import('./aovivo.js');
+    document.body.classList.add('aovivo');
+    document.getElementById('secao').textContent = NOMES_SECOES.live;
+    iniciarAoVivo({ host: document.getElementById('scene-host'), getData: () => dados });
+    tickClock();
+    setInterval(tickClock, 1000);
+    return;
+  }
+
   let controlo = null, dadosUI = null;
   scheduler = createScheduler({
     host: document.getElementById('scene-host'),
