@@ -33,7 +33,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
-from comum import gravar, ler_dados, pedir, pedir_json
+from comum import gravar, ler_dados, pedir, pedir_json, registar_fonte
 
 RSS_RECORD = "https://www.record.pt/rss"
 SECCAO_RECORD = "/futebol/futebol-nacional/liga-betclic/"
@@ -296,10 +296,16 @@ def main():
     with ThreadPoolExecutor(max_workers=4) as ex:
         futuros = {chave: ex.submit(buscar) for chave, buscar in fontes.items()}
     porComp, dosFeeds = {}, []
+    nomes = {c["chave"]: c["nome"] for c in competicoes.COMPETICOES}
     for chave, f in futuros.items():
+        # Nome da fonte em data/fontes.json: "RSS A Bola", "RSS Record", "ESPN Notícias Premier League"...
+        nome = f"RSS {FEEDS[chave][0]}" if chave in FEEDS else "RSS Record" if chave == "pt" else f"ESPN Notícias {nomes.get(chave, chave)}"
         try:
             res = f.result()
+            # Um feed geral sem nenhuma notícia recente é estranho; numa liga da ESPN pode ser só uma semana calma
+            registar_fonte(nome, itens=len(res), esperado=chave in FEEDS or chave == "pt")
         except Exception as e:
+            registar_fonte(nome, erro=e)
             falhas.append(f"{chave} ({e!r})")
             res = antigas.get(chave, []) if chave not in FEEDS else []
         if chave in FEEDS:

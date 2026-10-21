@@ -117,9 +117,10 @@ Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogad
 **Atualizar sem abrir o dashboard** (ex.: pelo MonitorHub): `.venv\Scripts\python.exe tools\atualizar_tudo.py`, na pasta do projeto. É o mesmo código do botão do dashboard.
 
 - Mostra `[2/8] Futebol...` em cada passo; `--json` dá uma linha JSON por mudança; `--estado` só mostra o estado e sai.
-- Saída: **0** tudo bem; **1** algum passo falhou (última linha do stderr: "Falharam: NBA"); **2** já havia uma atualização a correr (do comando ou do dashboard).
+- Saída: **0** tudo bem; **1** algum passo ou fonte falhou (última linha do stderr, com as fontes: "Falharam: RSS Marca, ESPN NBA"); **2** já havia uma atualização a correr (do comando ou do dashboard).
 - Progresso em `data/atualizacao.json` (escrita atómica, atualizado a cada segundo), o mesmo formato do `GET /api/atualizar/estado`:
   `estado` ("a_correr" / "ok" / "falhou" / "nunca"), `passo`, `feitos`, `total`, `decorrido_s`, `estimativa_s`, `inicio_em`, `terminado_em`, `erro`, `passos` (detalhe).
+- **Que fonte falhou**: cada atualizador regista em `data/fontes.json` como correu cada fonte que usa (`registar_fonte` em `tools/comum.py`, escrita atómica): por fonte ("ESPN Liga Portugal", "Jolpica F1", "RSS A Bola", "ClubElo API"...) `estado` ("ok" / "aviso" se respondeu sem dados onde se esperavam / "falhou"), `ok`, `ultima_ok`, `ultima_tentativa`, `itens`, `erro` e `passo` (o atualizador). Aparece no fim de `/definicoes` (secção "Fontes"), e o `erro` do `atualizacao.json` diz as fontes que falharam (é o que o menu do MonitorHub mostra).
 - `data/atualizacao.lock` impede duas atualizações ao mesmo tempo (uma tranca com mais de 20 min sem sinal de vida é ignorada). Se o dashboard estiver aberto, mostra a barra de progresso de uma atualização feita assim.
 
 Também se podem correr à mão (todos aceitam `--mostrar`, que só mostra e não grava):

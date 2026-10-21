@@ -90,7 +90,12 @@ function textoAtualizacao(id) {
     const n = u.total ? ` ${u.feitos || 0}/${u.total}` : "";
     return `⟳ A atualizar…${n}${u.passo ? " · " + u.passo : ""}`;
   }
-  if (u.estado === "falhou") return `⚠ A última atualização falhou${u.terminado_em ? " " + haQuanto(u.terminado_em) : ""}`;
+  // erro do atualizacao.json: as fontes que falharam ("Falharam: RSS Marca, ESPN NBA"); cortado para caber na linha
+  if (u.estado === "falhou") {
+    const quando = u.terminado_em ? " · " + haQuanto(u.terminado_em) : "";
+    const erro = u.erro && u.erro.length > 48 ? u.erro.slice(0, 47) + "…" : u.erro;
+    return erro ? `⚠ ${erro}${quando}` : `⚠ A última atualização falhou${u.terminado_em ? " " + haQuanto(u.terminado_em) : ""}`;
+  }
   return u.terminado_em ? `Atualizado ${haQuanto(u.terminado_em)}` : "";
 }
 setInterval(() => estado.modo === "menu" && desenhar(), 60000);   // o "há X min" envelhece

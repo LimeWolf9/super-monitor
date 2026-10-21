@@ -18,7 +18,7 @@ Uma competição sem dados fica sem "onze" e o ecrã sai da rotação. Só usa a
 import argparse
 import json
 
-from comum import RAIZ, gravar, ler_dados, pedir_json
+from comum import RAIZ, gravar, ler_dados, pedir_json, registar_fonte
 
 LIGAS = ["pt", "en", "es", "de", "fr", "it", "ucl"]   # as que mostram resultados (a Liga Europa e a Conferência não)
 from atualizar_futebol import EQUIPAS, LIGAS as LIGAS_ESPN   # noqa: E402
@@ -136,7 +136,7 @@ def main():
     dados = ler_dados()
     cache = ler_cache()
     # id ESPN da equipa -> sigla: o mapa EQUIPAS do atualizador do futebol
-    feitos = []
+    feitos, falhas = [], []
     for chave in LIGAS:
         L = (dados.get("football") or {}).get(chave)
         if not L:
@@ -145,9 +145,12 @@ def main():
             L["onze"] = onze_da_liga(chave, L, EQUIPAS, cache)
         except Exception as e:   # ESPN sem resposta: essa liga fica sem 11 (o ecrã sai da rotação)
             print(f"Aviso: 11 da jornada, {chave}: {e!r}")
+            falhas.append(f"{chave} ({e})")
             L["onze"] = None
         if L["onze"]:
             feitos.append(chave)
+    # Uma linha nas Definições para todas as ligas; falha se alguma falhou (a mensagem diz quais)
+    registar_fonte("ESPN 11 da jornada", itens=len(feitos), erro="; ".join(falhas) or None, esperado=False)
     # a cache só guarda jogos que ainda estão nas listas (não cresce para sempre)
     ids = {m.get("id") for L in (dados.get("football") or {}).values() if L for m in L.get("results", [])}
     cache = {k: v for k, v in cache.items() if k in ids}

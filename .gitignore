@@ -9,6 +9,7 @@ desporto/data/cache_onze.json
 desporto/data/duracoes.json
 desporto/data/atualizacao.json
 desporto/data/atualizacao.lock
+desporto/data/fontes.json
 desporto/data/competicoes.json
 desporto/data/*.tmp
 desporto/web/img/jogadores/

@@ -32,7 +32,7 @@ import urllib.parse
 from pathlib import Path
 
 from baixar_emblemas import EPOCA_F1, F1_OFICIAL
-from comum import RAIZ, gravar, ler_dados, pedir
+from comum import RAIZ, gravar, ler_dados, pedir, registar_fonte
 
 PASTA = RAIZ / "web" / "img" / "jogadores"
 CACHE = PASTA / "_cache.json"   # jogador -> ficheiro, ou null (falhou; volta a tentar no dia seguinte)
@@ -181,6 +181,9 @@ def foto_f1(nome, equipa):
     return nome_ficheiro
 
 
+FALHAS = []   # erros de rede ao buscar fotos (para data/fontes.json)
+
+
 def com_cache(cache, chave, buscar, mostrar):
     """Usa a cache; se não houver (ou o "não encontrado" já tiver mais de 7 dias), vai buscar."""
     agora = time.time()
@@ -196,6 +199,7 @@ def com_cache(cache, chave, buscar, mostrar):
         f = buscar()
     except Exception as e:   # API sem resposta: regista-se como falha e volta a tentar no dia seguinte
         print(f"Aviso: {chave.split('|')[1]}: {e!r}")
+        FALHAS.append(e)
         f = None
     cache[chave] = {"file": f, "t": agora}
     return f
@@ -234,6 +238,10 @@ def main():
     if args.mostrar:
         print(f"Com foto em cache: {len(com)}; sem: {', '.join(sem) or 'nenhum'}")
         return
+    # Só falha se nenhuma foto nova veio e houve erros de rede (um jogador sem foto não é uma falha)
+    novas = len(com)
+    registar_fonte("Fotos (ESPN, F1, sortitoutsi)", itens=novas, esperado=False,
+                   erro=f"{len(FALHAS)} pedidos falharam ({FALHAS[0]})" if FALHAS and not novas else None)
     gravar(dados, "fotos")
     print(f"Fotos: {len(com)} com foto, {len(sem)} sem" + (f" ({', '.join(sem)})." if sem else "."))
 

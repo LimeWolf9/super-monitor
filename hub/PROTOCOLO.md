@@ -94,6 +94,6 @@ campos são opcionais; o hub usa estes:
   "decorrido_s": 42,             // segundos desde o início
   "estimativa_s": 120,           // duração total estimada, em segundos
   "terminado_em": "2026-10-19T10:00:00",   // quando acabou (para o "atualizado há 2 h")
-  "erro": "texto"                // se falhou, porquê
+  "erro": "texto"                // se falhou, porquê (curto: aparece na linha da app no menu, ex.: "Falharam: RSS Marca")
 }
 ```

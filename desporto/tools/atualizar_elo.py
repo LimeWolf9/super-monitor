@@ -31,7 +31,7 @@ import sys
 import unicodedata
 from datetime import datetime, timezone
 
-from comum import gravar, ler_dados, pedir
+from comum import gravar, ler_dados, pedir, registar_fonte
 
 API = "http://api.clubelo.com/{dia}"
 PAGINA_RANKING = "https://clubelo.com/Ranking"
@@ -159,11 +159,16 @@ def main():
     erros = []
     try:
         lista, fonte = ranking_api(dia)
+        registar_fonte("ClubElo API", itens=len(lista))
     except Exception as e:   # a API do ClubElo vai abaixo de vez em quando: fica a página do ranking
         erros.append(f"API ({e})")
         try:
             lista, fonte = ranking_pagina()
+            registar_fonte("ClubElo API", aviso=f"{e}; usou-se a página do ranking")   # há dados: não é uma falha
+            registar_fonte("ClubElo página", itens=len(lista))
         except Exception as e2:
+            registar_fonte("ClubElo API", erro=e)
+            registar_fonte("ClubElo página", erro=e2)
             sys.exit(f"Não foi possível atualizar o ClubElo (API: {e}; página: {e2}). O live.json não foi alterado.")
     mapa, existentes = siglas_por_nome(dados)
     for c in lista:
@@ -182,7 +187,9 @@ def main():
         for casa, fora, p in previsoes_pagina():
             if slug_sigla.get(casa) and slug_sigla.get(fora):
                 previsoes[f"{slug_sigla[casa]}-{slug_sigla[fora]}"] = p
+        registar_fonte("ClubElo previsões", itens=len(previsoes), esperado=False)
     except Exception as e:   # sem previsões: o dashboard calcula-as a partir do Elo
+        registar_fonte("ClubElo previsões", erro=e)
         erros.append(f"previsões ({e})")
     elo = {"data": dia, "fonte": fonte,
            "ranking": [{k: c.get(k) for k in ("posEuropa", "rank", "club", "country", "elo", "sigla")} for c in ranking],

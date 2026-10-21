@@ -15,7 +15,8 @@ Uso:
     decorrido_s   segundos desde o início (até ao fim, se já acabou)
     estimativa_s  total estimado, em segundos (do que cada passo demorou da última vez)
     terminado_em  hora do fim (ISO), ou null
-    erro          texto curto se algum passo falhou ("Falharam: NBA"), ou null
+    erro          texto curto com as fontes que falharam ("Falharam: RSS Marca, ESPN NBA"), ou null;
+                  um passo que falhe sem dizer que fonte foi aparece pelo nome ("Falharam: Fotos")
     passos        o detalhe de cada passo (nome, estado, segundos, última linha do atualizador)
 - data/atualizacao.lock impede duas atualizações ao mesmo tempo (ex.: uma pelo hub e outra pelo dashboard);
 - a estimativa vem do que cada passo demorou da última vez (data/duracoes.json).
@@ -30,7 +31,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -38,6 +39,7 @@ PASTA = RAIZ / "tools"
 ESTADO = RAIZ / "data" / "atualizacao.json"
 TRANCA = RAIZ / "data" / "atualizacao.lock"
 DURACOES = RAIZ / "data" / "duracoes.json"
+FONTES = RAIZ / "data" / "fontes.json"   # como correu cada fonte (gravado pelos atualizadores: comum.registar_fonte)
 TRANCA_VELHA = 20 * 60   # uma tranca com mais de 20 min é de uma atualização que morreu a meio
 
 # Por esta ordem: os destaques e as curiosidades usam os dados que os outros acabaram de gravar.
@@ -74,10 +76,11 @@ def formatar(e, corre):
     passos = e.get("passos", [])
     agora = time.time()
     falhados = [p["nome"] for p in passos if p["estado"] == "falhou"]
+    falhas = e.get("falhas") or falhados   # as fontes, quando a atualização acabou (ver fontes_falhadas)
     atual = next((p for p in passos if p["estado"] == "a_correr"), None)
     return {
         "estado": ("a_correr" if corre else "nunca" if not e.get("inicio")
-                   else "falhou" if falhados or not e.get("fim") else "ok"),
+                   else "falhou" if falhas or not e.get("fim") else "ok"),
         "passo": atual["nome"] if atual and corre else None,
         "feitos": sum(1 for p in passos if p["estado"] in ("ok", "falhou")),
         "total": len(passos) or len(PASSOS),
@@ -87,15 +90,28 @@ def formatar(e, corre):
                          else round(sum(ler_json(DURACOES, {}).values()), 1) or None),
         "inicio_em": datetime.fromtimestamp(e["inicio"]).isoformat(timespec="seconds") if e.get("inicio") else None,
         "terminado_em": datetime.fromtimestamp(e["fim"]).isoformat(timespec="seconds") if e.get("fim") else None,
-        "erro": (f"Falharam: {', '.join(falhados)}" if falhados
+        "erro": (f"Falharam: {', '.join(falhas)}" if falhas
                  else "Interrompida a meio" if e.get("inicio") and not e.get("fim") and not corre else None),
         "passos": passos,
     }
 
 
+def fontes_falhadas(e):
+    """Nomes das fontes que falharam nesta atualização; um passo que falhou sem nenhuma fonte falhada vai pelo nome."""
+    inicio = datetime.fromtimestamp(e["inicio"], timezone.utc).isoformat(timespec="seconds")   # como em comum.py
+    fontes = ler_json(FONTES, {})
+    nesta = {n: f for n, f in fontes.items() if (f.get("ultima_tentativa") or "") >= inicio}
+    nomes = []
+    for p in e["passos"]:
+        da_fonte = [n for n, f in nesta.items() if f.get("passo") == p["id"] and f.get("estado") == "falhou"]
+        nomes += da_fonte or ([p["nome"]] if p["estado"] == "falhou" else [])
+    return nomes
+
+
 def gravar_estado(e):
     """Grava no ficheiro o estado público (o que o hub lê) mais os campos internos (inicio, fim, a_correr)."""
-    gravar_json(ESTADO, {**formatar(e, e["a_correr"]), "inicio": e["inicio"], "fim": e["fim"], "a_correr": e["a_correr"]})
+    gravar_json(ESTADO, {**formatar(e, e["a_correr"]), "inicio": e["inicio"], "fim": e["fim"], "a_correr": e["a_correr"],
+                         "falhas": e.get("falhas")})
 
 
 def estado():
@@ -147,6 +163,7 @@ def atualizar(ao_mudar=lambda e: None):
             if ok:
                 duracoes[passo["id"]] = passo["seg"]
         e.update(a_correr=False, fim=time.time())
+        e["falhas"] = fontes_falhadas(e)
         gravar_estado(e)
         gravar_json(DURACOES, duracoes)
         final = estado()

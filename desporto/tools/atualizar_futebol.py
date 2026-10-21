@@ -34,7 +34,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from comum import EMBLEMAS, LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, tem_emblema
+from comum import EMBLEMAS, LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, registar_fonte, tem_emblema
 import competicoes
 import emblemas_wikidata
 
@@ -733,10 +733,16 @@ def main():
     # Uma que falhe fica com os dados anteriores (se os tiver); as desligadas saem do live.json.
     with ThreadPoolExecutor(max_workers=8) as ex:
         futuros = {c[0]: ex.submit(montar, *c, antigo.get(c[0]), equipas, agora, not args.mostrar) for c in lista}
+    nomes, tipos = {c[0]: c[1] for c in lista}, {c[0]: c[3] for c in lista}
     for chave, f in futuros.items():
         try:
             futebol[chave] = f.result()
+            L = futebol[chave]
+            # Uma liga tem sempre classificação; uma taça ou uma prova de seleções fica vazia entre eliminatórias
+            registar_fonte(f"ESPN {nomes[chave]}", itens=sum(len(L.get(k) or []) for k in ("table", "results", "next")),
+                           esperado=tipos[chave] == "liga")
         except Exception as e:   # sem rede, API em baixo, formato mudou...
+            registar_fonte(f"ESPN {nomes[chave]}", erro=e)
             falhas.append(f"{chave} ({e})")
             if antigo.get(chave):
                 futebol[chave] = antigo[chave]

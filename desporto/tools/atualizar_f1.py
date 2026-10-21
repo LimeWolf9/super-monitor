@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import LIVE, RAIZ, gravar, ler_dados, pedir  # noqa: E402  (pausa de 0,5 s: a Jolpica pede ~4 por segundo no máximo)
+from comum import LIVE, RAIZ, gravar, ler_dados, pedir, fonte, registar_fonte  # noqa: E402  (pausa de 0,5 s: a Jolpica pede ~4 por segundo no máximo)
 from gerar_pista import gerar_de_pontos  # noqa: E402
 
 CIRCUITOS = RAIZ / "data" / "circuitos" / "f1-circuits.geojson"
@@ -404,7 +404,8 @@ def montar_f1(antigo):
         f1["evolution"] = None
     if ultima:
         res = api(f"{ultima['season']}/{ultima['round']}/results.json")["RaceTable"]["Races"]
-        f1["stints"] = parte("estratégia (OpenF1)", lambda: estrategia(ultima, res[0]["Results"])) if res else None
+        f1["stints"] = parte("estratégia (OpenF1)", lambda: fonte(
+            "OpenF1", lambda: estrategia(ultima, res[0]["Results"]), contar=lambda r: len(r["drivers"]) if r else 0)) if res else None
     else:
         f1["stints"] = None
     return f1
@@ -418,7 +419,9 @@ def main():
     dados = ler_dados()
     try:
         dados["f1"] = montar_f1(dados["f1"])
+        registar_fonte("Jolpica F1", itens=len(dados["f1"].get("drivers") or []))
     except Exception as e:   # sem rede, API em baixo, formato mudou...: fica tudo como estava
+        registar_fonte("Jolpica F1", erro=e)
         sys.exit(f"Não foi possível atualizar a F1 ({e}). O live.json não foi alterado.")
 
     if args.mostrar:

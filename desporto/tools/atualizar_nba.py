@@ -22,7 +22,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from comum import baixar_emblema, gravar, ler_dados, pedir_json, tem_emblema
+from comum import baixar_emblema, gravar, ler_dados, pedir_json, registar_fonte, tem_emblema
 
 API = "https://site.api.espn.com/apis"
 API_CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba"
@@ -255,7 +255,10 @@ def main():
     equipas = Equipas(teams, baixar=not args.mostrar)
     try:
         nba = montar_nba(dados.get("nba"), equipas)
+        # Fora de época (sem classificação nem jogos) é normal não vir nada: não conta como aviso
+        registar_fonte("ESPN NBA", itens=len(nba.get("lastNight") or []) + len((nba.get("east") or [])), esperado=False)
     except Exception as e:   # sem rede, API em baixo, formato mudou...: fica tudo como estava
+        registar_fonte("ESPN NBA", erro=e)
         sys.exit(f"Não foi possível atualizar a NBA ({e}). O live.json não foi alterado.")
 
     if args.mostrar:

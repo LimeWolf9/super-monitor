@@ -34,12 +34,25 @@
     button:disabled { opacity: .5; }
     #estado { width: 100%; text-align: center; font-size: 14px; color: var(--apagado); min-height: 1.4em; }
     #estado.ok { color: var(--ok); }
+    /* Fontes: como correu cada fonte na última atualização (data/fontes.json, gravado pelos atualizadores) */
+    h2 { font-size: 19px; margin: 22px 0 4px; }
+    .fonte { display: flex; gap: 12px; padding: 12px 16px; align-items: flex-start; }
+    .fonte + .fonte { border-top: 1px solid var(--linha); }
+    .fonte .sim { flex: none; width: 22px; text-align: center; font-weight: 700; }
+    .fonte.ok .sim { color: var(--ok); }
+    .fonte.aviso .sim { color: #ffc24f; }
+    .fonte.falhou .sim { color: #ff6b6b; }
+    .fonte .erro { color: #ff9b9b; font-size: 14px; overflow-wrap: anywhere; }
+    .fonte.aviso .erro { color: #ffd88a; }
   </style>
 </head>
 <body>
   <div class="cabeca"><button id="voltar" type="button">← Voltar</button><h1>Futebol: competições</h1></div>
   <p class="intro">Só entram as escolhidas que jogam nesta semana: na Última jornada as que jogaram nos últimos 7 dias, na Próxima jornada as que jogam nos próximos 7. As mudanças entram na próxima atualização dos dados.</p>
   <div id="lista">A carregar…</div>
+  <h2>Fontes</h2>
+  <p class="intro">Como correu cada fonte na última vez que se tentou: ✓ trouxe dados, ⚠ respondeu sem dados, ✗ falhou (fica com os dados anteriores).</p>
+  <section id="fontes">A carregar…</section>
   <div class="barra"><div>
     <div id="estado"></div>
     <button id="gravar">Gravar</button>
@@ -99,6 +112,7 @@ document.getElementById('atualizar').addEventListener('click', async (ev) => {
       clearInterval(seguir);
       botao.disabled = false;
       aviso(e.erro ? `Atualizado, mas: ${e.erro}` : `Atualizado em ${Math.round(e.decorrido_s)} s.`, !e.erro);
+      mostrarFontes();
     }, 1500);
   } catch (e) { aviso(`Não gravou (${e.message})`); botao.disabled = false; }
 });
@@ -113,6 +127,29 @@ const voltarPara = (() => {
 const botaoVoltar = document.getElementById('voltar');
 if (!voltarPara && history.length <= 1) botaoVoltar.hidden = true;   // aberta sozinha: não há para onde voltar
 botaoVoltar.addEventListener('click', () => { if (voltarPara) location.href = voltarPara; else history.back(); });
+
+// "dados de hoje 09:12", "dados de ontem 21:40", "dados de 12/10 09:12"
+function quando(iso) {
+  if (!iso) return 'ainda sem dados';
+  const d = new Date(iso), hoje = new Date();
+  const hora = d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  const dias = Math.round((new Date(hoje.toDateString()) - new Date(d.toDateString())) / 864e5);
+  return `dados de ${dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} ${hora}`;
+}
+const SIMBOLO = { ok: '✓', aviso: '⚠', falhou: '✗' };
+async function mostrarFontes() {
+  const caixa = document.getElementById('fontes');
+  try {
+    const r = await fetch('/data/fontes.json', { cache: 'no-store' });
+    if (r.status === 404) { caixa.innerHTML = '<div class="fonte"><span class="nome nota">Ainda não houve nenhuma atualização com este registo.</span></div>'; return; }
+    const fontes = Object.entries(await r.json()).sort(([a], [b]) => a.localeCompare(b, 'pt'));
+    caixa.innerHTML = fontes.map(([nome, f]) => `<div class="fonte ${esc(f.estado)}">
+      <span class="sim">${SIMBOLO[f.estado] || '?'}</span>
+      <span class="nome">${esc(nome)}<span class="nota">${esc(quando(f.ultima_ok))}${f.itens != null ? ` · ${f.itens} ${f.itens === 1 ? 'item' : 'itens'}` : ''}</span>
+      ${f.erro ? `<span class="erro">${esc(f.erro)}</span>` : ''}</span></div>`).join('');
+  } catch (e) { caixa.textContent = `Não consegui ler as fontes (${e.message}).`; }
+}
+mostrarFontes();
 
 fetch('/api/competicoes').then((r) => r.json()).then(montar)
   .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });

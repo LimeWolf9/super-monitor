@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 from itertools import combinations
 
-from comum import RAIZ, gravar, ler_dados, pedir_json
+from comum import RAIZ, gravar, ler_dados, pedir_json, registar_fonte
 
 RECORDES = RAIZ / "data" / "recordes.json"
 WIKI = "https://{lingua}.wikipedia.org/api/rest_v1/feed/onthisday/{tipo}/{mes:02d}/{dia:02d}"
@@ -186,7 +186,9 @@ def main():
     hoje = datetime.now()
     try:
         fun = {"onThisDay": neste_dia(hoje), "records": recordes(hoje), "comparisons": comparacoes(dados)}
+        registar_fonte("Wikipédia (neste dia)", itens=len(fun["onThisDay"]))
     except Exception as e:   # sem rede, Wikipédia em baixo...: fica tudo como estava
+        registar_fonte("Wikipédia (neste dia)", erro=e)
         sys.exit(f"Não foi possível atualizar as curiosidades ({e!r}). O live.json não foi alterado.")
 
     if args.mostrar:

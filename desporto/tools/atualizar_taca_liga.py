@@ -24,7 +24,7 @@ import sys
 import unicodedata
 from datetime import datetime, timezone
 
-from comum import baixar_emblema, gravar, ler_dados, pedir, pedir_json, tem_emblema
+from comum import baixar_emblema, gravar, ler_dados, pedir, pedir_json, registar_fonte, tem_emblema
 from pathlib import Path
 import competicoes
 
@@ -171,7 +171,9 @@ def main():
     agora = datetime.now(timezone.utc)
     try:
         tl = montar(dados, agora, baixar=not args.mostrar)
+        registar_fonte("Liga Portugal (Taça da Liga)", itens=len(tl["results"]) + len(tl["next"]))
     except Exception as e:   # site em baixo ou formato mudou: fica como estava
+        registar_fonte("Liga Portugal (Taça da Liga)", erro=e)
         sys.exit(f"Não foi possível atualizar a Taça da Liga ({e!r}). O live.json não foi alterado.")
     if args.mostrar:
         print(json.dumps(tl, ensure_ascii=False, indent=2))
