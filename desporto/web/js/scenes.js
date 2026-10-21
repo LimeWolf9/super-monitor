@@ -24,7 +24,7 @@ export { precarregarLogos } from './cenas/base.js';
 const FASE = {
   f1: 'ultima', 'f1-duelos': 'ultima', 'f1-pontos': 'ultima', 'f1-ultima': 'ultima', 'f1-pneus': 'ultima',
   'f1-gp': 'proxima', 'f1-fds': 'proxima',
-  nba: 'ultima', 'nba-noite': 'ultima', 'nba-premios': 'proxima', 'nba-construcao': 'proxima',
+  nba: 'ultima', 'nba-noite': 'ultima', 'nba-esta-noite': 'proxima', 'nba-premios': 'proxima', 'nba-construcao': 'proxima',
   jogador: 'ultima', fun: 'ultima',
 };
 export const CATEGORIAS_NOVAS = ['ultima', 'aovivo', 'proxima'];

@@ -42,7 +42,8 @@ dos ecrãs do desporto. De cima para baixo:
 - a hora, o dia, a saudação e o nascer e o pôr do sol;
 - o tempo: agora, um gráfico das próximas 12 horas (temperatura e chuva) e os 5 dias seguintes, da
   [Open-Meteo](https://open-meteo.com/), sem chave, atualizado a cada 30 min;
-- **Hoje no desporto**: os jogos de hoje das competições seguidas (até 4, os do FC Porto e de Portugal
+- **Hoje no desporto**: os jogos de hoje das competições seguidas e os da NBA desta noite (até às 6 h contam
+  como esta noite; até 4, os do FC Porto e de Portugal
   primeiro), com a hora, o resultado se já acabou ou "AO VIVO" pela hora de início, e o aviso para abrir o
   Ao vivo no comando quando há jogos a decorrer;
 - o FC Porto, compacto (próximo jogo com contagem, último resultado e a posição na liga com o lugar acima e

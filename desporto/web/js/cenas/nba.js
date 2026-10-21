@@ -53,6 +53,15 @@ export const CENAS_NBA = [
     },
   },
   {
+    // Os jogos da noite americana que vem, com a hora de Portugal (a maioria já depois da meia-noite)
+    id: 'nba-esta-noite', sport: 'nba', league: 'nba', parte: 'nba',
+    tem: (D) => (D.nba.tonight || []).length > 0,
+    render: (D) => {
+      const jogos = D.nba.tonight;
+      return titulo('NBA', `Esta noite · ${jogos.length === 1 ? '1 jogo' : `${jogos.length} jogos`} · hora de Portugal`, 'nba') + listaJogos(D, jogos);
+    },
+  },
+  {
     id: 'nba-premios', sport: 'nba', league: 'nba', parte: 'nba',
     tem: (D) => !!(D.nba.mvp && D.nba.roty),
     // Com dados reais, as percentagens vêm das odds das casas de apostas (awardsSource): diz-se no subtítulo.

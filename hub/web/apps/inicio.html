@@ -286,8 +286,13 @@ function blocoTempo() {
 }
 
 // ---------------------------------------------------------------- hoje no desporto (só o live.json)
+// "Hoje": o futebol de hoje e a NBA desta noite (os jogos até às 6 da manhã de amanhã ainda contam como esta noite)
 function blocoHoje() {
-  const hoje = todos().filter((m) => quando(m) && mesmoDia(quando(m), Date.now()) && m.status !== 'adiado');
+  const ini = new Date(); ini.setHours(0, 0, 0, 0);
+  const fimNoite = ini.getTime() + DIA_MS + 6 * 3600e3;
+  const nba = ((D.nba && D.nba.tonight) || []).map((m) => ({ ...m, chave: 'nba', comp: 'NBA' }))
+    .filter((m) => quando(m) && quando(m) >= ini.getTime() && quando(m) < fimNoite);
+  const hoje = todos().filter((m) => quando(m) && mesmoDia(quando(m), Date.now()) && m.status !== 'adiado').concat(nba);
   const vistos = new Set();
   const lista = hoje.filter((m) => { const k = `${m.home}-${m.away}`; if (vistos.has(k)) return false; vistos.add(k); return true; })
     .sort((a, b) => (minha(D, b.home) || minha(D, b.away)) - (minha(D, a.home) || minha(D, a.away)) || quando(a) - quando(b));
@@ -296,8 +301,14 @@ function blocoHoje() {
   // O live.json não é em direto: um jogo sem resultado que começou há menos de 2 h conta como "a decorrer"
   const decorre = (m) => m.live || (m.hs == null && quando(m) <= Date.now() && Date.now() - quando(m) < 2 * 3600e3);
   const aDecorrer = lista.filter(decorre).length;
-  // Primeiro os meus, depois os que estão a decorrer, depois os outros; mostram-se pela hora
-  const escolhidos = [...lista].sort((a, b) => (minha(D, b.home) || minha(D, b.away)) - (minha(D, a.home) || minha(D, a.away)) || decorre(b) - decorre(a)).slice(0, MAX);
+  // Escolha: os meus, depois os que estão a decorrer, depois os que ainda vão começar (os mais cedo primeiro) e
+  // só no fim os que já acabaram; os escolhidos mostram-se pela hora
+  const peso = (m) => ((minha(D, m.home) || minha(D, m.away)) ? 0 : decorre(m) ? 1 : m.hs == null ? 2 : 3);
+  let escolhidos = [...lista].sort((a, b) => peso(a) - peso(b) || quando(a) - quando(b)).slice(0, MAX);
+  // Se a NBA desta noite não couber nas linhas, fica uma linha a resumi-la no fim
+  const nbaPorVer = nba.filter((m) => m.hs == null);
+  const resumoNBA = nbaPorVer.length && !escolhidos.some((m) => m.chave === 'nba');
+  if (resumoNBA && escolhidos.length >= MAX) escolhidos = escolhidos.slice(0, MAX - 1);
   const linhas = escolhidos.sort((a, b) => quando(a) - quando(b)).map((m) => {
     const eu = minha(D, m.home) || minha(D, m.away);
     const r = m.live ? `<div class="r">${m.hs}–${m.as}<small>AO VIVO${m.clock ? ' ' + esc(m.clock) : ''}</small></div>`
@@ -307,9 +318,12 @@ function blocoHoje() {
       <span class="e casa"><span>${esc(teamName(D, m.home))}</span>${badge(D, m.home)}</span>${r}
       <span class="e">${badge(D, m.away)}<span>${esc(teamName(D, m.away))}</span></span><span class="l">${logo(m.chave, m.comp)}</span></div>`;
   }).join('');
+  const linhaNBA = resumoNBA ? `<div class="hj nba-resumo"><span class="h">${hhmm(quando(nbaPorVer[0]))}</span>
+    <span class="e casa" style="grid-column: 2 / 5; justify-content: flex-start">🏀 NBA esta noite · ${nbaPorVer.length === 1 ? '1 jogo' : `${nbaPorVer.length} jogos`}, a partir das ${hhmm(quando(nbaPorVer[0]))}</span>
+    <span class="l">${logo('nba', 'NBA')}</span></div>` : '';
   return `<section class="vidro bloco entra" style="animation-delay:.16s">
     <div class="titulo-bloco">Hoje no desporto<small>${lista.length === 1 ? '1 jogo' : `${lista.length} jogos`}${lista.length > MAX ? ` · ${MAX} em destaque` : ''}</small></div>
-    <div class="hoje-lista">${linhas}</div>
+    <div class="hoje-lista">${linhas}${linhaNBA}</div>
     ${aDecorrer ? `<div class="ao-vivo-aviso"><i></i>${aDecorrer === 1 ? '1 jogo a decorrer' : `${aDecorrer} jogos a decorrer`}: abre o Ao vivo no comando</div>` : ''}
   </section>`;
 }

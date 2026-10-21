@@ -7,6 +7,8 @@ Uso:
 Fonte: a API pública da ESPN (site.api.espn.com), gratuita e sem chave.
 - Classificação da época regular por conferência, até ao 10.º (último lugar do play-in).
 - Jogos da noite passada (época regular, play-in e play-offs; a pré-época não conta).
+- Jogos desta noite (os da noite americana que vem), com a hora de Portugal e o instante exato ("iso"): o ecrã
+  "NBA · Esta noite" da Próxima jornada e o "Hoje no desporto" do Início do MonitorHub.
 - Líderes da época em pontos, ressaltos e assistências por jogo.
 - O melhor marcador da noite (box score de cada jogo), para a cena "Jogador em destaque".
 Antes de a época regular começar não há classificação nem líderes: ficam a null e as cenas saem da rotação.
@@ -195,6 +197,26 @@ def noite_passada(equipas):
     return jogos, melhor
 
 
+DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+
+
+def esta_noite(equipas):
+    """Jogos da noite americana que vem (o dia de hoje em Nova Iorque) ainda por acabar, com a hora deste PC."""
+    ny = datetime.now(timezone.utc) - timedelta(hours=5)   # hora de Nova Iorque, aproximada
+    jogos = []
+    for e in api(f"site/v2/sports/basketball/nba/scoreboard?dates={ny:%Y%m%d}").get("events", []):
+        if e["season"].get("type") not in TIPOS_JOGO or e["status"]["type"].get("completed"):
+            continue
+        comp = e["competitions"][0]
+        casa = next(c for c in comp["competitors"] if c["homeAway"] == "home")
+        fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
+        local = datetime.fromisoformat(e["date"].replace("Z", "+00:00")).astimezone()
+        jogos.append({"home": equipas.sigla(casa["team"]), "away": equipas.sigla(fora["team"]),
+                      "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}",
+                      "iso": local.isoformat(timespec="minutes")})
+    return sorted(jogos, key=lambda j: j["iso"])
+
+
 def melhor_do_jogo(event_id, jogo):
     """Jogador com mais pontos no box score de um jogo."""
     d = api(f"site/v2/sports/basketball/nba/summary?event={event_id}")
@@ -238,6 +260,7 @@ def montar_nba(antigo, equipas):
     nba["east"], nba["west"] = este, oeste
     nba["leaders"] = lideres(epoca, equipas) if epoca else None
     nba["lastNight"], nba["topPerformer"] = noite_passada(equipas)
+    nba["tonight"] = esta_noite(equipas)
     corrida, fonte = premios(epoca, equipas) if epoca else ({}, None)
     nba["mvp"], nba["roty"] = corrida.get("mvp") or None, corrida.get("roty") or None
     nba["awardsSource"] = fonte
@@ -256,7 +279,7 @@ def main():
     try:
         nba = montar_nba(dados.get("nba"), equipas)
         # Fora de época (sem classificação nem jogos) é normal não vir nada: não conta como aviso
-        registar_fonte("ESPN NBA", itens=len(nba.get("lastNight") or []) + len((nba.get("east") or [])), esperado=False)
+        registar_fonte("ESPN NBA", itens=len(nba.get("lastNight") or []) + len(nba.get("tonight") or []) + len((nba.get("east") or [])), esperado=False)
     except Exception as e:   # sem rede, API em baixo, formato mudou...: fica tudo como estava
         registar_fonte("ESPN NBA", erro=e)
         sys.exit(f"Não foi possível atualizar a NBA ({e}). O live.json não foi alterado.")
@@ -269,7 +292,8 @@ def main():
     if equipas.novas:
         print(f"Equipas acrescentadas a teams: {', '.join(equipas.novas)}")
     print(f"NBA atualizada: classificação {'sim' if nba['east'] else 'ainda não (época por começar)'}, "
-          f"líderes {'sim' if nba['leaders'] else 'ainda não'}, {len(nba['lastNight'])} jogos na noite passada"
+          f"líderes {'sim' if nba['leaders'] else 'ainda não'}, {len(nba['lastNight'])} jogos na noite passada, "
+          f"{len(nba['tonight'])} esta noite"
           + (f", melhor marcador {nba['topPerformer']['name']} ({nba['topPerformer']['pts']} pts)" if nba["topPerformer"] else "")
           + (f", favorito a MVP {nba['mvp'][0]['name']} ({nba['mvp'][0]['pct']}%)" if nba["mvp"] else "") + ".")
 
