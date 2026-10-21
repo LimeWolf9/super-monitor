@@ -315,7 +315,7 @@ export function criarMapa(host, { dados }) {
   // Desenha as ruas à volta do estádio e o estádio no relvado. Devolve o ponto (km) do relvado, ou null sem OSM
   async function prepararEstadio(j) {
     gOsm.innerHTML = ''; gEstadio.innerHTML = '';
-    const osm = j.estadio.osm ? await lerOsm(j.estadio.osm_id || j.estadio.id) : null;
+    const osm = j.estadio.osm ? await lerOsm(j.estadio.id) : null;
     if (!osm || !vivo) return null;
     const campo = osm.campo;
     const centro = campo ? campo.c : osm.centro;

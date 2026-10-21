@@ -275,10 +275,8 @@ ainda não tem coordenadas fica fora do mapa, mas com o cartão.
   (o do jogo mais próximo primeiro), com 5 s entre pedidos. Grava a cada estádio: se parar, corre-se outra vez e
   continua; os erros de rede repetem-se ao fim de 15 minutos. Demora horas (~1 min por estádio, ~200 KB cada); o
   progresso fica em `data/estadios_todos.json` (formato do `data/atualizacao.json`).
-  Cada estádio descarrega-se uma só vez: a lista junta-os pela chave da ESPN e, se o ponto de outra chave (afinado pelo
-  OSM) cair dentro do contorno do estádio (`leisure=stadium`) de um que já tem OSM (outro nome, estádio partilhado,
-  a seleção no estádio de um clube; vizinhos como o Parc des Princes e o Jean-Bouin continuam dois), fica com
-  `"igual": <chave>` em `data/estadios.json` e usa o ficheiro desse (`osm_id` no `info()`).
+  Cada chave da ESPN descarrega-se uma vez. No fim, o registo lista (sem apagar nem juntar) os estádios que parecem
+  o mesmo com chaves diferentes: o ponto de um dentro do contorno do estádio do outro.
 - **Mapas de base**: `web/mapas/europa.json`, `america_norte.json`, `america_sul.json` (países a 50 m; cidades, costa,
   rios e lagos a 10 m para o meio do zoom; o da América do Norte, da NBA, só tem os países e os estados dos EUA), gerados por `tools/gerar_mapas.py` a partir do Natural Earth. Guardam
   longitude/latitude; a projeção (Lambert azimutal de áreas iguais, centrada em cada continente) faz-se no browser.

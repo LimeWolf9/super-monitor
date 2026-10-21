@@ -91,50 +91,6 @@ def ficheiro_osm(c):
     return PASTA_OSM / f"{c}.json"
 
 
-def osm_de(c, guardado=None):
-    """A chave cujo ficheiro do OSM serve a este estádio: o seu, ou o do estádio igual (mesmo sítio, outra chave
-    da ESPN: ver _igual); None se ainda não há."""
-    if ficheiro_osm(c).exists():
-        return c
-    igual = (ler().get(c, {}) if guardado is None else guardado).get("igual")
-    return igual if igual and ficheiro_osm(igual).exists() else None
-
-
-def _poligonos_estadio(c):
-    """Os contornos do estádio (camada "estadio") do ficheiro do OSM de c, em [(lon, lat), ...]."""
-    try:
-        d = json.loads(ficheiro_osm(c).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    lon0, lat0 = d["centro"]
-    aneis = []
-    for linha in d["camadas"].get("estadio", []):
-        x = y = 0
-        anel = []
-        for k in range(0, len(linha) - 1, 2):
-            x, y = x + linha[k], y + linha[k + 1]
-            anel.append((lon0 + x / d["e"], lat0 + y / d["e"]))
-        if len(anel) >= 3:
-            aneis.append(anel)
-    return aneis
-
-
-def _igual(c, guardado):
-    """Outro estádio, já com OSM, que é o mesmo estádio do OSM com outra chave da ESPN (outro nome, um estádio
-    partilhado, a seleção no estádio de um clube): o ponto deste, afinado pelo OSM, cai dentro do contorno do
-    estádio (leisure=stadium) do outro. A distância não chega: o Parc des Princes e o Jean-Bouin estão a ~250 m,
-    Dens Park e Tannadice (Dundee) a ~100 m. Devolve a chave dele ou None."""
-    if "+osm" not in (guardado.get("fonte") or ""):
-        return None
-    lat, lon = guardado["lat"], guardado["lon"]
-    for outro, g in ler().items():
-        if (outro != c and g.get("lat") is not None and not g.get("igual") and ficheiro_osm(outro).exists()
-                and km(lat, lon, g["lat"], g["lon"]) < 1.5
-                and any(_dentro((lon, lat), anel) for anel in _poligonos_estadio(outro))):
-            return outro
-    return None
-
-
 def info(venue, desporto="football"):
     """O que a página precisa do estádio de um jogo (venue = o da ESPN), com o que já houver em cache.
 
@@ -145,11 +101,10 @@ def info(venue, desporto="football"):
     c = chave(venue)
     morada = venue.get("address") or {}
     guardado = ler().get(c, {})
-    osm = osm_de(c, guardado) if desporto == "football" else None
     return {
         "id": c, "nome": venue["fullName"], "cidade": morada.get("city"), "pais": morada.get("country") or morada.get("state"),
         "lat": guardado.get("lat"), "lon": guardado.get("lon"), "fonte": guardado.get("fonte"),
-        "osm": osm is not None, "osm_id": osm,
+        "osm": desporto == "football" and ficheiro_osm(c).exists(),
     }
 
 
@@ -541,11 +496,7 @@ def resolver(e, com_osm):
             if fino:
                 novo.update(lat=round(fino[0], 6), lon=round(fino[1], 6), fonte=guardado["fonte"] + "+osm")
             guardado = _gravar_entrada(c, novo)
-        if com_osm and not osm_de(c, guardado) and "cidade" != guardado.get("fonte"):
-            igual = _igual(c, guardado)
-            if igual:   # o mesmo estádio com outra chave: usa o OSM dele, sem o descarregar outra vez
-                g = ler()[igual]
-                return _gravar_entrada(c, {"igual": igual, "lat": g["lat"], "lon": g["lon"], "falhou": None, "erro": None})
+        if com_osm and not ficheiro_osm(c).exists() and "cidade" != guardado.get("fonte"):
             campo = buscar_osm(c, guardado["lat"], guardado["lon"], e["nome"])
             if campo:   # o ponto do mapa passa a ser o centro do relvado
                 guardado = _gravar_entrada(c, {"lon": campo["c"][0], "lat": campo["c"][1], "osm_t": agora, "falhou": None, "erro": None})
@@ -615,7 +566,7 @@ def preparar(venues, mostrar=print):
             continue
         mostrar(f"Estádio: {e['nome']} ({e.get('cidade') or '?'})")
         r = resolver(e, com_osm)
-        if r.get("lat") is not None and (not com_osm or osm_de(e["id"]) or r.get("fonte") == "cidade"):
+        if r.get("lat") is not None and (not com_osm or ficheiro_osm(e["id"]).exists() or r.get("fonte") == "cidade"):
             novos += 1
         else:
             falhas += 1
@@ -664,6 +615,45 @@ def _todos_venues(mostrar):
     return lista
 
 
+def _poligonos_estadio(c):
+    """Os contornos do estádio (camada "estadio") do ficheiro do OSM de c, em [(lon, lat), ...]."""
+    try:
+        d = json.loads(ficheiro_osm(c).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    lon0, lat0 = d["centro"]
+    aneis = []
+    for linha in d["camadas"].get("estadio", []):
+        x = y = 0
+        anel = []
+        for k in range(0, len(linha) - 1, 2):
+            x, y = x + linha[k], y + linha[k + 1]
+            anel.append((lon0 + x / d["e"], lat0 + y / d["e"]))
+        if len(anel) >= 3:
+            aneis.append(anel)
+    return aneis
+
+
+def duplicados(futebol, mostrar):
+    """Só mostra (não apaga nem junta) os estádios que parecem o mesmo com chaves da ESPN diferentes: o ponto de um
+    cai dentro do contorno do estádio (leisure=stadium) do outro. A distância não chega: o Parc des Princes e o
+    Jean-Bouin estão a ~250 m, Dens Park e Tannadice (Dundee) a ~100 m."""
+    tudo = ler()
+    com = [e for e in futebol if ficheiro_osm(e["id"]).exists() and tudo.get(e["id"], {}).get("lat") is not None]
+    aneis = {e["id"]: _poligonos_estadio(e["id"]) for e in com}
+    n = 0
+    for a in com:
+        ga = tudo[a["id"]]
+        for b in com:
+            gb = tudo[b["id"]]
+            if (a["id"] < b["id"] and km(ga["lat"], ga["lon"], gb["lat"], gb["lon"]) < 1.5
+                    and (any(_dentro((ga["lon"], ga["lat"]), x) for x in aneis[b["id"]])
+                         or any(_dentro((gb["lon"], gb["lat"]), x) for x in aneis[a["id"]]))):
+                n += 1
+                mostrar(f"Talvez o mesmo estádio: {a['nome']} ({a['id']}) e {b['nome']} ({b['id']})")
+    mostrar(f"Duplicados prováveis: {n} (só listados, nada se apagou)")
+
+
 def todos():
     """Prepara já todos os estádios da época, para o mapa nunca ter de esperar.
 
@@ -707,7 +697,7 @@ def todos():
 
     # Fase B: o OSM, o do jogo mais próximo primeiro (a lista já vem por data)
     for ronda in range(RONDAS):
-        a_fazer = [e for _q, e in futebol if falta({**e, "osm": osm_de(e["id"]) is not None}, True)
+        a_fazer = [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)
                    and ler().get(e["id"], {}).get("lat") is not None]
         if not a_fazer:
             break
@@ -721,21 +711,19 @@ def todos():
             gravar_progresso(passo=f"OpenStreetMap: {e['nome']}", feitos=i - 1, total=len(a_fazer),
                              estimativa_s=round(time.time() - t0 + media * (len(a_fazer) - i + 1)))
             r = resolver(e, True)
-            ok = osm_de(e["id"])
-            igual = f" (o mesmo que {ler().get(ok, {}).get('nome') or ok}, sem descarregar)" if ok and ok != e["id"] else ""
-            mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" + igual if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
+            ok = ficheiro_osm(e["id"]).exists()
+            mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
         time.sleep(1)
         # os que deram erro voltam a ser tentados; os outros (não encontrados, só a cidade) ficam
         if not any(ler().get(e["id"], {}).get("erro") for e in a_fazer):
             break
 
-    osm = sum(1 for _q, e in futebol if osm_de(e["id"]))
-    iguais = sum(1 for _q, e in futebol if ler().get(e["id"], {}).get("igual") and osm_de(e["id"]))
+    osm = sum(1 for _q, e in futebol if ficheiro_osm(e["id"]).exists())
     com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
-    fim = (f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap "
-           f"({iguais} iguais a outro estádio, sem descarregar)")
+    fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap"
     gravar_progresso(estado="ok", passo=None, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"), feitos=estado["total"], erro=None)
     mostrar("Feito: " + fim)
+    duplicados([e for _q, e in futebol], mostrar)
 
 
 if __name__ == "__main__":
