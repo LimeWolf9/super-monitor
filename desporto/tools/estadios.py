@@ -485,7 +485,7 @@ def resolver(e, com_osm):
                 return _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora, "erro": None})
             lat, lon, fonte = achado
             # já fica no mapa, mesmo que o resto (Overpass) falhe
-            guardado = _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "afinar": com_osm,
+            guardado = _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "afinar": True,
                                            "lat": round(lat, 6), "lon": round(lon, 6), "fonte": fonte, "falhou": None, "erro": None, "t": agora})
         if com_osm and guardado.get("afinar", True) and "+osm" not in (guardado.get("fonte") or ""):
             # o ponto exato do estádio no OSM (a cidade fica a quilómetros; a Wikidata às vezes a centenas de metros)
@@ -505,18 +505,27 @@ def resolver(e, com_osm):
         return _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora, "erro": str(ex)[:200]})
 
 
-# Fila de fundo: um pedido de cada vez, para não abusar da Wikidata e do Overpass
-_fila, _na_fila = queue.Queue(), set()
+# Fila de fundo: um pedido de cada vez, para não abusar da Wikidata e do Overpass. Primeiro as coordenadas de
+# todos (Wikidata, rápido: chegam para o mapa), só depois o OSM, um de cada vez (Overpass, ~1 minuto cada)
+_fila, _na_fila = queue.PriorityQueue(), set()
+_ordem = iter(range(10 ** 12))   # desempate na fila (por ordem de chegada)
 _trabalhador = []
 
 
 def _trabalhar():
+    time.sleep(1)   # deixa chegar os outros jogos do mesmo pedido, para as coordenadas irem antes do primeiro OSM
     while True:
-        e, com_osm = _fila.get()
+        fase, _, e, com_osm = _fila.get()
         try:
+            if fase == 0 and com_osm:
+                # só as coordenadas; o OSM volta à fila, atrás das coordenadas dos outros
+                if resolver(e, False).get("lat") is not None:
+                    _fila.put((1, next(_ordem), e, True))
+                    continue
             resolver(e, com_osm)
-        finally:
-            _na_fila.discard(e["id"])
+        except Exception:
+            pass
+        _na_fila.discard(e["id"])
 
 
 def falta(e, com_osm):
@@ -537,7 +546,7 @@ def pedir_em_fundo(e, com_osm):
         _trabalhador.append(threading.Thread(target=_trabalhar, daemon=True, name="estadios"))
         _trabalhador[0].start()
     _na_fila.add(e["id"])
-    _fila.put((e, com_osm))
+    _fila.put((0 if ler().get(e["id"], {}).get("lat") is None else 1, next(_ordem), e, com_osm))
 
 
 def preparar(venues, mostrar=print):
