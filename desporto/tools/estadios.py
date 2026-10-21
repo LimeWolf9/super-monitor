@@ -52,7 +52,6 @@ RAIO_RUAS = 2500             # m: ruas, linhas, água, parques
 RAIO_ESTRADAS = 15000        # m: auto-estradas e estradas principais (para o meio do zoom)
 RAIO_PREDIOS = 350           # m
 E = 100_000                  # o OSM grava-se em 1/100 000 de grau (~1 m)
-IGUAL_KM = 0.3               # dois estádios a menos disto são o mesmo: partilham o ficheiro do OSM
 
 _tranca = threading.Lock()   # data/estadios.json (o servidor tem várias threads)
 
@@ -101,12 +100,37 @@ def osm_de(c, guardado=None):
     return igual if igual and ficheiro_osm(igual).exists() else None
 
 
-def _igual(c, lat, lon):
-    """Outro estádio, já com OSM, a menos de IGUAL_KM deste ponto: o mesmo estádio com outra chave da ESPN (outro
-    nome, um estádio partilhado, a seleção no estádio de um clube). Devolve a chave dele ou None."""
+def _poligonos_estadio(c):
+    """Os contornos do estádio (camada "estadio") do ficheiro do OSM de c, em [(lon, lat), ...]."""
+    try:
+        d = json.loads(ficheiro_osm(c).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    lon0, lat0 = d["centro"]
+    aneis = []
+    for linha in d["camadas"].get("estadio", []):
+        x = y = 0
+        anel = []
+        for k in range(0, len(linha) - 1, 2):
+            x, y = x + linha[k], y + linha[k + 1]
+            anel.append((lon0 + x / d["e"], lat0 + y / d["e"]))
+        if len(anel) >= 3:
+            aneis.append(anel)
+    return aneis
+
+
+def _igual(c, guardado):
+    """Outro estádio, já com OSM, que é o mesmo estádio do OSM com outra chave da ESPN (outro nome, um estádio
+    partilhado, a seleção no estádio de um clube): o ponto deste, afinado pelo OSM, cai dentro do contorno do
+    estádio (leisure=stadium) do outro. A distância não chega: o Parc des Princes e o Jean-Bouin estão a ~250 m,
+    Dens Park e Tannadice (Dundee) a ~100 m. Devolve a chave dele ou None."""
+    if "+osm" not in (guardado.get("fonte") or ""):
+        return None
+    lat, lon = guardado["lat"], guardado["lon"]
     for outro, g in ler().items():
-        if (outro != c and g.get("lat") is not None and g.get("fonte") != "cidade" and not g.get("igual")
-                and ficheiro_osm(outro).exists() and km(lat, lon, g["lat"], g["lon"]) < IGUAL_KM):
+        if (outro != c and g.get("lat") is not None and not g.get("igual") and ficheiro_osm(outro).exists()
+                and km(lat, lon, g["lat"], g["lon"]) < 1.5
+                and any(_dentro((lon, lat), anel) for anel in _poligonos_estadio(outro))):
             return outro
     return None
 
@@ -518,7 +542,7 @@ def resolver(e, com_osm):
                 novo.update(lat=round(fino[0], 6), lon=round(fino[1], 6), fonte=guardado["fonte"] + "+osm")
             guardado = _gravar_entrada(c, novo)
         if com_osm and not osm_de(c, guardado) and "cidade" != guardado.get("fonte"):
-            igual = _igual(c, guardado["lat"], guardado["lon"])
+            igual = _igual(c, guardado)
             if igual:   # o mesmo estádio com outra chave: usa o OSM dele, sem o descarregar outra vez
                 g = ler()[igual]
                 return _gravar_entrada(c, {"igual": igual, "lat": g["lat"], "lon": g["lon"], "falhou": None, "erro": None})
