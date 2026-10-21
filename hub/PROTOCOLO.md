@@ -55,7 +55,7 @@ A app completa de exemplo é `web/apps/relogio.html`.
 
 ## Sugestão para o dashboard de desporto (fase 2)
 
-- `esquerda` / `direita`: cena anterior / seguinte (e recomeça a contagem dos 10 s)
+- `esquerda` / `direita`: cena anterior / seguinte (e recomeça a contagem do tempo da cena)
 - `pausa`: fixa a cena atual (mostrar um ⏸ discreto)
 - `cima` / `baixo`: mover o foco entre notícias ou jogos da cena
 - `ok`: abrir a notícia com foco (por cima da cena); `voltar` fecha-a

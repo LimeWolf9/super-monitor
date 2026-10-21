@@ -3,8 +3,10 @@
 import { tickCountdowns } from './util.js';
 import { fundo } from './backgrounds.js';
 
-export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, aoMudar = () => {} }) {
+// seconds: duração quando ainda não há cena (à espera de dados); duracao(el, cena): segundos da cena já montada.
+export function createScheduler({ host, bar, scenes, getData, seconds, duracao = () => seconds, fixedId, aoMudar = () => {} }) {
   let index = -1;
+  let segAtual = seconds; // duração da cena visível (a barra de progresso usa a mesma)
   let pass = 0;          // voltas completas ao ciclo (usado na cena "fun")
   let atual = null;      // elemento da cena visível
   let timer = null;
@@ -28,6 +30,7 @@ export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, 
       setTimeout(() => velha.remove(), 900);
     }
     atual = el;
+    segAtual = duracao(el, cena) || seconds;
     tickCountdowns();
     aoMudar(el, cena);
   }
@@ -35,13 +38,13 @@ export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, 
   function reiniciarBarra() {
     bar.style.animation = 'none';
     bar.getBoundingClientRect();
-    bar.style.animation = pausado ? 'none' : `progress ${seconds}s linear forwards`;
+    bar.style.animation = pausado ? 'none' : `progress ${segAtual}s linear forwards`;
   }
 
-  // Agenda a cena seguinte daqui a "seconds" (a contagem recomeça sempre que se muda de cena à mão)
+  // Agenda a cena seguinte daqui a segAtual segundos (a contagem recomeça sempre que se muda de cena à mão)
   function agendar() {
     clearTimeout(timer);
-    if (!pausado && !fixa) timer = setTimeout(() => ir(1), seconds * 1000);
+    if (!pausado && !fixa) timer = setTimeout(() => ir(1), segAtual * 1000);
     reiniciarBarra();
   }
 
@@ -85,6 +88,7 @@ export function createScheduler({ host, bar, scenes, getData, seconds, fixedId, 
     },
     get pausado() { return pausado; },
     get cenaAtual() { return atual; },
+    get segundos() { return segAtual; },
     // Dados novos podem trazer ou tirar cenas (ex.: uma jornada com mais jogos, a NBA a começar).
     setScenes(novas) {
       scenes = novas;

@@ -66,7 +66,7 @@ Dentro do MonitorHub (pasta `hub/` deste repositório), o dashboard obedece ao c
 
 | Botão | Tecla | O que faz |
 |---|---|---|
-| ◀ ▶ | setas ← → | cena anterior / seguinte (a contagem dos 10 s recomeça; em pausa, muda e continua em pausa) |
+| ◀ ▶ | setas ← → | cena anterior / seguinte (a contagem do tempo da cena recomeça; em pausa, muda e continua em pausa) |
 | Pausa | Espaço | fica nesta cena, com um ⏸ no topo (e um aviso no hub); outra vez retoma |
 | Futebol / F1 / NBA | 1 / 2 / 3 | salta para o primeiro ecrã desse desporto na categoria aberta (ações `ir_futebol`, `ir_f1`, `ir_nba`; o dashboard só anuncia ao hub as dos desportos que têm ecrãs nessa categoria). No canto de baixo, à esquerda, aparece onde estás: "Futebol 3/24" |
 | ▲ ▼ | setas ↑ ↓ | nas cenas `*-proximos`, muda a notícia com foco (contorno); com uma notícia aberta, desliza o texto |
@@ -98,7 +98,7 @@ A classificação e os próximos jogos estão em ecrãs separados (`*-tabela` e 
 - **Dados** → `data/live.json`, ou `data/mock.json` se o live não existir (recarrega sozinho a cada 60 s; ou F5).
 - **Que dados aparecem em cada cena** → `web/js/cenas/` (um ficheiro por modalidade: `futebol.js`, `f1.js`, `nba.js`, `outras.js`; as peças comuns em `base.js`). A ordem da rotação e as categorias estão em `web/js/scenes.js`.
 - **Aspeto** → `web/css/base.css` (estrutura e tamanhos; no fim, o aspeto Liquid Glass), cores das competições em `leagues.css`, fundos ilustrados em `web/js/backgrounds.js`.
-- **Segundos por cena** → `SEGUNDOS_POR_CENA` em `web/js/main.js` (10).
+- **Segundos por cena** → `duracaoCena` em `web/js/main.js`: 5 s + 0,5 s por linha visível (jogos, linhas de tabela, notícias, itens; seletores em `LINHAS`), entre 6 e 20 s. Uma cena com `segundos` próprio (número ou função) manda. A barra de progresso usa a mesma duração.
 - **Equipa em destaque** → `myTeam.code` em `live.json` (e no `mock.json`, de onde o live é criado) (FCP).
 - **Nome na saudação do topo** → `utilizador` em `live.json` e `mock.json` ("Bom dia/Boa tarde/Boa noite, Diogo").
 

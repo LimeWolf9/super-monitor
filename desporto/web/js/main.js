@@ -7,7 +7,7 @@ import { tickCountdowns } from './util.js';
 import { iniciarControlo } from './controlo.js';
 import { iniciarAtualizacao } from './atualizacao.js';
 
-const SEGUNDOS_POR_CENA = 10;
+const SEGUNDOS_SEM_CENAS = 10;   // à espera de dados
 const REFRESCAR_DADOS_MS = 60_000;
 const params = new URLSearchParams(location.search);
 // ?cat=ultima | aovivo | proxima (submenu do MonitorHub);
@@ -42,6 +42,18 @@ function mostrarSecao(cena) {
   el.textContent = `${NOMES_SECOES[cena.sport] || ''}${mesmas.length > 1 && pos ? ` ${pos}/${mesmas.length}` : ''}`;
 }
 
+// Tempo de cada cena: depende de quantas linhas mostra (jogos, linhas de tabela, notícias, itens).
+// segundos = 5 + 0,5 por linha, entre 6 e 20. Uma cena com "segundos" próprio (número ou função(D)) manda.
+// Jogos (.mres traz um .match dentro: conta uma vez), linhas de tabela, o 11, a árvore da taça, os pneus,
+// as linhas do gráfico da F1, notícias e itens das outras cenas.
+const LINHAS = '.row:not(.head), .mres, .match:not(.mres .match), .pj:not(.mais), .pr, .o-jog, .pn-linha, .ln, .nt, .fun-item, .duelo, .stat';
+const limitar = (min, max, v) => Math.min(max, Math.max(min, v));
+const contarLinhas = (el) => [...el.querySelectorAll(LINHAS)].filter((x) => x.getClientRects().length).length;
+function duracaoCena(el, cena) {
+  if (cena.segundos != null) return typeof cena.segundos === 'function' ? cena.segundos(dados) : cena.segundos;
+  return Math.round(limitar(6, 20, 5 + 0.5 * contarLinhas(el)));
+}
+
 async function arrancar() {
   iniciarAjuste();
   await carregarDados();
@@ -53,7 +65,8 @@ async function arrancar() {
     bar: document.getElementById('progress-bar'),
     scenes: construirCenas(dados, CATEGORIA),
     getData: () => dados,
-    seconds: SEGUNDOS_POR_CENA,
+    seconds: SEGUNDOS_SEM_CENAS,
+    duracao: duracaoCena,
     fixedId: params.get('scene'),
     aoMudar: (el, cena) => {
       if (controlo) controlo.aoMudarCena(el);
