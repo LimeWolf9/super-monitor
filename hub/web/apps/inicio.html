@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Início</title>
+<style>
+  /* Ecrã de repouso do MonitorHub (1080×2560). Mesmo estilo escuro do menu (ecra.css): 1vw = 10,8 px */
+  :root {
+    --fundo: #0b0f17; --painel: #151b27; --painel-2: #1b2232; --linha: #252c3b;
+    --texto: #eef2f8; --suave: #8d98ab; --destaque: #3ea6ff; --ok: #3ddc84; --mal: #ff6b6b; --meh: #ffc24f;
+    font-size: 1.45vw;   /* um pouco mais pequeno que o menu (1.6vw): cabe tudo em 2560 de altura */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; overflow: hidden; cursor: none; }
+  body { display: flex; flex-direction: column; padding: 3.5vh 6vw 2vh; gap: 1.6vh; }
+
+  header { text-align: center; }
+  #hora { font-size: 9.5rem; font-weight: 200; line-height: 1; letter-spacing: .02em; }
+  #dia { font-size: 3rem; font-weight: 600; margin-top: 1.4rem; }
+  #data { font-size: 2.2rem; color: var(--suave); margin-top: .3rem; }
+  #saudacao { font-size: 2.4rem; margin-top: 1rem; color: var(--destaque); }
+
+  .cartao { background: var(--painel); border-radius: 1.8rem; padding: 2rem 2.6rem; }
+  .cartao h2 { margin: 0 0 1.4rem; font-size: 1.7rem; font-weight: 600; color: var(--suave); letter-spacing: .08em;
+    text-transform: uppercase; display: flex; justify-content: space-between; gap: 1rem; }
+  .cartao h2 small { font-size: 1.5rem; letter-spacing: 0; text-transform: none; font-weight: 400; }
+  .vazio { color: var(--suave); font-size: 1.9rem; }
+
+  /* Tempo */
+  .agora { display: flex; align-items: center; gap: 2.4rem; }
+  .agora .ic { font-size: 7rem; line-height: 1; }
+  .agora .t { font-size: 7rem; font-weight: 300; line-height: 1; }
+  .agora .txt { font-size: 2.2rem; }
+  .agora .txt small { display: block; color: var(--suave); font-size: 1.7rem; margin-top: .4rem; }
+  .horas { display: grid; grid-template-columns: repeat(12, 1fr); gap: .4rem; margin-top: 2rem; text-align: center; }
+  .horas div { font-size: 1.5rem; color: var(--suave); }
+  .horas b { display: block; font-size: 2.4rem; margin: .3rem 0; }
+  .horas span { display: block; color: var(--texto); font-size: 1.8rem; }
+  .horas i { display: block; font-style: normal; font-size: 1.3rem; color: var(--destaque); min-height: 1.6rem; }
+  .dias { margin-top: 1.8rem; padding-top: 1.6rem; border-top: .1rem solid var(--linha);
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: .6rem; text-align: center; }
+  .dias div { font-size: 1.8rem; display: flex; flex-direction: column; gap: .3rem; }
+  .dias .ic { font-size: 3rem; }
+  .dias .chuva { color: var(--destaque); font-size: 1.4rem; min-height: 1.8rem; }
+  .dias .min { color: var(--suave); }
+
+  /* Jogos */
+  .jogo { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1.6rem; }
+  .eq { display: flex; align-items: center; gap: 1.2rem; font-size: 2.4rem; font-weight: 600; min-width: 0; }
+  .eq.fora { flex-direction: row-reverse; text-align: right; }
+  .eq span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meio { text-align: center; }
+  .meio .hora { font-size: 3rem; font-weight: 600; }
+  .meio .dia { font-size: 1.7rem; color: var(--suave); }
+  .meio .res { font-size: 3.6rem; font-weight: 700; white-space: nowrap; }
+  .meta { margin-top: 1.4rem; display: flex; justify-content: space-between; gap: 1rem; font-size: 1.8rem; color: var(--suave); }
+  .conta { color: var(--destaque); font-weight: 600; white-space: nowrap; }
+  .ultimo { margin-top: 1.6rem; padding-top: 1.4rem; border-top: .1rem solid var(--linha); font-size: 1.9rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .ultimo .r { font-weight: 700; padding: .2rem .9rem; border-radius: .6rem; font-size: 1.6rem; }
+  .ultimo .r.v { background: var(--ok); color: #06210f; }
+  .ultimo .r.e { background: var(--meh); color: #2a1d00; }
+  .ultimo .r.d { background: var(--mal); color: #2a0606; }
+  .ultimo .badge { width: 3.4rem; height: 3.4rem; font-size: 1rem; }
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4vh 1.6rem; }
+  .duas:has(> [hidden]) { grid-template-columns: 1fr; }   /* sem jogo de Portugal: a F1 ocupa a largura toda */
+  [hidden] { display: none !important; }
+  /* Nos cartões estreitos, o nome vai por baixo do emblema */
+  .duas .eq, .duas .eq.fora { flex-direction: column; text-align: center; gap: .6rem; font-size: 1.6rem; }
+  .duas .eq span { white-space: normal; font-size: 1.5rem; }
+  .duas .jogo { grid-template-columns: 1fr 1.1fr 1fr; }
+  .duas .meio .dia { font-size: 1.4rem; }
+  .duas .badge { width: 5rem; height: 5rem; }
+  .duas .jogo { gap: .8rem; }
+  .duas .meio .hora { font-size: 2.6rem; }
+  .duas .meta { flex-direction: column; gap: .3rem; }
+  .f1 .gp { font-size: 2.6rem; font-weight: 600; }
+  .f1 .onde { font-size: 1.8rem; color: var(--suave); margin-top: .3rem; }
+  .f1 .conta { font-size: 2.6rem; display: block; margin-top: 1rem; }
+
+  /* Emblema (a mesma peça do desporto: util.js badge) */
+  .badge { flex: none; width: 6rem; height: 6rem; display: grid; place-items: center; border-radius: 50%;
+    font-size: 1.5rem; font-weight: 700; color: var(--tx); position: relative; }
+  .badge img { width: 100%; height: 100%; object-fit: contain; }
+  .badge.fail { background: var(--c1); border: .3rem solid var(--c2); }
+  .badge:not(.fail) { font-size: 0; }
+
+  /* Notícias */
+  .noticias ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1.2rem; }
+  .noticias li { font-size: 2rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .noticias li small { color: var(--suave); font-size: 1.5rem; margin-left: .6rem; }
+
+  footer { margin-top: auto; text-align: center; color: var(--suave); font-size: 1.6rem; line-height: 1.7; }
+  footer b { color: var(--texto); font-weight: 600; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="hora">--:--</div>
+    <div id="dia"></div>
+    <div id="data"></div>
+    <div id="saudacao"></div>
+  </header>
+  <section class="cartao" id="tempo"><h2>Tempo</h2><div class="vazio">A carregar…</div></section>
+  <section class="cartao" id="porto"></section>
+  <div class="duas"><section class="cartao" id="selecao"></section><section class="cartao f1" id="f1"></section></div>
+  <section class="cartao noticias" id="noticias"></section>
+  <footer>
+    <div><b>OK</b> no comando abre o menu</div>
+    <div id="dados"></div>
+  </footer>
+<script type="module">
+// Lê os dados do desporto (live.json) pelo hub ("ficheiros" do Desporto no apps.json) e usa as peças do desporto
+// (util.js: emblemas, nomes, "a minha equipa"). O tempo vem da Open-Meteo (sem chave), para o sítio no config do hub.
+// ?mock=1: dados fictícios (o mock.json do desporto e um tempo inventado, sem rede).
+import { badge, esc, teamName, targetMs } from './desporto-util.js';
+
+const MOCK = new URLSearchParams(location.search).get('mock') === '1';
+const DADOS = MOCK ? '/dados/desporto-mock.json' : '/dados/desporto.json';
+const $ = (id) => document.getElementById(id);
+const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const hhmm = (d) => d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+// ---------------------------------------------------------------- relógio
+function relogio() {
+  const agora = new Date();
+  $('hora').textContent = hhmm(agora);
+  const dia = DIAS[agora.getDay()];
+  $('dia').textContent = dia.charAt(0).toUpperCase() + dia.slice(1);
+  $('data').textContent = agora.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' });
+  const h = agora.getHours();
+  $('saudacao').textContent = h >= 6 && h < 13 ? 'Bom dia' : h >= 13 && h < 20 ? 'Boa tarde' : 'Boa noite';
+  document.querySelectorAll('[data-ate]').forEach((el) => { el.textContent = falta(Number(el.dataset.ate)); });
+}
+
+// "faltam 2 d 5 h", "faltam 3 h 12 min", "faltam 8 min", "a começar"
+function falta(ms) {
+  const min = Math.floor((ms - Date.now()) / 60000);
+  if (min <= 0) return 'a começar';
+  const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+  if (d) return `faltam ${d} d ${h} h`;
+  if (h) return `faltam ${h} h ${String(m).padStart(2, '0')} min`;
+  return `faltam ${m} min`;
+}
+
+// ---------------------------------------------------------------- tempo (Open-Meteo)
+// Códigos WMO -> ícone e texto
+const WMO = [
+  [[0], '☀️', 'Céu limpo'], [[1], '🌤️', 'Pouco nublado'], [[2], '⛅', 'Parcialmente nublado'], [[3], '☁️', 'Nublado'],
+  [[45, 48], '☁️', 'Nevoeiro'], [[51, 53, 55, 56, 57], '🌦️', 'Chuvisco'], [[61, 63, 66, 80, 81], '🌧️', 'Chuva'],
+  [[65, 67, 82], '🌧️', 'Chuva forte'], [[71, 73, 75, 77, 85, 86], '🌨️', 'Neve'], [[95, 96, 99], '⛈️', 'Trovoada'],
+];
+const tempo = (c, noite) => {
+  const w = WMO.find(([cs]) => cs.includes(c)) || [[], '·', ''];
+  return { ic: noite && c <= 1 ? '🌙' : w[1], txt: w[2] };
+};
+
+function tempoFicticio() {
+  const agora = new Date(); agora.setMinutes(0, 0, 0);
+  const hora = (i) => new Date(agora.getTime() + i * 3600e3).toISOString().slice(0, 16);
+  const dia = (i) => new Date(Date.now() + i * 864e5).toISOString().slice(0, 10);
+  return {
+    current: { temperature_2m: 17.4, apparent_temperature: 16.8, weather_code: 2, is_day: 1, time: hora(0) },
+    hourly: { time: Array.from({ length: 24 }, (_, i) => hora(i)), temperature_2m: Array.from({ length: 24 }, (_, i) => 17 - Math.abs(6 - i) * 0.6),
+      weather_code: Array.from({ length: 24 }, (_, i) => [2, 3, 61, 3][i % 4]), precipitation_probability: Array.from({ length: 24 }, (_, i) => (i % 4 === 2 ? 60 : 10)) },
+    daily: { time: Array.from({ length: 7 }, (_, i) => dia(i)), weather_code: [2, 61, 80, 3, 1, 0, 95],
+      temperature_2m_max: [19, 17, 16, 18, 21, 22, 20], temperature_2m_min: [11, 12, 10, 9, 10, 12, 13],
+      precipitation_probability_max: [10, 80, 70, 30, 5, 0, 60] },
+  };
+}
+
+async function mostrarTempo() {
+  const caixa = $('tempo');
+  try {
+    const cfg = MOCK ? { tempo: { nome: 'Porto (fictício)', latitude: 0, longitude: 0 } } : await (await fetch('/api/inicio', { cache: 'no-store' })).json();
+    const sitio = cfg.tempo;
+    if (!sitio || sitio.latitude == null) { caixa.innerHTML = '<h2>Tempo</h2><div class="vazio">Escolhe o sítio no config.local.json do hub ("inicio" → "tempo").</div>'; return; }
+    const url = 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
+      latitude: sitio.latitude, longitude: sitio.longitude, timezone: 'auto', forecast_days: 7,
+      current: 'temperature_2m,apparent_temperature,weather_code,is_day',
+      hourly: 'temperature_2m,weather_code,precipitation_probability',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    });
+    const T = MOCK ? tempoFicticio() : await (await fetch(url)).json();
+    const c = T.current, agora = tempo(c.weather_code, !c.is_day);
+    // As próximas 12 horas, a partir da hora em que estamos
+    const i0 = Math.max(0, T.hourly.time.findIndex((t) => t >= c.time.slice(0, 13)));
+    const horas = T.hourly.time.slice(i0 + 1, i0 + 13).map((t, k) => {
+      const i = i0 + 1 + k, h = Number(t.slice(11, 13)), p = T.hourly.precipitation_probability[i];
+      return `<div>${h}h<b>${tempo(T.hourly.weather_code[i], h < 7 || h >= 20).ic}</b><span>${Math.round(T.hourly.temperature_2m[i])}°</span><i>${p >= 20 ? p + '%' : ''}</i></div>`;
+    }).join('');
+    // Os 5 dias seguintes (amanhã em diante)
+    const dias = T.daily.time.slice(1, 6).map((d, k) => {
+      const i = k + 1, nome = k === 0 ? 'Amanhã' : DIAS[new Date(d + 'T12:00').getDay()].replace('-feira', '');
+      const p = T.daily.precipitation_probability_max[i];
+      return `<div><span>${nome.charAt(0).toUpperCase() + nome.slice(1)}</span><span class="ic">${tempo(T.daily.weather_code[i]).ic}</span>
+        <span>${Math.round(T.daily.temperature_2m_max[i])}° <span class="min">${Math.round(T.daily.temperature_2m_min[i])}°</span></span><span class="chuva">${p >= 20 ? `💧 ${p}%` : ''}</span></div>`;
+    }).join('');
+    const hoje = `máx. ${Math.round(T.daily.temperature_2m_max[0])}° · mín. ${Math.round(T.daily.temperature_2m_min[0])}°`;
+    caixa.innerHTML = `<h2>Tempo<small>${esc(sitio.nome || '')}</small></h2>
+      <div class="agora"><span class="ic">${agora.ic}</span><span class="t">${Math.round(c.temperature_2m)}°</span>
+        <div class="txt">${agora.txt}<small>sensação ${Math.round(c.apparent_temperature)}° · ${hoje}</small></div></div>
+      <div class="horas">${horas}</div><div class="dias">${dias}</div>`;
+  } catch (e) {
+    if (!caixa.querySelector('.agora')) caixa.innerHTML = `<h2>Tempo</h2><div class="vazio">Sem previsão (${esc(e.message)}).</div>`;
+    console.warn('Tempo:', e);
+  }
+}
+
+// ---------------------------------------------------------------- desporto (live.json)
+// Todos os jogos de todas as competições, com o nome da competição
+const todos = (D, lista) => Object.values(D.football || {}).flatMap((L) => (L[lista] || []).map((m) => ({ ...m, comp: L.name })));
+const quando = (m) => (m.iso ? Date.parse(m.iso) : null);
+
+// Próximo jogo de uma equipa: o mais cedo dos que têm hora; sem hora (o mock), o primeiro que aparecer
+function proximoJogo(D, code) {
+  const jogos = todos(D, 'next').filter((m) => (m.home === code || m.away === code) && m.status !== 'adiado');
+  const futuros = jogos.filter((m) => quando(m) == null || quando(m) > Date.now() - 2 * 3600e3);
+  return futuros.sort((a, b) => (quando(a) ?? Infinity) - (quando(b) ?? Infinity))[0] || null;
+}
+function ultimoJogo(D, code) {
+  const jogos = todos(D, 'results').filter((m) => (m.home === code || m.away === code) && m.hs != null && !m.live);
+  return jogos.sort((a, b) => (quando(b) ?? 0) - (quando(a) ?? 0))[0] || null;
+}
+
+const equipa = (D, code, lado) => `<div class="eq ${lado}">${badge(D, code)}<span>${esc(teamName(D, code))}</span></div>`;
+function cartaoJogo(D, m) {
+  const t = quando(m);
+  const [dia, ...hora] = (m.when || '').split(' ');
+  const quandoTxt = t
+    ? `<div class="hora">${hhmm(new Date(t))}</div><div class="dia">${new Date(t).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' })}</div>`
+    : `<div class="hora">${esc(hora.join(' '))}</div><div class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</div>`;
+  return `<div class="jogo">${equipa(D, m.home, 'casa')}<div class="meio">${quandoTxt}</div>${equipa(D, m.away, 'fora')}</div>
+    <div class="meta"><span>${esc(m.comp || '')}</span>${t ? `<span class="conta" data-ate="${t}">${falta(t)}</span>` : ''}</div>`;
+}
+
+function mostrarPorto(D) {
+  const code = D.myTeam.code, nome = teamName(D, code);
+  const prox = proximoJogo(D, code), ult = ultimoJogo(D, code);
+  let html = `<h2>${esc(nome)}<small>próximo jogo</small></h2>` + (prox ? cartaoJogo(D, prox) : '<div class="vazio">Sem jogos marcados.</div>');
+  if (ult) {
+    const nos = ult.home === code ? ult.hs : ult.as, eles = ult.home === code ? ult.as : ult.hs;
+    const [cls, txt] = nos > eles ? ['v', 'V'] : nos === eles ? ['e', 'E'] : ['d', 'D'];
+    html += `<div class="ultimo"><span class="r ${cls}">${txt}</span>Último: ${esc(teamName(D, ult.home))}
+      <b>${ult.hs}–${ult.as}</b> ${esc(teamName(D, ult.away))} <span class="vazio">· ${esc(ult.comp || '')}</span></div>`;
+  }
+  $('porto').innerHTML = html;
+}
+
+function mostrarSelecao(D) {
+  const code = D.myTeam.selecao || 'PRT';
+  const prox = proximoJogo(D, code);
+  const caixa = $('selecao');
+  caixa.hidden = !prox;
+  if (prox) caixa.innerHTML = `<h2>${esc(teamName(D, code))}</h2>${cartaoJogo(D, prox)}`;
+}
+
+function mostrarF1(D) {
+  const n = D.f1 && D.f1.next;
+  const caixa = $('f1');
+  caixa.hidden = !n;
+  if (!n) return;
+  const t = targetMs(n);
+  caixa.innerHTML = `<h2>Fórmula 1</h2><div class="gp">${esc(n.name)}</div>
+    <div class="onde">${esc([n.circuit, n.country].filter(Boolean).join(' · '))} · ${new Date(t).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' })} ${hhmm(new Date(t))}</div>
+    <span class="conta" data-ate="${t}">${falta(t)}</span>`;
+}
+
+// Os 3 títulos mais recentes do FC Porto (em qualquer competição) ou da Liga Portugal
+function mostrarNoticias(D) {
+  const nome = teamName(D, D.myTeam.code);
+  const daEquipa = (n) => n.title && (n.title.includes(nome) || /\bPorto\b|Dragão|dragões/.test(n.title));
+  const todas = Object.entries(D.news || {}).flatMap(([k, lista]) => lista.filter((n) => k === 'pt' || daEquipa(n)));
+  const vistas = new Set();
+  const top = todas.filter((n) => !vistas.has(n.title) && vistas.add(n.title))
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 3);
+  const caixa = $('noticias');
+  caixa.hidden = !top.length;
+  caixa.innerHTML = `<h2>Notícias</h2><ol>${top.map((n) => `<li>${esc(n.title)}<small>${esc(n.source || '')}</small></li>`).join('')}</ol>`;
+}
+
+function quandoDados(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), hoje = new Date();
+  const dias = Math.round((new Date(hoje.toDateString()) - new Date(d.toDateString())) / 864e5);
+  return `Dados do desporto: ${dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} ${hhmm(d)}`;
+}
+
+async function mostrarDesporto() {
+  try {
+    const D = await (await fetch(DADOS, { cache: 'no-store' })).json();
+    for (const f of [mostrarPorto, mostrarSelecao, mostrarF1, mostrarNoticias]) {
+      try { f(D); } catch (e) { console.warn(f.name, e); }
+    }
+    $('dados').textContent = MOCK ? 'Dados fictícios (?mock=1)' : quandoDados((D._atualizado || {}).futebol);
+  } catch (e) {
+    $('porto').innerHTML = `<h2>Desporto</h2><div class="vazio">Sem dados do desporto (${esc(e.message)}).</div>`;
+    console.warn('Desporto:', e);
+  }
+}
+
+relogio();
+setInterval(relogio, 1000);
+mostrarTempo();
+setInterval(mostrarTempo, 30 * 60e3);
+mostrarDesporto();
+setInterval(mostrarDesporto, 5 * 60e3);
+</script>
+</body>
+</html>

@@ -23,6 +23,14 @@
       ],
       "progresso": "data/atualizacao.json"
     },
+    "ficheiros": {
+      "/dados/desporto.json": "../desporto/data/live.json",
+      "/dados/desporto-mock.json": "../desporto/data/mock.json",
+      "/apps/desporto-util.js": "../desporto/web/js/util.js"
+    },
+    "imagens": {
+      "/apps/img/equipas/": "../desporto/web/img/equipas"
+    },
     "apps": [
       {
         "id": "ultima",

@@ -13,6 +13,7 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
   font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; overflow: hidden; cursor: none; }
 
 .vista { position: fixed; inset: 0; display: none; }
+body[data-modo="inicio"] #inicio,
 body[data-modo="menu"] #menu,
 body[data-modo="a_carregar"] #carregar,
 body[data-modo="erro"] #erro,
@@ -64,7 +65,8 @@ footer { margin-top: auto; text-align: center; color: var(--suave); font-size: 1
 #pin-msg { font-size: 2.2rem; color: #ff6b6b; min-height: 3rem; }
 
 /* ---------------------------------------------------------------- app */
-#app { border: 0; width: 100%; height: 100%; background: #000; }
+#app, #inicio { border: 0; width: 100%; height: 100%; background: #000; }
+#inicio { background: var(--fundo); }
 #desligado { background: #000; }
 
 /* Aviso curto quando carregas num botão (ex.: "a app ainda não usa o comando") */

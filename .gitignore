@@ -20,6 +20,7 @@ desporto/capturas/
 
 # Configuração deste PC (PIN, caminhos): só o que muda em relação ao hub/apps.json, ex.: {"despesas": {"pin": "..."}}
 hub/apps.local.json
+hub/config.local.json
 
 # Lista privada da verificação antes de cada commit
 .privado.txt

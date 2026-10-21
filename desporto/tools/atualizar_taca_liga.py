@@ -109,7 +109,8 @@ def jogo(m, eq, agora):
     if m.get("fixtureStateTypeId") and quando(m) <= agora:   # a decorrer
         return {**base, "hs": m.get("liveHomeTeamGoals", 0), "as": m.get("liveAwayTeamGoals", 0), "ev": [],
                 "live": True, "clock": m.get("time") or ""}
-    return {**base, "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}"}
+    return {**base, "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}",
+            "iso": local.isoformat(timespec="minutes")}
 
 
 def montar(dados, agora, baixar):

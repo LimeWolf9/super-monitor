@@ -1,6 +1,6 @@
 // Comando do telemóvel: cada botão manda uma ação ao hub; o estado chega por eventos.
 
-const NOMES_MODO = { menu: "Menu", a_carregar: "A abrir…", erro: "Erro", desligado: "Ecrã desligado" };
+const NOMES_MODO = { inicio: "Início", menu: "Menu", a_carregar: "A abrir…", erro: "Erro", desligado: "Ecrã desligado" };
 let estado = null;
 
 function enviar(corpo) {

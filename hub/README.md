@@ -6,7 +6,7 @@ comandada pelo telemóvel. Cada app só corre enquanto está escolhida.
 ## Ligar (no PC)
 
 Duplo clique em **`MonitorHub.bat`**. Arranca o hub e abre o Edge em ecrã inteiro no
-monitor vertical, com o menu. Para sair: `Alt+F4` no ecrã (fecha a app aberta e o hub).
+monitor vertical, no ecrã **Início** (ver abaixo). Para sair: `Alt+F4` no ecrã (fecha a app aberta e o hub).
 
 Sem o .bat: `python hub.py` e abrir `http://127.0.0.1:8080/`.
 
@@ -20,15 +20,36 @@ Abre-o no telemóvel, no mesmo Wi-Fi, e "Adicionar ao ecrã principal" para fica
 
 | Botão | No menu | Dentro de uma app |
 |---|---|---|
+| qualquer um | no Início: mostra o menu (não move nem abre) | — |
 | ▲ ▼ ◀ ▶ | escolher app | o que a app quiser (ex.: mudar de cena) |
 | OK | abrir | o que a app quiser (ex.: abrir notícia) |
 | Voltar | — | volta atrás na app, ou ao menu |
 | Pausa | — | pausa a app |
-| Menu | — | fecha a app e volta ao menu |
+| Menu | volta ao Início | fecha a app e volta ao Início |
 | ⏻ | apaga o ecrã | fecha a app e apaga o ecrã |
 
 Manter uma seta carregada repete. No PC também dá com o teclado: setas, Enter,
 Esc, Espaço (pausa), `m` (menu), `e` (energia).
+
+## Início
+
+O ecrã de repouso (`web/apps/inicio.html`): aparece ao abrir o hub e com o botão Menu, e o menu inicial
+volta a ele ao fim de 60 s sem teclas (`REPOUSO_S` no `hub.py`; num submenu, numa app ou no código não).
+De cima para baixo: a hora, o dia e uma saudação; o tempo (agora, as próximas 12 horas e os 5 dias
+seguintes, da [Open-Meteo](https://open-meteo.com/), sem chave, atualizado a cada 30 min); o FC Porto
+(próximo jogo com contagem decrescente e o último resultado); Portugal (se tiver jogo marcado); a F1
+(próximo GP); e as 3 notícias mais recentes do FC Porto ou da Liga. As despesas nunca aparecem aqui.
+
+- Os dados do desporto vêm do `live.json` pelos `ficheiros` do Desporto no `apps.json` (não é preciso
+  o servidor do desporto a correr), e os emblemas pela pasta de `imagens`. As peças (emblema, nomes,
+  a equipa em destaque) são as do desporto: `desporto/web/js/util.js`, servido como `/apps/desporto-util.js`.
+- O sítio do tempo está em `config.json` → `"inicio"` → `"tempo"` (o exemplo é o Porto). Para o teu,
+  põe-no no `config.local.json` (fora do git), que o hub aplica por cima do `config.json`:
+
+  ```json
+  { "inicio": { "tempo": { "nome": "Porto", "latitude": 41.1496, "longitude": -8.611 } } }
+  ```
+- `inicio.html?mock=1` mostra-o com os dados fictícios do desporto e um tempo inventado (sem rede).
 
 ## Apps
 
@@ -70,6 +91,9 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
 - `ficheiros` deixa a app ler um ficheiro de outra pasta por um endereço do hub, ex.:
   `"/dados/despesas.json": "../../despesas-casal/data/monitor.json"`.
   Um a um, de propósito: nunca a pasta inteira (a base de dados das despesas não sai do PC).
+- `imagens` é como os `ficheiros`, mas para uma pasta de imagens, ex.:
+  `"/apps/img/equipas/": "../desporto/web/img/equipas"`. Só serve `.png`, `.svg` e `.webp` com nomes
+  simples (sem subpastas). O Início usa-a para os emblemas.
 - `atualizar` diz como atualizar os dados sem abrir a app (o Desporto tem). Aparece no
   comando em "Atualizar dados", com o progresso, e no menu por baixo do nome
   ("Atualizado há 2 h"). Formato no **PROTOCOLO.md**.

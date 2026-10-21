@@ -40,6 +40,7 @@ PASTA_WEB = RAIZ / "web"
 FICHEIRO_APPS = RAIZ / "apps.json"
 FICHEIRO_APPS_LOCAL = RAIZ / "apps.local.json"
 FICHEIRO_CONFIG = RAIZ / "config.json"
+FICHEIRO_CONFIG_LOCAL = RAIZ / "config.local.json"   # fora do git: o que muda neste PC (ex.: a localidade do tempo)
 NO_WINDOWS = os.name == "nt"
 
 # Ações que o comando envia. As de navegação vão para o menu ou para a app ativa.
@@ -52,6 +53,8 @@ def e_acao(acao):
     """Ações conhecidas, mais os atalhos "ir_<sítio>" que uma app anuncia (ex.: ir_f1 salta para a F1)."""
     return acao in ACOES or bool(re.fullmatch(r"ir_[a-z0-9_]{1,30}", acao))
 CAMPOS_MENU = ("id", "nome", "icone", "descricao", "em_breve", "etiqueta")
+# Início (web/apps/inicio.html): o ecrã de repouso. Ao fim deste tempo sem teclas no menu inicial, volta a ele.
+REPOUSO_S = 60
 # A cada 5 códigos errados seguidos, o bloqueio cresce: 1 min, 5, 15 e depois sempre 60.
 # Só volta a 1 min depois de um código certo.
 BLOQUEIOS_PIN = (60, 5 * 60, 15 * 60, 60 * 60)
@@ -126,7 +129,8 @@ class Hub:
 
     def __init__(self):
         self.lock = threading.RLock()
-        self.config = ler_json(FICHEIRO_CONFIG, {})
+        # config.local.json por cima do config.json, campo a campo (ex.: {"inicio": {"tempo": {...}}})
+        self.config = {**ler_json(FICHEIRO_CONFIG, {}), **ler_json(FICHEIRO_CONFIG_LOCAL, {})}
         # O menu tem dois níveis: uma entrada com "apps" é um grupo (ex.: Desporto -> Futebol, F1...).
         # Os filhos herdam do grupo o que não definirem (ex.: o "arrancar" do servidor do desporto).
         self.raiz = []
@@ -146,8 +150,14 @@ class Hub:
         # servir a pasta inteira punha a base de dados das despesas acessível na rede de casa.
         self.ficheiros = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
                           for url, caminho in (a.get("ficheiros") or {}).items()}
+        # Pastas só de imagens (ex.: os emblemas do desporto para o ecrã Início): servem só .png/.svg/.webp
+        # com nomes simples, nunca outro tipo de ficheiro nem subpastas.
+        self.imagens = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
+                        for url, caminho in (a.get("imagens") or {}).items()}
+        threading.Thread(target=self._vigiar_repouso, daemon=True).start()
         self.grupo = None           # id do grupo cujo submenu está no ecrã (None = menu inicial)
-        self.modo = "menu"          # menu | pin | a_carregar | app | erro | desligado
+        self.modo = "inicio"        # inicio | menu | pin | a_carregar | app | erro | desligado
+        self.ultima_tecla = time.time()   # para voltar ao Início ao fim de REPOUSO_S sem teclas no menu
         self.pin = ""               # dígitos já marcados no ecrã do código
         self.tentativas = 0         # códigos errados seguidos
         self.bloqueado_ate = 0.0    # depois de 5 errados, espera (ver BLOQUEIOS_PIN)
@@ -225,6 +235,23 @@ class Hub:
         else:
             self.foco = next((i for i, a in enumerate(itens) if not a.get("em_breve")), 0)
 
+    def _vigiar_repouso(self):
+        """No menu inicial, sem teclas há REPOUSO_S segundos: volta ao Início."""
+        while True:
+            time.sleep(2)
+            with self.lock:
+                if self.modo == "menu" and not self.grupo and time.time() - self.ultima_tecla >= REPOUSO_S:
+                    self.modo = "inicio"
+                    self.emitir_estado()
+
+    def imagem(self, caminho):
+        """(ficheiro, app) de um pedido a uma pasta de imagens, ou None."""
+        for url, (pasta, app_id) in self.imagens.items():
+            nome = caminho[len(url):] if caminho.startswith(url) else None
+            if nome and re.fullmatch(r"[A-Za-z0-9_-]{1,40}\.(png|svg|webp)", nome):
+                return pasta / nome, app_id
+        return None
+
     # ------------------------------------------------------------ comandos
     def comando(self, acao, app_id=None, valor=None):
         with self.lock:
@@ -253,6 +280,13 @@ class Hub:
             if self.modo == "desligado":
                 return True                       # ecrã apagado: só o botão de energia acorda
 
+            self.ultima_tecla = time.time()
+            if self.modo == "inicio":
+                # Início: a primeira tecla (qualquer uma) só mostra o menu inicial por cima; não move nem abre
+                self.modo, self.grupo = "menu", None
+                self.focar()
+                self.emitir_estado()
+                return True
             if acao == "menu":
                 self.fechar(inicio=True)
                 return True
@@ -532,7 +566,7 @@ class Hub:
             self.emitir_estado()
 
     def fechar(self, inicio=False):
-        """Fecha a app e volta ao menu de onde foi aberta (ou ao inicial, com o botão Menu)."""
+        """Fecha a app e volta ao menu de onde foi aberta (ou ao ecrã Início, com o botão Menu)."""
         self.acoes_app = []
         if inicio and self.grupo:
             anterior, self.grupo = self.grupo, None
@@ -541,7 +575,7 @@ class Hub:
         self.pin = ""
         self.parar_processo()
         self.ativa = None
-        self.modo = "menu"
+        self.modo = "inicio" if inicio else "menu"
         self.mensagem = ""
         self.emitir_estado()
 
@@ -553,7 +587,7 @@ class Hub:
 
     def ligar(self):
         self.correr_gancho("ao_ligar_ecra")
-        self.modo = "menu"
+        self.modo = "inicio"
         self.emitir_estado()
 
     def correr_gancho(self, nome):
@@ -628,11 +662,18 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json(HUB.estado())
         if caminho == "/api/eventos":
             return self.eventos()
+        if caminho == "/api/inicio":                # o que o ecrã Início precisa do config (ex.: onde ver o tempo)
+            return self.json(HUB.config.get("inicio") or {})
         if caminho in HUB.ficheiros:
             ficheiro, app_id = HUB.ficheiros[caminho]
             if not HUB.pode_ler(app_id):
                 return self.send_error(403)
             return self.ficheiro(ficheiro)
+        imagem = HUB.imagem(caminho)
+        if imagem:
+            if not HUB.pode_ler(imagem[1]):
+                return self.send_error(403)
+            return self.ficheiro(imagem[0])
         return super().do_GET()
 
     def do_POST(self):

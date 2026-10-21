@@ -1,4 +1,12 @@
 {
   "ao_desligar_ecra": null,
-  "ao_ligar_ecra": null
+  "ao_ligar_ecra": null,
+  "inicio": {
+    "_nota": "Onde ver o tempo no ecrã Início. Para o teu sítio, põe isto no config.local.json (fora do git).",
+    "tempo": {
+      "nome": "Porto",
+      "latitude": 41.1496,
+      "longitude": -8.611
+    }
+  }
 }

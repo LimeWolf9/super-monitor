@@ -397,7 +397,8 @@ def resultado(e, equipas, avisar=True):
     lado = {casa["team"]["id"]: "h", fora["team"]["id"]: "a"}
     return {"home": equipas.sigla(casa["team"], avisar), "away": equipas.sigla(fora["team"], avisar),
             "hs": int(casa["score"]), "as": int(fora["score"]), "ev": eventos_do_jogo(comp, lado),
-            "id": e["id"]}   # id do jogo na ESPN (o atualizar_onze.py vai buscar as estatísticas por aqui)
+            "id": e["id"],   # id do jogo na ESPN (o atualizar_onze.py vai buscar as estatísticas por aqui)
+            "iso": quando(e).astimezone().isoformat(timespec="minutes")}   # quando foi (ex.: o último jogo no Início)
 
 
 def jogo_da_jornada(e, equipas, avisar=True):
@@ -418,8 +419,10 @@ def proximo(e, equipas, avisar=True):
     casa = next(c for c in comp["competitors"] if c["homeAway"] == "home")
     fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
     local = quando(e).astimezone()    # hora deste PC
+    # "iso": o instante exato (para contagens decrescentes, ex.: o ecrã Início do MonitorHub)
     return {"home": equipas.sigla(casa["team"], avisar), "away": equipas.sigla(fora["team"], avisar),
-            "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}"}
+            "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}",
+            "iso": local.isoformat(timespec="minutes")}
 
 
 def montar_liga(chave, antigo, equipas, agora):
