@@ -20,6 +20,7 @@ Quem chama:
 
 Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (procura e mostra, sem gravar)
             python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
+            pythonw tools/estadios.py --retomar   (o mesmo, só se não acabou nem está a correr: a tarefa agendada)
 Só usa a biblioteca standard do Python.
 """
 
@@ -790,8 +791,21 @@ def _fases(gravar_progresso, mostrar, t0):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if sys.stdout:   # com pythonw (a tarefa agendada) não há consola
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if sys.argv[1:] == ["--todos"]:
+        todos()
+        sys.exit()
+    if sys.argv[1:] == ["--retomar"]:
+        # pela tarefa agendada do Windows (pythonw, sem consola): só se o --todos não acabou nem está a correr
+        try:
+            acabou = json.loads(PROGRESSO.read_text(encoding="utf-8")).get("estado") == "ok"
+        except (OSError, ValueError):
+            acabou = False
+        if acabou or todos_a_correr():
+            sys.exit()
+        sys.stdout = sys.stderr = open(REGISTO, "a", encoding="utf-8", buffering=1)
+        print(f"{time.strftime('%H:%M:%S')} Retomado pela tarefa agendada", flush=True)
         todos()
         sys.exit()
     if len(sys.argv) < 2:

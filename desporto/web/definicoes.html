@@ -75,6 +75,9 @@ const lista = document.getElementById('lista');
 const estado = document.getElementById('estado');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const aviso = (txt, ok = false) => { estado.textContent = txt; estado.className = ok ? 'ok' : ''; };
+</script>
+<!-- Cada secção no seu <script>: um erro numa não deixa as outras presas em "A carregar…" -->
+<script>
 
 function montar(dados) {
   lista.innerHTML = dados.grupos.map((g, gi) => `<section data-g="${gi}">
@@ -140,6 +143,10 @@ const botaoVoltar = document.getElementById('voltar');
 if (!voltarPara && history.length <= 1) botaoVoltar.hidden = true;   // aberta sozinha: não há para onde voltar
 botaoVoltar.addEventListener('click', () => { if (voltarPara) location.href = voltarPara; else history.back(); });
 
+fetch('/api/competicoes').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).then(montar)
+  .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });
+</script>
+<script>
 // "dados de hoje 09:12", "dados de ontem 21:40", "dados de 12/10 09:12"
 function quando(iso) {
   if (!iso) return 'ainda sem dados';
@@ -154,6 +161,7 @@ async function mostrarFontes() {
   try {
     const r = await fetch('/data/fontes.json', { cache: 'no-store' });
     if (r.status === 404) { caixa.innerHTML = '<div class="fonte"><span class="nome nota">Ainda não houve nenhuma atualização com este registo.</span></div>'; return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const fontes = Object.entries(await r.json()).sort(([a], [b]) => a.localeCompare(b, 'pt'));
     caixa.innerHTML = fontes.map(([nome, f]) => `<div class="fonte ${esc(f.estado)}">
       <span class="sim">${SIMBOLO[f.estado] || '?'}</span>
@@ -163,13 +171,17 @@ async function mostrarFontes() {
 }
 mostrarFontes();
 
+</script>
+<script>
 // Estádios do mapa: o estado do --todos, a cada 10 s
 const FASE = { lista: 'a juntar os jogos da época', A: 'fase A: coordenadas', B: 'fase B: ruas (OpenStreetMap)', fim: 'feito' };
 const duracao = (s) => s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.round(s % 3600 / 60)).padStart(2, '0')} min` : `${Math.max(1, Math.round(s / 60))} min`;
 async function mostrarEstadios() {
   const caixa = document.getElementById('estadios');
   try {
-    const e = await (await fetch('/api/estadios', { cache: 'no-store' })).json();
+    const r = await fetch('/api/estadios', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const e = await r.json();
     const titulo = e.a_correr ? `<span class="ok">● A correr</span> · ${esc(FASE[e.fase] || '')}`
       : e.estado === 'ok' ? '<span class="ok">✓ Feito</span>'
       : e.estado ? `<span class="mal">■ Parado</span>${e.erro ? ` · ${esc(e.erro)}` : ''}` : 'Ainda não correu';
@@ -178,8 +190,7 @@ async function mostrarEstadios() {
     caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${falta ? ` · ${falta}` : ''}</span></div>
       ${e.total ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}
       ${e.passo ? `<span class="nota">${esc(e.passo)}</span>` : ''}
-      ${e.registo && e.registo.length ? `<pre>${esc(e.registo.slice(-5).join('
-'))}</pre>` : ''}
+      ${e.registo && e.registo.length ? `<pre>${esc(e.registo.slice(-5).join('\n'))}</pre>` : ''}
       <button id="continuar" ${e.a_correr ? 'disabled' : ''}>${e.a_correr ? 'A descarregar…' : 'Continuar download'}</button>`;
     caixa.querySelector('#continuar').addEventListener('click', async (ev) => {
       ev.currentTarget.disabled = true;
@@ -192,9 +203,6 @@ async function mostrarEstadios() {
 }
 mostrarEstadios();
 setInterval(mostrarEstadios, 10000);
-
-fetch('/api/competicoes').then((r) => r.json()).then(montar)
-  .catch((e) => { lista.textContent = `Não consegui ler as definições (${e.message}).`; });
 </script>
 </body>
 </html>
