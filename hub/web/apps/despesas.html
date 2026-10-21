@@ -4,75 +4,106 @@
 <meta charset="utf-8">
 <title>Despesas</title>
 <style>
-  :root { --fundo: #0b0f17; --painel: #151b27; --linha: #1f2a3d; --texto: #eef2f8; --suave: #8d98ab;
-          --barra: #3ea6ff; --verde: #4cd07d; --vermelho: #ff6b6b; --amarelo: #ffc75f; font-size: 1.6vw; }
+  /* Aspeto "Liquid Glass", o mesmo dos ecrãs do desporto e do Início: os mesmos tokens de vidro, fontes e fundo
+     (copiados do desporto/web/css/base.css). Fica tudo aqui, sem ir buscar ficheiros a outras apps (esta tem código). */
+  :root { --fundo: #05060a; --texto: #f5f7fb; --suave: rgba(235, 235, 245, .66); --linha: rgba(255, 255, 255, .14);
+          --accent: #2bd4a0; --tint: #0b3b33;
+          --barra: #4fa3ff; --verde: #3ddc84; --vermelho: #ff6b6b; --amarelo: #ffc75f;
+          --vidro: linear-gradient(135deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .05) 55%, rgba(255, 255, 255, .10));
+          --vidro-borda: rgba(255, 255, 255, .26);
+          --vidro-sombra: inset 0 2px 0 rgba(255, 255, 255, .45), inset 0 -2px 8px rgba(255, 255, 255, .06), 0 24px 50px rgba(0, 0, 0, .38);
+          --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-size: 1.6vw; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); overflow: hidden;
-               font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; font-variant-numeric: tabular-nums; }
-  .cena { position: fixed; inset: 0; padding: 6vh 6vw 9vh; display: none; flex-direction: column; }
-  .cena.ativa { display: flex; animation: entra .4s ease; }
+  html, body { margin: 0; height: 100%; color: var(--texto); overflow: hidden; cursor: none;
+               font-family: var(--font); font-variant-numeric: tabular-nums; }
+  body { background: var(--fundo); }
+  /* Fundo como no desporto: a cor da app no topo a desaparecer para baixo e anéis em traço fino (js/backgrounds.js) */
+  .fundo { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; }
+  .vidro, .kpi, .obj, .cats, .grafico-caixa {
+    background: var(--vidro); border: 1.5px solid var(--vidro-borda); border-radius: 2.6rem; box-shadow: var(--vidro-sombra);
+    -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%); }
+  .cena { position: fixed; inset: 0; padding: 5vh 5vw 8vh; display: none; flex-direction: column; }
+  .cena.ativa { display: flex; animation: entra .6s cubic-bezier(.2, .8, .2, 1); }
   @keyframes entra { from { opacity: 0; transform: translateY(1.5vh); } }
-  .rotulo { font-size: 1.7rem; color: var(--suave); text-transform: uppercase; letter-spacing: .12em; }
-  h1 { font-size: 3.6rem; font-weight: 600; margin: .6rem 0 0; }
+  .rotulo { font-size: 1.6rem; font-weight: 600; color: color-mix(in srgb, var(--accent) 70%, #fff); text-transform: uppercase; letter-spacing: .14em; }
+  h1 { font-size: 5rem; font-weight: 700; letter-spacing: -.12rem; margin: .5rem 0 0; }
 
   /* ---------- cena "o mês" */
-  .heroi { margin: 4vh 0 3.5vh; }
-  .heroi .valor { font-size: 9rem; font-weight: 250; line-height: 1; }
+  .heroi { margin: 2.4vh 0 2vh; padding: 2.6rem 3.2rem; }
+  .heroi .valor { font-size: 9rem; font-weight: 200; line-height: 1; letter-spacing: -.3rem; text-shadow: 0 .6rem 2.4rem rgba(0,0,0,.35); }
   .heroi .comp { font-size: 2.1rem; color: var(--suave); margin-top: 1.4rem; }
-  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; margin-bottom: 5vh; }
-  .kpi { background: var(--painel); border-radius: 1.4rem; padding: 2rem 2.2rem; }
-  .kpi .n { font-size: 3.6rem; font-weight: 500; margin-top: .4rem; }
-  .cats { display: flex; flex-direction: column; gap: 1.9rem; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; margin-bottom: 2vh; }
+  .kpi { padding: 1.8rem 2.6rem; }
+  .kpi .rotulo { color: var(--suave); }
+  .kpi .n { font-size: 4rem; font-weight: 600; margin-top: .4rem; }
+  .cats { display: flex; flex-direction: column; padding: .6rem 2.6rem; }
+  .cat { padding: 1.05rem 0; }
+  .cat + .cat { border-top: 1.5px solid rgba(255, 255, 255, .12); }
   .cat .topo { display: flex; align-items: baseline; gap: 1rem; font-size: 2.2rem; }
   .cat .nome { font-weight: 600; }
-  .cat .v { margin-left: auto; font-weight: 600; }
-  .cat .barra { position: relative; height: 1.1rem; background: var(--linha); border-radius: 1rem; margin: .8rem 0 .5rem; }
-  .cat .barra i { position: absolute; inset: 0 auto 0 0; border-radius: 1rem; background: var(--barra); }
-  .cat .barra i.dentro { background: var(--verde); }
-  .cat .barra i.acima { background: var(--vermelho); }
-  .cat .barra u { position: absolute; top: -.5rem; bottom: -.5rem; width: .3rem; background: var(--texto); border-radius: .2rem; opacity: .8; }
+  .cat .v { margin-left: auto; font-weight: 700; }
+  .cat .barra { position: relative; height: 1.1rem; background: rgba(255, 255, 255, .12); border-radius: 1rem; margin: .8rem 0 .5rem; }
+  .cat .barra i { position: absolute; inset: 0 auto 0 0; border-radius: 1rem; background: var(--barra); box-shadow: 0 0 1rem color-mix(in srgb, var(--barra) 50%, transparent); }
+  .cat .barra i.dentro { background: var(--verde); box-shadow: 0 0 1rem color-mix(in srgb, var(--verde) 45%, transparent); }
+  .cat .barra i.acima { background: var(--vermelho); box-shadow: 0 0 1rem color-mix(in srgb, var(--vermelho) 45%, transparent); }
+  .cat .barra u { position: absolute; top: -.5rem; bottom: -.5rem; width: .3rem; background: var(--texto); border-radius: .2rem; opacity: .85; }
   .cat .info { display: flex; gap: 1.6rem; font-size: 1.55rem; color: var(--suave); }
   .sobe { color: var(--amarelo); }
   .desce { color: var(--verde); }
   .pilula { font-size: 1.4rem; padding: .25rem 1rem; border-radius: 99rem; }
-  .pilula.dentro { background: rgba(76,208,125,.15); color: var(--verde); }
-  .pilula.acima { background: rgba(255,107,107,.15); color: var(--vermelho); }
+  .pilula.dentro { background: rgba(61, 220, 132, .16); color: var(--verde); }
+  .pilula.acima { background: rgba(255, 107, 107, .16); color: var(--vermelho); }
 
   /* ---------- cena "evolução" */
-  .grafico { display: flex; align-items: flex-end; gap: 1.6rem; height: 34vh; margin: 6vh 0 2vh;
-             border-bottom: .2rem solid var(--linha); }
+  .grafico-caixa { margin: 2.6vh 0 1vh; padding: 4.4rem 2.6rem 1.6rem; }
+  .grafico { display: flex; align-items: flex-end; gap: 1.6rem; height: 23vh; border-bottom: .2rem solid var(--linha); }
   .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: .8rem; }
   .col .par { display: flex; align-items: flex-end; gap: .6rem; height: 100%; width: 100%; justify-content: center; }
-  .col .b { width: 40%; border-radius: .8rem .8rem 0 0; background: var(--barra); position: relative; }
-  .col .b.e { background: #2b3b55; }
+  .col .b { width: 40%; border-radius: .9rem .9rem 0 0; background: linear-gradient(180deg, #7cc0ff, var(--barra)); position: relative;
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, .4); }
+  .col .b.e { background: rgba(255, 255, 255, .18); }
   .col .lbl { font-size: 1.4rem; color: var(--suave); position: absolute; top: -2.3rem; left: 50%; transform: translateX(-50%); white-space: nowrap; }
-  .meses { display: flex; gap: 1.6rem; }
+  .meses { display: flex; gap: 1.6rem; margin-top: 1.2rem; }
   .meses div { flex: 1; text-align: center; font-size: 1.9rem; color: var(--suave); }
-  .meses div.atual { color: var(--texto); font-weight: 600; }
-  .legenda { display: flex; gap: 3rem; font-size: 1.6rem; color: var(--suave); margin-top: 2.4rem; }
-  .legenda i { display: inline-block; width: 1.4rem; height: 1.4rem; border-radius: .3rem; margin-right: .7rem; vertical-align: -.1rem; }
-  h2 { font-size: 2.6rem; font-weight: 600; margin: 7vh 0 2.4rem; }
-  .obj { background: var(--painel); border-radius: 1.4rem; padding: 2rem 2.2rem; margin-bottom: 1.6rem; }
+  .meses div.atual { color: var(--texto); font-weight: 700; }
+  .legenda { display: flex; gap: 3rem; font-size: 1.6rem; color: var(--suave); margin-top: 1.6rem; }
+  .legenda i { display: inline-block; width: 1.4rem; height: 1.4rem; border-radius: .4rem; margin-right: .7rem; vertical-align: -.1rem; }
+  h2 { font-size: 2.2rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--accent) 70%, #fff); margin: 3.2vh 0 1.6rem .6rem; }
+  .obj { padding: 1.6rem 2.6rem; margin-bottom: 1.2rem; }
   .obj .topo { display: flex; justify-content: space-between; font-size: 2.2rem; font-weight: 600; }
-  .obj .barra { height: 1.2rem; background: var(--linha); border-radius: 1rem; margin: 1.2rem 0 .8rem; overflow: hidden; }
+  .obj .barra { height: 1.2rem; background: rgba(255, 255, 255, .12); border-radius: 1rem; margin: 1.2rem 0 .8rem; overflow: hidden; }
   .obj .barra i { display: block; height: 100%; border-radius: 1rem; }
   .obj .sub { font-size: 1.6rem; color: var(--suave); }
   .vazio { font-size: 1.9rem; color: var(--suave); }
 
-  .rodape { position: fixed; left: 6vw; right: 6vw; bottom: 3.5vh; display: flex; align-items: center; justify-content: space-between;
+  .rodape { position: fixed; left: 5vw; right: 5vw; bottom: 3vh; display: flex; align-items: center; justify-content: space-between;
             font-size: 1.5rem; color: var(--suave); }
   .pontos { display: flex; gap: 1rem; }
-  .pontos i { width: 1.2rem; height: 1.2rem; border-radius: 50%; background: var(--linha); }
-  .pontos i.ativa { background: var(--barra); }
+  .pontos i { width: 1.2rem; height: 1.2rem; border-radius: 50%; background: rgba(255, 255, 255, .25); }
+  .pontos i.ativa { background: #fff; }
   #pausa { display: none; }
   body.parado #pausa { display: inline; }
-  .aviso-cat { color: var(--amarelo); }
+  .aviso-cat { color: var(--amarelo); margin-top: 2.4vh; font-size: 1.9rem; }
   /* Modo demo: uma faixa que não deixa dúvidas de que os números são a fingir */
-  body.demo::before { content: "DEMO · DADOS FICTÍCIOS"; position: fixed; top: 2vh; right: 6vw; z-index: 2; font-size: 1.4rem;
-                      letter-spacing: .12em; color: var(--amarelo); border: .15rem solid var(--amarelo); border-radius: 99rem; padding: .4rem 1.2rem; }
+  body.demo::before { content: "DEMO · DADOS FICTÍCIOS"; position: fixed; top: 2vh; right: 5vw; z-index: 2; font-size: 1.4rem;
+                      letter-spacing: .12em; color: var(--amarelo); border: .15rem solid var(--amarelo); border-radius: 99rem; padding: .4rem 1.2rem;
+                      background: rgba(0, 0, 0, .25); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 </style>
 </head>
 <body>
+  <!-- Fundo (o mesmo desenho do desporto: fade na cor da app e anéis finos) -->
+  <svg class="fundo" viewBox="0 0 1080 2560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color:color-mix(in srgb, var(--tint) 82%, var(--accent))"/>
+      <stop offset=".35" style="stop-color:var(--tint);stop-opacity:.85"/>
+      <stop offset=".75" style="stop-color:var(--tint);stop-opacity:0"/></linearGradient></defs>
+    <rect width="1080" height="2560" fill="#05060a"/><rect width="1080" height="2560" fill="url(#fade)"/>
+    <g fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5">
+      <circle cx="920" cy="420" r="200"/><circle cx="920" cy="420" r="330"/><circle cx="920" cy="420" r="470"/>
+      <circle cx="160" cy="2100" r="200"/><circle cx="160" cy="2100" r="330"/><circle cx="160" cy="2100" r="470"/>
+    </g>
+  </svg>
   <section class="cena" id="c-mes"></section>
   <section class="cena" id="c-evolucao"></section>
   <div class="rodape">
@@ -126,7 +157,7 @@ function cenaMes(d) {
   document.getElementById("c-mes").innerHTML = `
     <div class="rotulo">Despesas do mês</div>
     <h1>${nomeMes(d.mes)}</h1>
-    <div class="heroi"><div class="valor">${euro(d.saidas)}</div>
+    <div class="heroi vidro"><div class="valor">${euro(d.saidas)}</div>
       <div class="comp">${comparar(d.saidas, d.saidas_normal) || "gasto no mês"}</div></div>
     <div class="kpis">
       <div class="kpi"><div class="rotulo">Entrou</div><div class="n">${euro(d.entradas)}</div></div>
@@ -159,9 +190,9 @@ function cenaEvolucao(d) {
   document.getElementById("c-evolucao").innerHTML = `
     <div class="rotulo">Últimos meses</div>
     <h1>Gasto vs. entrado (€)</h1>
-    <div class="grafico">${cols}</div>
+    <div class="grafico-caixa"><div class="grafico">${cols}</div>
     <div class="meses">${meses}</div>
-    <div class="legenda"><span><i style="background:var(--barra)"></i>Gasto</span><span><i style="background:#2b3b55"></i>Entrou</span></div>
+    <div class="legenda"><span><i style="background:var(--barra)"></i>Gasto</span><span><i style="background:rgba(255,255,255,.3)"></i>Entrou</span></div></div>
     <h2>Objetivos</h2>${objs}
     ${d.por_categorizar ? `<h2 class="aviso-cat">${d.por_categorizar} movimento(s) por categorizar</h2>` : ""}`;
 }
@@ -203,7 +234,7 @@ fetch(DEMO ? "despesas-demo.json" : "/dados/despesas.json", { cache: "no-store" 
     cenaMes(d);
     cenaEvolucao(d);
     document.getElementById("fonte").textContent = DEMO ? "DEMO · dados fictícios" : `Último extracto: ${nomeMes(d.mes)}`;
-    mostrar(0);
+    mostrar((Number(new URLSearchParams(location.search).get("cena")) || 1) - 1);   // ?cena=2: começa no 2.º ecrã (capturas)
   })
   .catch(() => {
     cenas[0].innerHTML = `<div class="rotulo">Despesas</div><h1>Sem dados</h1>
