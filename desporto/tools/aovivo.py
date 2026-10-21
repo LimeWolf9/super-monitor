@@ -10,12 +10,19 @@ quando se atualiza à mão; isto vai buscar à hora e não escreve no live.json.
 - NBA: o scoreboard da ESPN da noite americana.
 - F1: ainda não (ver FONTES: é aí que entra uma função nova, ex.: f1_ao_vivo()).
 
+Cada jogo traz o estádio ("estadio": nome, cidade, coordenadas, se já há o OpenStreetMap à volta), para o mapa do
+acompanhamento (ver tools/estadios.py). O que ainda não está em cache pede-se em fundo, um de cada vez: as
+coordenadas de todos os jogos mostrados e, nos de futebol a decorrer, o OpenStreetMap à volta do estádio.
+A cara de quem marcou: cara() (GET /api/aovivo/cara), da cache das fotos, do facepack ou da ESPN.
+
 Cada pedido fica em cache CACHE_S segundos (a página pergunta a cada 30 s). As falhas ficam em data/fontes.json
 ("ESPN ao vivo", "Liga Portugal ao vivo", "ESPN NBA ao vivo"), como as dos atualizadores.
 
 Uso à mão (mostra o que a página recebe):  python tools/aovivo.py
-Para testar sem jogos a decorrer:  /api/aovivo?simular=1 (ou --simular): os jogos de ontem a fingir que estão a
-decorrer, com o relógio a andar 6 minutos de jogo por cada minuto real e os golos a aparecer no minuto em que foram.
+Para testar sem jogos a decorrer:  /api/aovivo?simular=1&desde=<s> (ou --simular): os jogos de ontem (futebol e
+NBA) a fingir que estão a decorrer. desde = segundos desde que a página abriu: o relógio começa no minuto 55 e anda
+um minuto de jogo a cada 2 s, com os golos a aparecer no minuto em que foram. Aos 10 s entra um golo inventado num
+jogo seguido (&golo=<sigla> escolhe a equipa; por omissão, a casa do primeiro jogo seguido com o OSM do estádio).
 """
 
 import copy
@@ -31,6 +38,7 @@ from comum import ler_dados, pedir_json, registar_fonte
 import atualizar_futebol as fut   # noqa: E402  (siglas, eventos e o mapa das equipas da ESPN)
 import atualizar_nba as nba       # noqa: E402
 import competicoes                # noqa: E402
+import estadios                   # noqa: E402  (onde fica cada estádio, para o mapa)
 
 CACHE_S = 30
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
@@ -109,13 +117,18 @@ def jogos_futebol(chave, nome, liga, filtro, equipas, dia):
             continue   # seleções: só as escolhidas
         estado, texto = estado_espn(e)
         lado = {casa["team"]["id"]: "h", fora["team"]["id"]: "a"}
+        ev = fut.eventos_do_jogo(comp, lado) if estado != "pre" else []
+        nomes = {a.get("id"): a.get("displayName") for d in comp.get("details", []) for a in d.get("athletesInvolved") or []}
+        for x in ev:   # o nome completo (é o da cache das fotos e do facepack)
+            if nomes.get(x.get("pid")):
+                x["pn"] = nomes[x["pid"]]
         jogos.append({
             "id": f"espn:{e['id']}", "sport": "football", "comp": {"chave": chave, "nome": nome},
             "home": equipas.sigla(casa["team"], False), "away": equipas.sigla(fora["team"], False),
             "hs": int(casa.get("score") or 0) if estado != "pre" else None,
             "as": int(fora.get("score") or 0) if estado != "pre" else None,
             "estado": estado, "tempo": texto, "iso": fut.quando(e).astimezone().isoformat(timespec="minutes"),
-            "ev": fut.eventos_do_jogo(comp, lado) if estado != "pre" else [],
+            "ev": ev, "estadio": estadios.info(comp.get("venue"), "football"),
         })
     return jogos
 
@@ -167,6 +180,7 @@ def jogos_nba(equipas, agora):
             "hs": int(casa.get("score") or 0) if estado != "pre" else None,
             "as": int(fora.get("score") or 0) if estado != "pre" else None,
             "estado": estado, "tempo": texto, "iso": fut.quando(e).astimezone().isoformat(timespec="minutes"), "ev": [],
+            "estadio": estadios.info(comp.get("venue"), "nba"),
         })
     return jogos
 
@@ -182,30 +196,50 @@ def proximo_do_live(dados, agora):
     return melhor[1] if melhor else None
 
 
-INICIO_SIMULACAO = time.time()
+def _num(m):
+    try:
+        return int(str(m).split("+")[0])
+    except ValueError:
+        return 0
 
 
-def simular(jogos):
-    """Os jogos acabados de ontem como se estivessem a decorrer: minuto = 6 x minutos reais desde o arranque (até 95)."""
-    minuto = int((time.time() - INICIO_SIMULACAO) / 10) % 100
+def simular(jogos, desde, seguir=(), golo=None):
+    """Os jogos de ontem como se estivessem a decorrer (ver o início do ficheiro). desde = segundos desde que a página abriu."""
+    minuto = min(95, 55 + int(desde / 2))
     for j in jogos:
-        if j["estado"] != "post" or j["sport"] != "football":
+        if j["sport"] != "football" or j["estado"] == "pre":
             continue
-        def num(m):
-            try:
-                return int(str(m).split("+")[0])
-            except ValueError:
-                return 0
-        ev = [e for e in j["ev"] if num(e["m"]) <= minuto]
-        golos = [e for e in ev if e.get("t") in (None, "pen", "og")]
-        j["hs"] = sum(1 for e in golos if (e["s"] == "h") != (e.get("t") == "og"))
-        j["as"] = sum(1 for e in golos if (e["s"] == "a") != (e.get("t") == "og"))
-        j["ev"], j["estado"] = ev, ("in" if minuto < 95 else "post")
-        j["tempo"] = "Intervalo" if 45 < minuto < 50 else f"{minuto}'" if minuto < 95 else "Terminado"
+        j["ev"] = [e for e in j["ev"] if _num(e["m"]) <= minuto]
+        j["estado"], j["tempo"] = ("in", f"{minuto}'") if minuto < 95 else ("post", "Terminado")
+    # O golo inventado, aos 10 s: num jogo seguido (o da equipa pedida ou o primeiro com o OSM do estádio)
+    seguidos = [j for j in jogos if j["sport"] == "football" and j["estado"] == "in" and j["id"] in seguir]
+    alvo = next((j for j in seguidos if golo in (j["home"], j["away"])), None) or \
+        next((j for j in seguidos if (j.get("estadio") or {}).get("osm")), None) or (seguidos[0] if seguidos else None)
+    if alvo and desde >= 10:
+        lado = "a" if golo and golo == alvo["away"] else "h"
+        # sempre o mesmo marcador (um dos que já tinham marcado antes do minuto 55), para não parecer outro golo
+        quem = next((e for e in reversed(alvo["ev"]) if e["s"] == lado and e.get("t") in (None, "pen") and e.get("pid")
+                     and _num(e["m"]) <= 55), None)
+        alvo["ev"].append({"m": 60, "s": lado, "p": quem["p"] if quem else "Golo simulado",
+                           **({"pid": quem["pid"], "pn": quem.get("pn")} if quem else {})})
+    for j in jogos:
+        if j["sport"] == "football" and j["estado"] != "pre":
+            golos = [e for e in j["ev"] if e.get("t") in (None, "pen", "og")]
+            j["hs"] = sum(1 for e in golos if (e["s"] == "h") != (e.get("t") == "og"))
+            j["as"] = sum(1 for e in golos if (e["s"] == "a") != (e.get("t") == "og"))
+    # NBA: os resultados a crescer até ao final de ontem (ou até um final inventado, num jogo por jogar)
+    for j in jogos:
+        if j["sport"] != "nba":
+            continue
+        f = min(1, 0.55 + desde / 600)
+        semente = sum(map(ord, j["id"]))
+        hs, as_ = (j["hs"], j["as"]) if j["hs"] is not None else (98 + semente % 23, 96 + semente * 7 % 25)
+        j["hs"], j["as"] = round(hs * f), round(as_ * f)
+        j["estado"], j["tempo"] = "in", f"Q{min(4, 1 + int(f * 4))} {int(12 - (f * 48) % 12)}:{semente % 60:02d}"
     return jogos
 
 
-def ao_vivo(seguir=(), simulado=False):
+def ao_vivo(seguir=(), simulado=False, desde=0, golo=None):
     """O que a página do Ao vivo mostra: os jogos a decorrer (e os seguidos, mesmo que já tenham acabado)."""
     agora = datetime.now().astimezone()
     if simulado:
@@ -231,7 +265,7 @@ def ao_vivo(seguir=(), simulado=False):
                 erros.append(f"{nome} ({e})")
         if erros and len(erros) == len(futuros):
             raise RuntimeError("; ".join(erros))
-        return (simular(lista) if simulado else lista), erros
+        return lista, erros
 
     FONTES = [
         ("ESPN ao vivo", futebol),
@@ -239,8 +273,8 @@ def ao_vivo(seguir=(), simulado=False):
         ("ESPN NBA ao vivo", lambda: (jogos_nba(equipas_nba, agora), [])),
         # ("F1 ao vivo", f1_ao_vivo),   # quando houver uma fonte gratuita em direto
     ]
-    if simulado:
-        FONTES = FONTES[:1]
+    if simulado:   # sem a Taça da Liga
+        FONTES = [FONTES[0], FONTES[2]]
     for nome, buscar in FONTES:
         if simulado:   # não mistura a simulação com o registo das fontes a sério
             lista, erros = buscar()
@@ -257,10 +291,14 @@ def ao_vivo(seguir=(), simulado=False):
             falhas.append(f"{nome}: {e}")
 
     seguir = set(seguir)
+    if simulado:
+        jogos = simular(jogos, desde, seguir, golo)
     meus = {(dados.get("myTeam") or {}).get("code"), (dados.get("myTeam") or {}).get("selecao") or "PRT"}
     mostrar = [j for j in jogos if j["estado"] == "in" or j["id"] in seguir]
     for j in mostrar:
         j["meu"] = j["home"] in meus or j["away"] in meus
+        # O que falta do estádio pede-se em fundo; o OSM (para o zoom dos golos) só nos jogos de futebol a decorrer
+        estadios.pedir_em_fundo(j.get("estadio"), j["sport"] == "football" and j["estado"] == "in")
     # Sem jogos a decorrer: o próximo de hoje (dos scoreboards) ou, se não houver, o do live.json
     por_jogar = sorted((j for j in jogos if j["estado"] == "pre"), key=lambda j: j["iso"] or "")
     proximo = None if any(j["estado"] == "in" for j in jogos) else (por_jogar[0] if por_jogar else proximo_do_live(dados, agora))
@@ -274,6 +312,38 @@ def ao_vivo(seguir=(), simulado=False):
         "falhas": falhas,
         "competicoes": [c[1] for c in hoje],
     }
+
+
+_tranca_caras = threading.Lock()
+
+
+def cara(pid, nome, sigla):
+    """A cara de quem marcou: "img/jogadores/<ficheiro>" ou None. Primeiro a cache das fotos (a mesma do
+    atualizar_fotos.py), depois o facepack (só pelo id já guardado em data/facepack_ids.json) e por fim a ESPN pelo
+    id do atleta. Uma procura falhada fica registada e só se repete no dia seguinte."""
+    import shutil
+    import atualizar_fotos as fotos   # noqa: E402  (só quando é preciso)
+    if not nome:
+        return None
+    chave = f"fut|{nome}|{sigla}"
+    with _tranca_caras:
+        c = fotos.ler_cache().get(chave)
+        if c and c.get("file") and (fotos.PASTA / c["file"]).exists():
+            return f"img/jogadores/{c['file']}"
+        if c and not c.get("file") and time.time() - c.get("t", 0) < fotos.DIAS_PARA_REPETIR * 86400:
+            return None
+        fotos.PASTA.mkdir(parents=True, exist_ok=True)
+        f = None
+        fid, pack = fotos.ler_ids_fm().get(chave), fotos.pasta_facepack()
+        if fid and pack and (pack / f"face_{fid}.png").is_file():
+            f = fotos.ficheiro("fm", nome)
+            shutil.copyfile(pack / f"face_{fid}.png", fotos.PASTA / f)
+        if not f and str(pid or "").isdigit():
+            f = fotos.foto_espn(nome, pid)
+        cache = fotos.ler_cache()
+        cache[chave] = {"file": f, "t": time.time()}
+        fotos.CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+        return f"img/jogadores/{f}" if f else None
 
 
 if __name__ == "__main__":

@@ -6,8 +6,9 @@ Uso:  python serve.py            (abre o browser sozinho)
 Definições do futebol (que competições seguir): http://<pc>:8000/definicoes, feita para o telemóvel. Lê e grava
 data/competicoes.json por GET/POST /api/competicoes (ver tools/competicoes.py).
 
-Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1] dá os jogos a decorrer agora (tools/aovivo.py, 30 s de cache);
-o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json.
+Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a decorrer agora (tools/aovivo.py, 30 s
+de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json. GET /api/aovivo/cara?pid=&nome=&sigla=
+dá a cara de quem marcou. Os mapas de base estão em web/mapas/; o OSM à volta dos estádios em data/estadios_osm/.
 
 Os dados só se atualizam quando se pede (no dashboard: o botão "atualizar" do comando, ou a tecla U). O pedido chega por POST /api/atualizar; GET /api/atualizar/estado diz em que passo vai.
 É o mesmo código de "python tools/atualizar_tudo.py" (que atualiza sem o servidor, ex.: pelo MonitorHub): os
@@ -112,9 +113,18 @@ class Handler(SimpleHTTPRequestHandler):
             q = parse_qs(urlsplit(self.path).query)
             seguir = [i for i in ",".join(q.get("seguir", [])).split(",") if i][:30]
             try:
-                return self.responder_json(aovivo.ao_vivo(seguir, simulado=q.get("simular") == ["1"]))
+                desde = float((q.get("desde") or ["0"])[0] or 0)
+                return self.responder_json(aovivo.ao_vivo(seguir, simulado=q.get("simular") == ["1"], desde=desde,
+                                                          golo=(q.get("golo") or [None])[0]))
             except Exception as e:   # o Ao vivo não pode deitar o servidor abaixo
                 return self.responder_json({"erro": str(e), "jogos": [], "proximo": None, "teams": {}}, 502)
+        if caminho == "/api/aovivo/cara":
+            # a cara de quem marcou (?pid=<id ESPN>&nome=<nome completo>&sigla=<equipa>): {"url": ... ou null}
+            q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
+            try:
+                return self.responder_json({"url": aovivo.cara(q.get("pid"), q.get("nome"), q.get("sigla"))})
+            except Exception as e:
+                return self.responder_json({"url": None, "erro": str(e)})
         return super().do_GET()
 
     def do_POST(self):

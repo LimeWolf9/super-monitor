@@ -386,6 +386,8 @@ def eventos_do_jogo(comp, lado):
                 "p": nome_curto(atletas[0].get("shortName") or atletas[0].get("displayName") or "?")}
         if t:
             item["t"] = t
+        if atletas[0].get("id"):
+            item["pid"] = atletas[0]["id"]   # id do atleta na ESPN (a cara do marcador no Ao vivo)
         ev.append(item)
     return ev
 

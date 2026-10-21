@@ -12,6 +12,8 @@ desporto/data/atualizacao.lock
 desporto/data/fontes.json
 desporto/data/competicoes.json
 desporto/data/*.tmp
+desporto/data/estadios.json
+desporto/data/estadios_osm/
 desporto/web/img/jogadores/
 desporto/web/img/equipas/
 desporto/web/img/ligas/
