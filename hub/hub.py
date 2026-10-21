@@ -17,6 +17,7 @@ Só usa a biblioteca standard do Python, por isso não há nada para instalar.
 import argparse
 import hmac
 import json
+import math
 import os
 import posixpath
 import queue
@@ -51,6 +52,9 @@ def e_acao(acao):
     """Ações conhecidas, mais os atalhos "ir_<sítio>" que uma app anuncia (ex.: ir_f1 salta para a F1)."""
     return acao in ACOES or bool(re.fullmatch(r"ir_[a-z0-9_]{1,30}", acao))
 CAMPOS_MENU = ("id", "nome", "icone", "descricao", "em_breve", "etiqueta")
+# A cada 5 códigos errados seguidos, o bloqueio cresce: 1 min, 5, 15 e depois sempre 60.
+# Só volta a 1 min depois de um código certo.
+BLOQUEIOS_PIN = (60, 5 * 60, 15 * 60, 60 * 60)
 
 
 def ler_json(caminho, omissao):
@@ -146,7 +150,8 @@ class Hub:
         self.modo = "menu"          # menu | pin | a_carregar | app | erro | desligado
         self.pin = ""               # dígitos já marcados no ecrã do código
         self.tentativas = 0         # códigos errados seguidos
-        self.bloqueado_ate = 0.0    # depois de 5 errados, espera um minuto
+        self.bloqueado_ate = 0.0    # depois de 5 errados, espera (ver BLOQUEIOS_PIN)
+        self.bloqueios = 0          # bloqueios desde o último código certo
         self.foco = 0               # índice da app com foco no menu
         self.ativa = None           # id da app aberta (ou a carregar)
         self.mensagem = ""          # texto do loading / do erro
@@ -428,6 +433,7 @@ class Hub:
         app = self.app(self.ativa)
         certo = str(app["pin"])
         if time.time() < self.bloqueado_ate:
+            self.mensagem = self._texto_bloqueio()
             self.emitir_estado()
             return True
         self.pin += d
@@ -437,19 +443,26 @@ class Hub:
             return True
         if hmac.compare_digest(self.pin, certo):
             self.tentativas = 0
+            self.bloqueios = 0
             self.pin = ""
             return self.abrir(app["id"], desbloqueada=True)
         self.pin = ""
         self.tentativas += 1
         if self.tentativas >= 5:
             self.tentativas = 0
-            self.bloqueado_ate = time.time() + 60
-            self.mensagem = "Demasiadas tentativas. Espera um minuto."
+            self.bloqueado_ate = time.time() + BLOQUEIOS_PIN[min(self.bloqueios, len(BLOQUEIOS_PIN) - 1)]
+            self.bloqueios += 1
+            self.mensagem = self._texto_bloqueio()
         else:
             self.mensagem = "Código errado"
         self.emitir({"tipo": "pin_errado"})
         self.emitir_estado()
         return True
+
+    def _texto_bloqueio(self):
+        """ "Demasiadas tentativas. Espera 15 min." (arredondado para cima: nunca diz 0 min)"""
+        minutos = max(1, math.ceil((self.bloqueado_ate - time.time()) / 60))
+        return f"Demasiadas tentativas. Espera {'um minuto' if minutos == 1 else f'{minutos} min'}."
 
     def pode_ler(self, app_id):
         """Os ficheiros de uma app com código só se leem enquanto ela está aberta (depois do código)."""

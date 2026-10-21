@@ -75,7 +75,9 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
   ("Atualizado há 2 h"). Formato no **PROTOCOLO.md**.
 - `"pin": "1234"` pede esse código antes de abrir (as Despesas têm). Marca-se no teclado
   que aparece no comando; o código só existe no `apps.json` e nunca vai para o telemóvel
-  nem para o ecrã. 5 erros seguidos bloqueiam um minuto. Enquanto a app não está aberta,
+  nem para o ecrã. 5 erros seguidos bloqueiam um minuto; os 5 seguintes, 5 min; depois 15 e a partir
+  daí 60 min de cada vez. Só volta a 1 min depois de um código certo (ou de reiniciar o hub). O ecrã diz
+  quantos minutos faltam. Enquanto a app não está aberta,
   os seus `ficheiros` também ficam fechados na rede.
 - **Despesas (demo)** é a mesma página com dados inventados (`web/apps/despesas-demo.json`)
   e sem código, para mostrar a quem vem cá a casa.
