@@ -32,8 +32,20 @@ Esc, Espaço (pausa), `m` (menu), `e` (energia).
 
 ## Apps
 
-Estão em `apps.json` (exemplo, vai para o git). Para a configuração do teu PC (por exemplo o PIN),
-copia-o para `apps.local.json`: se existir, o hub usa esse, e o git ignora-o.
+Estão em `apps.json` (vai para o git). O que for só do teu PC (o PIN, um caminho diferente) vai em
+`apps.local.json`, que o git ignora, **só com o que muda**: o hub lê sempre o `apps.json` e aplica-lhe
+este por cima, campo a campo (pelo `id` da app ou do grupo; os filhos de um grupo também valem):
+
+```json
+{
+  "despesas": { "pin": "1234" },
+  "desporto": { "arrancar": { "pasta": "../desporto", "cmd": [".venv/Scripts/python.exe", "serve.py", "--no-browser"] } }
+}
+```
+
+Cada campo substitui o do `apps.json` inteiro (ex.: o `arrancar` acima leva a pasta e o comando).
+Uma chave começada por `_` é um comentário. Um `apps.local.json` antigo, com a lista das apps
+toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
 
 ```json
 {

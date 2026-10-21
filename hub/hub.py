@@ -35,8 +35,9 @@ from urllib.parse import unquote, urlsplit
 
 RAIZ = Path(__file__).parent.resolve()
 PASTA_WEB = RAIZ / "web"
-# apps.local.json (fora do git) tem a configuração deste PC, ex.: o PIN; sem ele usa-se o apps.json de exemplo
-FICHEIRO_APPS = RAIZ / "apps.local.json" if (RAIZ / "apps.local.json").exists() else RAIZ / "apps.json"
+# apps.json (no git) tem as apps; apps.local.json (fora do git) só o que muda neste PC, ex.: o PIN (ver ler_apps)
+FICHEIRO_APPS = RAIZ / "apps.json"
+FICHEIRO_APPS_LOCAL = RAIZ / "apps.local.json"
 FICHEIRO_CONFIG = RAIZ / "config.json"
 NO_WINDOWS = os.name == "nt"
 
@@ -57,6 +58,37 @@ def ler_json(caminho, omissao):
         return json.loads(caminho.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return omissao
+
+
+def ler_apps():
+    """As apps do apps.json com o apps.local.json aplicado por cima.
+
+    apps.local.json = {"<id da app ou do grupo>": {campos a mudar}}, ex.: {"despesas": {"pin": "..."}}.
+    Fusão superficial: cada campo substitui o do apps.json; os ids dos filhos de um grupo também valem.
+    Formato antigo (uma lista com as apps todas): usa-se tal e qual, como antes.
+    """
+    apps = ler_json(FICHEIRO_APPS, [])
+    local = ler_json(FICHEIRO_APPS_LOCAL, None)
+    if isinstance(local, list):
+        return local
+    if not isinstance(local, dict):
+        return apps
+    local = {k: v for k, v in local.items() if not k.startswith("_")}   # "_nota": comentários
+    usados = set()
+
+    def aplicar(item):
+        mudar = local.get(item.get("id"))
+        if isinstance(mudar, dict):
+            usados.add(item["id"])
+            item = {**item, **mudar}
+        if isinstance(item.get("apps"), list):
+            item = {**item, "apps": [aplicar(f) for f in item["apps"]]}
+        return item
+
+    apps = [aplicar(a) for a in apps]
+    for desconhecido in sorted(set(local) - usados):
+        print(f"Aviso: apps.local.json fala de \"{desconhecido}\", que não existe no apps.json (ignorado).")
+    return apps
 
 
 def responde(url, timeout=2):
@@ -95,7 +127,7 @@ class Hub:
         # Os filhos herdam do grupo o que não definirem (ex.: o "arrancar" do servidor do desporto).
         self.raiz = []
         self.folhas = {}            # id -> app que se abre (com "_grupo" se estiver dentro de um)
-        for item in ler_json(FICHEIRO_APPS, []):
+        for item in ler_apps():
             if item.get("escondida"):
                 continue
             if item.get("apps"):

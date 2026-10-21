@@ -18,7 +18,7 @@ desporto/web/img/ligas/
 desporto/config.local.json
 desporto/capturas/
 
-# Configuração deste PC (PIN, caminhos): copia hub/apps.json para hub/apps.local.json
+# Configuração deste PC (PIN, caminhos): só o que muda em relação ao hub/apps.json, ex.: {"despesas": {"pin": "..."}}
 hub/apps.local.json
 
 # Lista privada da verificação antes de cada commit
