@@ -7,22 +7,8 @@
 <link rel="stylesheet" href="ecra.css">
 </head>
 <body>
-  <!-- Início: o ecrã de repouso (hora, tempo, FC Porto...). Qualquer tecla do comando mostra o menu -->
+  <!-- Início: o ecrã de repouso (hora, tempo, desporto...). As apps abrem-se no comando do telemóvel -->
   <iframe id="inicio" class="vista" title="Início" src="apps/inicio.html"></iframe>
-
-  <!-- Menu inicial -->
-  <section id="menu" class="vista">
-    <header>
-      <div id="hora">--:--</div>
-      <div id="data"></div>
-    </header>
-    <h1 id="titulo-menu">O que queres ver?</h1>
-    <ul id="lista"></ul>
-    <footer>
-      <div>Comando no telemóvel</div>
-      <div id="links"></div>
-    </footer>
-  </section>
 
   <!-- A carregar / erro -->
   <section id="carregar" class="vista">
@@ -45,7 +31,7 @@
   <section id="erro" class="vista">
     <div class="erro-icone">⚠️</div>
     <div id="erro-msg"></div>
-    <div class="dica">OK para voltar ao menu</div>
+    <div class="dica">OK para voltar ao Início</div>
   </section>
 
   <!-- A app escolhida -->

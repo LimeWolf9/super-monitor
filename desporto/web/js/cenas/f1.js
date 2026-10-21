@@ -2,8 +2,8 @@
 import { targetMs } from '../util.js';
 import { esc, badge, teamName, titulo, subtitulo, cara, temCaras } from './base.js';
 
-// Desenho estilizado da pista (SVG) com um ponto a dar voltas.
-function pista(t) {
+// Desenho estilizado da pista (SVG) com um ponto a dar voltas. (Também o usa o Início do MonitorHub.)
+export function pista(t) {
   const [x1, y1, x2, y2] = t.start;
   return `<svg class="track" viewBox="${t.viewBox}" preserveAspectRatio="xMidYMid meet">
     <path id="track-path" d="${t.d}" class="track-base"/>
@@ -19,13 +19,13 @@ const seta = (chg) => (chg > 0 ? `<span class="chg sobe">▲${chg}</span>` : chg
 
 // Data na hora de Portugal: "Sex 23/10" e "18:30"
 const LISBOA = 'Europe/Lisbon';
-const diaPT = (iso) => {
+export const diaPT = (iso) => {
   const d = new Date(iso);
   const sem = new Intl.DateTimeFormat('pt-PT', { timeZone: LISBOA, weekday: 'short' }).format(d).replace('.', '');
   const dm = new Intl.DateTimeFormat('pt-PT', { timeZone: LISBOA, day: '2-digit', month: '2-digit' }).format(d);
   return `${sem.charAt(0).toUpperCase()}${sem.slice(1, 3)} ${dm}`;
 };
-const horaPT = (iso) => new Intl.DateTimeFormat('pt-PT', { timeZone: LISBOA, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+export const horaPT = (iso) => new Intl.DateTimeFormat('pt-PT', { timeZone: LISBOA, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
 // Cara de um piloto pelo nome (as fotos estão em D.f1.drivers, ver tools/atualizar_fotos.py)
 const caraPiloto = (D, nome) => cara((D.f1.drivers || []).find((p) => p.name === nome) || {}, true);

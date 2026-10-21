@@ -1,6 +1,6 @@
 // Comando do telemóvel: cada botão manda uma ação ao hub; o estado chega por eventos.
 
-const NOMES_MODO = { inicio: "Início", menu: "Menu", a_carregar: "A abrir…", erro: "Erro", desligado: "Ecrã desligado" };
+const NOMES_MODO = { inicio: "Início", a_carregar: "A abrir…", erro: "Erro", desligado: "Ecrã desligado" };
 let estado = null;
 
 function enviar(corpo) {
@@ -51,16 +51,33 @@ function desenhar() {
   }
   document.getElementById("estado").textContent = texto;
 
-  const caixa = document.getElementById("apps");
-  caixa.replaceChildren(...(estado.atalhos || estado.apps).map((a) => {
-    const b = document.createElement("button");
-    b.innerHTML = `<span class="ic"></span><span class="n"></span>`;
-    b.querySelector(".ic").textContent = a.icone || "▪";
-    b.querySelector(".n").textContent = a.em_breve ? `${a.nome} (${(a.etiqueta || "em breve").toLowerCase()})` : a.nome;
-    b.disabled = !!a.em_breve;
-    b.classList.toggle("ativa", a.id === estado.ativa);
-    b.addEventListener("click", () => enviar({ acao: "abrir", app: a.id }));
-    return b;
+  desenharApps();
+}
+
+// ---------------------------------------------------------------- apps: cada grupo com as suas, depois as soltas
+function botaoApp(a) {
+  const b = document.createElement("button");
+  b.innerHTML = `<span class="ic"></span><span class="n"></span>`;
+  b.querySelector(".ic").textContent = a.icone || "▪";
+  b.querySelector(".n").textContent = a.em_breve ? `${a.nome} (${(a.etiqueta || "em breve").toLowerCase()})` : a.nome;
+  b.disabled = !!a.em_breve;
+  b.classList.toggle("ativa", a.id === estado.ativa);
+  b.addEventListener("click", () => enviar({ acao: "abrir", app: a.id }));
+  return b;
+}
+function desenharApps() {
+  const apps = estado.atalhos || estado.apps;
+  const blocos = (estado.grupos || []).map((g) => ({ titulo: `${g.icone || ""} ${g.nome}`, apps: apps.filter((a) => a.grupo === g.id) }))
+    .concat([{ titulo: "Outras", apps: apps.filter((a) => !a.grupo) }])
+    .filter((b) => b.apps.length);
+  if (blocos.length === 1) blocos[0].titulo = "Abrir";
+  document.getElementById("apps").replaceChildren(...blocos.map((bl) => {
+    const sec = document.createElement("section");
+    sec.className = "grupo-apps";
+    sec.innerHTML = '<div class="rotulo apps-titulo"></div><div class="botoes"></div>';
+    sec.querySelector(".rotulo").textContent = bl.titulo;
+    sec.querySelector(".botoes").replaceChildren(...bl.apps.map(botaoApp));
+    return sec;
   }));
 }
 

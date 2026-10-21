@@ -12,7 +12,7 @@ const MONO = ['en', 'es', 'ucl', 'f1', 'fr', 'tl'];   // fr: o símbolo L1 (2024
 const SVG = ['pt', 'en', 'es', 'ucl', 'uel', 'uecl', 'nba'];   // os restantes são .png (e a F1 .webp)
 const urlLogo = (id) => `img/ligas/${id}.${id === 'f1' ? 'webp' : SVG.includes(id) ? 'svg' : 'png'}`;
 // Sem o ficheiro do logótipo (não vêm no repositório: são marcas das competições), o símbolo desaparece.
-const logo = (id, nome) => (id ? `<span class="liga-logo logo-${id}${MONO.includes(id) ? ' mono' : ''}"><img src="${urlLogo(id)}" alt="" onerror="this.parentNode.remove()"></span>` : '');
+export const logo = (id, nome) => (id ? `<span class="liga-logo logo-${id}${MONO.includes(id) ? ' mono' : ''}"><img src="${urlLogo(id)}" alt="" onerror="this.parentNode.remove()"></span>` : '');
 
 // Carrega logo os símbolos das competições e das equipas, para não aparecerem "a meio" quando a cena entra.
 export function precarregarLogos(D) {

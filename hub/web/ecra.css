@@ -14,33 +14,11 @@ html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--tex
 
 .vista { position: fixed; inset: 0; display: none; }
 body[data-modo="inicio"] #inicio,
-body[data-modo="menu"] #menu,
 body[data-modo="a_carregar"] #carregar,
 body[data-modo="erro"] #erro,
 body[data-modo="pin"] #pin,
 body[data-modo="app"] #app,
 body[data-modo="desligado"] #desligado { display: flex; }
-
-/* ---------------------------------------------------------------- menu */
-#menu { flex-direction: column; padding: 8vh 7vw 4vh; }
-header { text-align: center; }
-#hora { font-size: 7rem; font-weight: 200; letter-spacing: .02em; line-height: 1; }
-#data { font-size: 2rem; color: var(--suave); margin-top: 1rem; }
-h1 { font-size: 2.4rem; font-weight: 500; margin: 7vh 0 3vh; color: var(--suave); }
-#lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2.2vh; }
-#lista li { display: flex; align-items: center; gap: 2.5rem; padding: 2.4rem 2.6rem; border-radius: 1.6rem;
-  background: var(--painel); border: .25rem solid transparent; transition: transform .15s, background .15s, border-color .15s; }
-#lista li .icone { font-size: 4.5rem; width: 6rem; text-align: center; }
-#lista li .nome { font-size: 3rem; font-weight: 600; }
-#lista li .desc { font-size: 1.7rem; color: var(--suave); margin-top: .3rem; }
-#lista li.foco { background: var(--painel-foco); border-color: var(--destaque); transform: scale(1.03); }
-#lista li.em-breve { opacity: .45; }
-#lista li .seta { margin-left: auto; font-size: 4rem; color: var(--suave); }
-body.submenu h1 { color: var(--texto); font-size: 3.4rem; font-weight: 600; }
-#lista li .etiqueta { margin-left: auto; font-size: 1.4rem; color: var(--suave); border: .12rem solid var(--suave);
-  border-radius: 99rem; padding: .3rem 1rem; }
-footer { margin-top: auto; text-align: center; color: var(--suave); font-size: 1.5rem; line-height: 1.6; }
-#links { color: var(--texto); font-size: 1.9rem; }
 
 /* ---------------------------------------------------------------- loading / erro */
 #carregar, #erro { flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; padding: 0 8vw; }

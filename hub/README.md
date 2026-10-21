@@ -15,34 +15,48 @@ Da primeira vez o Windows pergunta se o Python pode usar a rede: diz que sim em
 
 ## Comando no telemóvel
 
-O endereço aparece no fundo do menu (ex.: `http://192.168.1.50:8080/comando`).
+O endereço aparece no fundo do Início (ex.: `http://192.168.1.50:8080/comando`).
 Abre-o no telemóvel, no mesmo Wi-Fi, e "Adicionar ao ecrã principal" para ficar como app.
 
-| Botão | No menu | Dentro de uma app |
+**As apps escolhem-se no comando**: no topo estão todas, agrupadas como no `apps.json` (Desporto:
+Última jornada, Ao vivo, Próxima jornada; depois as outras). Carregar numa abre-a logo no monitor.
+A parede não tem menu: mostra o Início, o código, o loading ou a app.
+
+| Botão | No Início | Dentro de uma app |
 |---|---|---|
-| qualquer um | no Início: mostra o menu (não move nem abre) | — |
-| ▲ ▼ ◀ ▶ | escolher app | o que a app quiser (ex.: mudar de cena) |
-| OK | abrir | o que a app quiser (ex.: abrir notícia) |
-| Voltar | — | volta atrás na app, ou ao menu |
+| ◀ ▶ | mudam a página das notícias | o que a app quiser (ex.: mudar de cena) |
+| ▲ ▼ OK | — | o que a app quiser (ex.: abrir notícia) |
+| Voltar | — | volta atrás na app, ou ao Início |
 | Pausa | — | pausa a app |
-| Menu | volta ao Início | fecha a app e volta ao Início |
+| ⌂ Início | — | fecha a app e volta ao Início |
 | ⏻ | apaga o ecrã | fecha a app e apaga o ecrã |
 
 Manter uma seta carregada repete. No PC também dá com o teclado: setas, Enter,
-Esc, Espaço (pausa), `m` (menu), `e` (energia).
+Esc, Espaço (pausa), `m` (Início), `e` (energia).
 
 ## Início
 
-O ecrã de repouso (`web/apps/inicio.html`): aparece ao abrir o hub e com o botão Menu, e o menu inicial
-volta a ele ao fim de 60 s sem teclas (`REPOUSO_S` no `hub.py`; num submenu, numa app ou no código não).
-De cima para baixo: a hora, o dia e uma saudação; o tempo (agora, as próximas 12 horas e os 5 dias
-seguintes, da [Open-Meteo](https://open-meteo.com/), sem chave, atualizado a cada 30 min); o FC Porto
-(próximo jogo com contagem decrescente e o último resultado); Portugal (se tiver jogo marcado); a F1
-(próximo GP); e as 3 notícias mais recentes do FC Porto ou da Liga. As despesas nunca aparecem aqui.
+O ecrã da parede quando não há nenhuma app aberta (`web/apps/inicio.html`), no mesmo estilo Liquid Glass
+dos ecrãs do desporto. De cima para baixo:
+
+- a hora, o dia, a saudação e o nascer e o pôr do sol;
+- o tempo: agora, um gráfico das próximas 12 horas (temperatura e chuva) e os 5 dias seguintes, da
+  [Open-Meteo](https://open-meteo.com/), sem chave, atualizado a cada 30 min;
+- **Hoje no desporto**: os jogos de hoje das competições seguidas (até 4, os do FC Porto e de Portugal
+  primeiro), com a hora, o resultado se já acabou ou "AO VIVO" pela hora de início, e o aviso para abrir o
+  Ao vivo no comando quando há jogos a decorrer;
+- o FC Porto, compacto (próximo jogo com contagem, último resultado e a posição na liga com o lugar acima e
+  o de baixo) ao lado da F1 (o desenho da pista, a contagem e, num fim de semana de GP, as próximas sessões);
+- Portugal, só se jogar nos próximos 14 dias;
+- as notícias do FC Porto e da Liga, com imagem, tantas quantas couberem e a mudar a cada 20 s (◀ ▶ no comando);
+  quando sobra espaço, o jogador em destaque e as curiosidades;
+- no rodapé, uma curiosidade "Neste dia", a hora dos dados do desporto e o endereço do comando.
+
+As despesas nunca aparecem aqui.
 
 - Os dados do desporto vêm do `live.json` pelos `ficheiros` do Desporto no `apps.json` (não é preciso
-  o servidor do desporto a correr), e os emblemas pela pasta de `imagens`. As peças (emblema, nomes,
-  a equipa em destaque) são as do desporto: `desporto/web/js/util.js`, servido como `/apps/desporto-util.js`.
+  o servidor do desporto a correr, nem se vai à rede). O estilo e as peças (emblemas, tabela, pista, fundos)
+  são os do desporto: o hub serve o `desporto/web` em `/apps/desporto/` (as `pastas` do apps.json).
 - O sítio do tempo está em `config.json` → `"inicio"` → `"tempo"` (o exemplo é o Porto). Para o teu,
   põe-no no `config.local.json` (fora do git), que o hub aplica por cima do `config.json`:
 
@@ -82,21 +96,20 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
 - Com `arrancar`, o hub arranca a app ao abrir e para-a ao sair. Se já estiver a correr
   (ex.: abriste o `Dashboard.bat`), usa-a e não a para.
 - Sem `arrancar` (ex.: o Relógio), é só uma página.
-- Uma entrada com `"apps": [...]` é um **grupo**: abre um submenu (o Desporto tem Última
-  jornada, Ao vivo e Próxima jornada). Os filhos herdam do grupo o que não definirem, como o
-  `arrancar` do servidor. Voltar sai do submenu; Voltar dentro de uma app volta ao
-  submenu de onde veio; Menu vai sempre ao inicial. `atalho` é o nome no comando.
+- Uma entrada com `"apps": [...]` é um **grupo**: no comando, as apps dele aparecem juntas (o Desporto tem
+  Última jornada, Ao vivo e Próxima jornada). Os filhos herdam do grupo o que não definirem, como o
+  `arrancar` do servidor. `atalho` é o nome no comando.
 - `preparar` corre um comando antes de mostrar a app, durante o loading (as Despesas
   exportam o resumo do mês). `"python"` quer dizer o mesmo Python que corre o hub.
 - `ficheiros` deixa a app ler um ficheiro de outra pasta por um endereço do hub, ex.:
   `"/dados/despesas.json": "../../despesas-casal/data/monitor.json"`.
   Um a um, de propósito: nunca a pasta inteira (a base de dados das despesas não sai do PC).
-- `imagens` é como os `ficheiros`, mas para uma pasta de imagens, ex.:
-  `"/apps/img/equipas/": "../desporto/web/img/equipas"`. Só serve `.png`, `.svg` e `.webp` com nomes
-  simples (sem subpastas). O Início usa-a para os emblemas.
+- `pastas` é como os `ficheiros`, mas para uma pasta de páginas, ex.: `"/apps/desporto/": "../desporto/web"`.
+  Só serve código e imagens (`.js`, `.css`, `.png`, `.svg`, `.webp`, `.jpg`, `.woff2`), nunca dados nem nada
+  fora da pasta. O Início usa-a para ter o estilo e as peças do desporto.
 - `atualizar` diz como atualizar os dados sem abrir a app (o Desporto tem). Aparece no
-  comando em "Atualizar dados", com o progresso, e no menu por baixo do nome
-  ("Atualizado há 2 h"). Formato no **PROTOCOLO.md**.
+  comando em "Atualizar dados", com o progresso ("Atualizado há 2 h") e, se falhar,
+  as fontes que falharam. Formato no **PROTOCOLO.md**.
 - `"pin": "1234"` pede esse código antes de abrir (as Despesas têm). Marca-se no teclado
   que aparece no comando; o código só existe no `apps.json` e nunca vai para o telemóvel
   nem para o ecrã. 5 erros seguidos bloqueiam um minuto; os 5 seguintes, 5 min; depois 15 e a partir
@@ -105,8 +118,8 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
   os seus `ficheiros` também ficam fechados na rede.
 - **Despesas (demo)** é a mesma página com dados inventados (`web/apps/despesas-demo.json`)
   e sem código, para mostrar a quem vem cá a casa.
-- `"em_breve": true` mostra-a no menu mas não deixa abrir.
-- `"escondida": true` tira-a do menu.
+- `"em_breve": true` mostra-a no comando mas não deixa abrir.
+- `"escondida": true` tira-a do comando.
 
 Para uma app obedecer às setas, OK e pausa, ver **PROTOCOLO.md**.
 
@@ -125,7 +138,7 @@ também o teu monitor principal). No mini PC, onde o monitor é o único ecrã, 
 
 ## Plano
 
-1. ✅ Hub, menu, loading, comando no telemóvel, ecrã apagado.
+1. ✅ Hub, Início, loading, comando no telemóvel (onde se escolhem as apps), ecrã apagado.
 2. Dashboard de desporto a obedecer ao comando (pausa, setas, abrir notícia).
 3. ✅ Página de despesas para a parede: o mês do último extracto (total, entrou/sobrou,
    categorias vs. o normal) e os últimos meses com os objetivos. Só totais, nunca

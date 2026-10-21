@@ -25,11 +25,10 @@
     },
     "ficheiros": {
       "/dados/desporto.json": "../desporto/data/live.json",
-      "/dados/desporto-mock.json": "../desporto/data/mock.json",
-      "/apps/desporto-util.js": "../desporto/web/js/util.js"
+      "/dados/desporto-mock.json": "../desporto/data/mock.json"
     },
-    "imagens": {
-      "/apps/img/equipas/": "../desporto/web/img/equipas"
+    "pastas": {
+      "/apps/desporto/": "../desporto/web"
     },
     "apps": [
       {

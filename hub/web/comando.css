@@ -57,7 +57,9 @@ body.pode-atualizar .largo { display: block; }
 .dado { flex-wrap: wrap; row-gap: 10px; }
 .dado .txt { flex: 1 1 55%; }
 .dado:has(a.def) button, .dado a.def { flex: 1 1 auto; text-align: center; }
-#apps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#apps { display: flex; flex-direction: column; gap: 18px; margin-bottom: 28px; }
+body.pin #apps { display: none; }
+.grupo-apps .botoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 #apps button { padding: 16px 12px; border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
 #apps button .ic { font-size: 24px; }
 #apps button.ativa { outline: 2px solid var(--destaque); }

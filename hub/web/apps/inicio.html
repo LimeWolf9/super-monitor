@@ -1,141 +1,190 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Início</title>
+<!-- As peças e o estilo (Liquid Glass) são os do desporto: o hub serve o web/ dele em /apps/desporto/ ("pastas" no apps.json) -->
+<base href="/apps/desporto/">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/leagues.css">
 <style>
-  /* Ecrã de repouso do MonitorHub (1080×2560). Mesmo estilo escuro do menu (ecra.css): 1vw = 10,8 px */
-  :root {
-    --fundo: #0b0f17; --painel: #151b27; --painel-2: #1b2232; --linha: #252c3b;
-    --texto: #eef2f8; --suave: #8d98ab; --destaque: #3ea6ff; --ok: #3ddc84; --mal: #ff6b6b; --meh: #ffc24f;
-    font-size: 1.45vw;   /* um pouco mais pequeno que o menu (1.6vw): cabe tudo em 2560 de altura */
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto);
-    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; overflow: hidden; cursor: none; }
-  body { display: flex; flex-direction: column; padding: 3.5vh 6vw 2vh; gap: 1.6vh; }
+  /* Ecrã de repouso do MonitorHub (1080×2560). Só o que é dele; o resto vem do base.css do desporto. */
+  .sport-casa { --accent: #4fa3ff; --tint: #0d2c5c; }
+  .inicio { gap: 22px; padding: 26px 40px 24px; overflow: hidden; }
+  .vidro { background: var(--vidro); border: 1.5px solid var(--vidro-borda); border-radius: 46px; box-shadow: var(--vidro-sombra);
+    -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%); }
+  .titulo-bloco { font: 600 30px var(--font); letter-spacing: 2px; text-transform: uppercase; color: color-mix(in srgb, var(--accent) 70%, #fff);
+    display: flex; align-items: center; gap: 14px; margin: 0 0 18px 6px; }
+  .titulo-bloco small { margin-left: auto; font-size: 28px; letter-spacing: 0; text-transform: none; color: var(--muted); font-weight: 500; }
+  .titulo-bloco .liga-logo { width: 46px; height: 46px; flex: none; }
+  .titulo-bloco .liga-logo img, .hj .l .liga-logo img { width: 100%; height: 100%; object-fit: contain; }
+  .titulo-bloco .badge { width: 54px; height: 54px; font-size: 15px; border-width: 3px; }
+  .bloco { padding: 26px 32px; }
+  .entra { animation: entra .9s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes entra { from { opacity: 0; transform: translateY(36px); } }
+  .a-medir .entra { animation: none; }   /* enquanto se mede o que cabe (o deslize da entrada mexia nas contas) */
 
-  header { text-align: center; }
-  #hora { font-size: 9.5rem; font-weight: 200; line-height: 1; letter-spacing: .02em; }
-  #dia { font-size: 3rem; font-weight: 600; margin-top: 1.4rem; }
-  #data { font-size: 2.2rem; color: var(--suave); margin-top: .3rem; }
-  #saudacao { font-size: 2.4rem; margin-top: 1rem; color: var(--destaque); }
-
-  .cartao { background: var(--painel); border-radius: 1.8rem; padding: 2rem 2.6rem; }
-  .cartao h2 { margin: 0 0 1.4rem; font-size: 1.7rem; font-weight: 600; color: var(--suave); letter-spacing: .08em;
-    text-transform: uppercase; display: flex; justify-content: space-between; gap: 1rem; }
-  .cartao h2 small { font-size: 1.5rem; letter-spacing: 0; text-transform: none; font-weight: 400; }
-  .vazio { color: var(--suave); font-size: 1.9rem; }
+  /* Topo */
+  .topo { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 36px; padding: 10px 12px 0; }
+  .relogio { font: 200 220px/0.9 var(--font); letter-spacing: -8px; text-shadow: 0 10px 40px rgba(0, 0, 0, .45); }
+  .relogio .seg { font-size: 70px; letter-spacing: 0; color: var(--muted); margin-left: 10px; vertical-align: top; font-weight: 300; }
+  .topo-dir { display: flex; flex-direction: column; gap: 6px; }
+  .topo-dir .dia { font: 700 54px/1 var(--font); }
+  .topo-dir .data { font: 500 38px var(--font); color: var(--muted); }
+  .topo-dir .ola { font: 600 40px var(--font); color: color-mix(in srgb, var(--accent) 70%, #fff); margin-top: 12px; }
+  .topo-dir .sol { font: 500 30px var(--font); color: var(--muted); margin-top: 6px; }
 
   /* Tempo */
-  .agora { display: flex; align-items: center; gap: 2.4rem; }
-  .agora .ic { font-size: 7rem; line-height: 1; }
-  .agora .t { font-size: 7rem; font-weight: 300; line-height: 1; }
-  .agora .txt { font-size: 2.2rem; }
-  .agora .txt small { display: block; color: var(--suave); font-size: 1.7rem; margin-top: .4rem; }
-  .horas { display: grid; grid-template-columns: repeat(12, 1fr); gap: .4rem; margin-top: 2rem; text-align: center; }
-  .horas div { font-size: 1.5rem; color: var(--suave); }
-  .horas b { display: block; font-size: 2.4rem; margin: .3rem 0; }
-  .horas span { display: block; color: var(--texto); font-size: 1.8rem; }
-  .horas i { display: block; font-style: normal; font-size: 1.3rem; color: var(--destaque); min-height: 1.6rem; }
-  .dias { margin-top: 1.8rem; padding-top: 1.6rem; border-top: .1rem solid var(--linha);
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: .6rem; text-align: center; }
-  .dias div { font-size: 1.8rem; display: flex; flex-direction: column; gap: .3rem; }
-  .dias .ic { font-size: 3rem; }
-  .dias .chuva { color: var(--destaque); font-size: 1.4rem; min-height: 1.8rem; }
-  .dias .min { color: var(--suave); }
+  .tempo-agora { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 28px; }
+  .tempo-agora .ic { font-size: 104px; line-height: 1; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .35)); }
+  .tempo-agora .t { font: 200 124px/1 var(--font); letter-spacing: -4px; }
+  .tempo-agora .desc { font: 600 42px/1.15 var(--font); }
+  .tempo-agora .desc small { display: block; font: 500 30px var(--font); color: var(--muted); margin-top: 8px; }
+  .grafico-horas { width: 100%; height: 190px; margin-top: 4px; display: block; overflow: visible; }
+  .grafico-horas .linha { fill: none; stroke: #fff; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+  .grafico-horas .area { fill: url(#gradTemp); }
+  .grafico-horas .chuva { fill: color-mix(in srgb, var(--accent) 70%, transparent); }
+  .grafico-horas text { fill: #fff; font: 600 28px var(--font); }
+  .grafico-horas .hora { fill: var(--muted); font-weight: 500; font-size: 25px; }
+  .grafico-horas .pct { fill: color-mix(in srgb, var(--accent) 60%, #fff); font-size: 22px; }
+  .grafico-horas .ic { font-size: 34px; }
+  .dias { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+  .dia5 { padding: 10px 8px; border-radius: 26px; background: rgba(255, 255, 255, .08); border: 1.5px solid rgba(255, 255, 255, .14);
+    display: grid; grid-template-columns: auto auto; grid-template-areas: "n ic" "mm ic" "p p"; align-items: center; justify-content: center; column-gap: 10px; }
+  .dia5 .n { grid-area: n; } .dia5 .ic { grid-area: ic; } .dia5 .mm { grid-area: mm; } .dia5 .p { grid-area: p; text-align: center; }
+  .dia5 .n { font: 600 26px var(--font); color: var(--muted); }
+  .dia5 .ic { font-size: 50px; line-height: 1; }
+  .dia5 .mm { font: 700 30px var(--font); white-space: nowrap; }
+  .dia5 .mm span { color: var(--muted); font-weight: 500; }
+  .dia5 .p { font: 600 22px var(--font); color: color-mix(in srgb, var(--accent) 60%, #fff); min-height: 26px; }
 
-  /* Jogos */
-  .jogo { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1.6rem; }
-  .eq { display: flex; align-items: center; gap: 1.2rem; font-size: 2.4rem; font-weight: 600; min-width: 0; }
-  .eq.fora { flex-direction: row-reverse; text-align: right; }
-  .eq span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .meio { text-align: center; }
-  .meio .hora { font-size: 3rem; font-weight: 600; }
-  .meio .dia { font-size: 1.7rem; color: var(--suave); }
-  .meio .res { font-size: 3.6rem; font-weight: 700; white-space: nowrap; }
-  .meta { margin-top: 1.4rem; display: flex; justify-content: space-between; gap: 1rem; font-size: 1.8rem; color: var(--suave); }
-  .conta { color: var(--destaque); font-weight: 600; white-space: nowrap; }
-  .ultimo { margin-top: 1.6rem; padding-top: 1.4rem; border-top: .1rem solid var(--linha); font-size: 1.9rem;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-  .ultimo .r { font-weight: 700; padding: .2rem .9rem; border-radius: .6rem; font-size: 1.6rem; }
-  .ultimo .r.v { background: var(--ok); color: #06210f; }
-  .ultimo .r.e { background: var(--meh); color: #2a1d00; }
-  .ultimo .r.d { background: var(--mal); color: #2a0606; }
-  .ultimo .badge { width: 3.4rem; height: 3.4rem; font-size: 1rem; }
-  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4vh 1.6rem; }
-  .duas:has(> [hidden]) { grid-template-columns: 1fr; }   /* sem jogo de Portugal: a F1 ocupa a largura toda */
+  /* Hoje no desporto */
+  .hoje-lista { display: flex; flex-direction: column; }
+  .hj { display: grid; grid-template-columns: 116px minmax(0, 1fr) 150px minmax(0, 1fr) 56px; align-items: center; gap: 14px; min-height: 76px; }
+  .hj + .hj { border-top: 1.5px solid rgba(255, 255, 255, .12); }
+  .hj .h { font: 700 34px var(--font); }
+  .hj .e { display: flex; align-items: center; gap: 12px; min-width: 0; font: 600 34px var(--font); }
+  .hj .e.casa { justify-content: flex-end; text-align: right; }
+  .hj .e span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hj .badge { width: 54px; height: 54px; font-size: 17px; border-width: 4px; }
+  .hj .r { text-align: center; font: 700 46px var(--font); white-space: nowrap; }
+  .hj .r small { display: block; font: 700 22px var(--font); letter-spacing: 2px; color: #ff5b5b; }
+  .hj .r.fim small { color: var(--muted); letter-spacing: 1px; }
+  .hj .r.vs { color: var(--muted); font-size: 32px; }
+  .hj .r.decorre { font-size: 26px; color: #ff6b6b; letter-spacing: 2px; }
+  .hj.me { background: color-mix(in srgb, var(--me) 55%, transparent); border-radius: 24px; margin: 0 -14px; padding: 0 14px; }
+  .hj .l .liga-logo { width: 50px; height: 50px; }
+  .ao-vivo-aviso { margin-top: 12px; padding: 14px 22px; border-radius: 26px; background: rgba(255, 70, 70, .18); border: 1.5px solid rgba(255, 90, 90, .5);
+    font: 600 32px var(--font); display: flex; align-items: center; gap: 14px; }
+  .ao-vivo-aviso i { width: 18px; height: 18px; border-radius: 50%; background: #ff4b4b; flex: none; }
+  .mais-jogos { color: var(--muted); font: 500 28px var(--font); padding-top: 12px; text-align: center; }
+
+  /* FC Porto + F1 lado a lado */
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  .duas.uma { grid-template-columns: 1fr; }
+  .clube .prox { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+  .clube .prox .badge { width: 80px; height: 80px; }
+  .clube .prox .eq { display: flex; flex-direction: column; align-items: center; gap: 8px; font: 600 28px/1.1 var(--font); text-align: center; }
+  .clube .prox .q { text-align: center; }
+  .clube .prox .q b { display: block; font: 700 46px var(--font); }
+  .clube .prox .q span { font: 500 26px var(--font); color: var(--muted); }
+  .clube .comp { text-align: center; font: 500 26px var(--font); color: var(--muted); margin-top: 8px; }
+  .conta { display: block; text-align: center; font: 700 38px var(--font); color: color-mix(in srgb, var(--accent) 65%, #fff); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .clube .ult { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 12px; font: 500 28px var(--font); }
+  .clube .ult .vde { font: 800 24px var(--font); padding: 4px 12px; border-radius: 12px; }
+  .vde.v { background: #2bd47d; color: #04140b; } .vde.e { background: #ffc24f; color: #2a1d00; } .vde.d { background: #ff5b5b; color: #2a0606; }
+  .clube .mini { margin-top: 14px; border-radius: 26px; padding: 4px 14px; background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(255, 255, 255, .12); }
+  .clube .mini .row { min-height: 52px; max-height: 52px; font-size: 30px; padding: 0 6px; gap: 10px; }
+  .clube .mini .row .badge { width: 44px; height: 44px; font-size: 13px; border-width: 3px; }
+  .clube .mini .row .pos { width: 40px; font-size: 30px; }
+  .clube .mini .row.me { background: color-mix(in srgb, var(--me) 60%, transparent); border-radius: 18px; }
+  .f1c { --accent: var(--f1); display: flex; flex-direction: column; }
+  .f1c .corpo { margin: auto 0; }
+  .f1c .track { width: 100%; height: 160px; flex: none; }
+  .f1c .gp { font: 700 40px/1.05 var(--font); text-align: center; margin-top: 8px; }
+  .f1c .onde { font: 500 28px var(--font); color: var(--muted); text-align: center; margin-top: 6px; }
+  .f1c .sess { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; font: 500 25px var(--font); }
+  .f1c .sess div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 8px; border-radius: 12px; }
+  .f1c .sess .feita { color: var(--muted); text-decoration: line-through; }
+  .f1c .sess .prox { background: color-mix(in srgb, var(--f1) 35%, transparent); }
+
+  /* Seleção: uma linha */
+  .selecao { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px; padding: 24px 34px; }
+  .selecao .jogo-sel { display: flex; align-items: center; gap: 16px; font: 600 36px var(--font); justify-content: center; }
+  .selecao .badge { width: 70px; height: 70px; }
+  .selecao .q { text-align: right; font: 600 30px var(--font); }
+  .selecao .q .conta { margin: 0; text-align: right; font-size: 32px; }
+  .selecao .rot { font: 600 26px var(--font); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  /* Notícias: 3 de cada vez, a rodar */
+  .noticias-bloco { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  #nts { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .nts { flex: 1; display: flex; flex-direction: column; gap: 16px; min-height: 0; transition: opacity .8s; }
+  .nts.sai { opacity: 0; }
+  .nti { display: grid; grid-template-columns: 170px 1fr; gap: 22px; align-items: center; padding: 10px 14px; border-radius: 30px; flex: none;
+    background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(255, 255, 255, .12); min-height: 0; }
+  .nti img { width: 170px; height: 104px; object-fit: cover; border-radius: 20px; }
+  .nti.sem-img { grid-template-columns: 1fr; }
+  .nti b { font: 600 31px/1.2 var(--font); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .nti small { display: block; margin-top: 8px; font: 500 24px var(--font); color: var(--muted); }
+  .pontos { display: flex; justify-content: center; gap: 12px; margin-top: auto; padding-top: 12px; flex: none; }
+  .pontos i { width: 14px; height: 14px; border-radius: 50%; background: rgba(255, 255, 255, .25); }
+  .pontos i.on { background: #fff; }
+
+  /* Extras quando sobra espaço: jogador em destaque e curiosidades */
+  .jogador { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: center; }
+  .jogador .badge { width: 110px; height: 110px; }
+  .jogador .nome { font: 700 44px/1.1 var(--font); }
+  .jogador .tag { font: 500 28px var(--font); color: var(--muted); margin-top: 4px; }
+  .jogador .stats { grid-column: 1 / -1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; }
+  .jogador .stat .v { font-size: 64px; }
+  .jogador .stat .l { font-size: 24px; }
+  .curios { display: flex; flex-direction: column; gap: 14px; }
+  .curios p { font: 500 31px/1.3 var(--font); padding: 16px 20px; border-radius: 26px; background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(255, 255, 255, .12); }
+  .curios p b { color: color-mix(in srgb, var(--accent) 65%, #fff); margin-right: 10px; }
+
+  /* Rodapé */
+  .rodape { margin-top: auto; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; padding: 0 12px; color: var(--muted); font: 500 26px/1.4 var(--font); }
+  .rodape .neste b { color: color-mix(in srgb, var(--accent) 65%, #fff); font-weight: 700; margin-right: 8px; }
+  .rodape .neste { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rodape .dir { text-align: right; white-space: nowrap; }
+  .rodape .dir b { color: var(--text); }
   [hidden] { display: none !important; }
-  /* Nos cartões estreitos, o nome vai por baixo do emblema */
-  .duas .eq, .duas .eq.fora { flex-direction: column; text-align: center; gap: .6rem; font-size: 1.6rem; }
-  .duas .eq span { white-space: normal; font-size: 1.5rem; }
-  .duas .jogo { grid-template-columns: 1fr 1.1fr 1fr; }
-  .duas .meio .dia { font-size: 1.4rem; }
-  .duas .badge { width: 5rem; height: 5rem; }
-  .duas .jogo { gap: .8rem; }
-  .duas .meio .hora { font-size: 2.6rem; }
-  .duas .meta { flex-direction: column; gap: .3rem; }
-  .f1 .gp { font-size: 2.6rem; font-weight: 600; }
-  .f1 .onde { font-size: 1.8rem; color: var(--suave); margin-top: .3rem; }
-  .f1 .conta { font-size: 2.6rem; display: block; margin-top: 1rem; }
-
-  /* Emblema (a mesma peça do desporto: util.js badge) */
-  .badge { flex: none; width: 6rem; height: 6rem; display: grid; place-items: center; border-radius: 50%;
-    font-size: 1.5rem; font-weight: 700; color: var(--tx); position: relative; }
-  .badge img { width: 100%; height: 100%; object-fit: contain; }
-  .badge.fail { background: var(--c1); border: .3rem solid var(--c2); }
-  .badge:not(.fail) { font-size: 0; }
-
-  /* Notícias */
-  .noticias ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1.2rem; }
-  .noticias li { font-size: 2rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .noticias li small { color: var(--suave); font-size: 1.5rem; margin-left: .6rem; }
-
-  footer { margin-top: auto; text-align: center; color: var(--suave); font-size: 1.6rem; line-height: 1.7; }
-  footer b { color: var(--texto); font-weight: 600; }
 </style>
 </head>
 <body>
-  <header>
-    <div id="hora">--:--</div>
-    <div id="dia"></div>
-    <div id="data"></div>
-    <div id="saudacao"></div>
-  </header>
-  <section class="cartao" id="tempo"><h2>Tempo</h2><div class="vazio">A carregar…</div></section>
-  <section class="cartao" id="porto"></section>
-  <div class="duas"><section class="cartao" id="selecao"></section><section class="cartao f1" id="f1"></section></div>
-  <section class="cartao noticias" id="noticias"></section>
-  <footer>
-    <div><b>OK</b> no comando abre o menu</div>
-    <div id="dados"></div>
-  </footer>
+  <div id="frame"><div id="scaler"><div id="stage">
+    <div class="scene inicio sport-casa" id="ecra"></div>
+  </div></div></div>
 <script type="module">
-// Lê os dados do desporto (live.json) pelo hub ("ficheiros" do Desporto no apps.json) e usa as peças do desporto
-// (util.js: emblemas, nomes, "a minha equipa"). O tempo vem da Open-Meteo (sem chave), para o sítio no config do hub.
-// ?mock=1: dados fictícios (o mock.json do desporto e um tempo inventado, sem rede).
-import { badge, esc, teamName, targetMs } from './desporto-util.js';
+// Início do MonitorHub: o ecrã de repouso. Lê os dados do desporto do live.json (pelo hub, sem ir à rede) e usa as
+// peças do desporto (emblemas, tabela, desenho da pista, fundos). O tempo vem da Open-Meteo (sem chave), para o
+// sítio no config do hub. ◀ ▶ no comando mudam a página das notícias. ?mock=1: dados fictícios (sem rede).
+// Nunca mostra nada das despesas.
+import { badge, esc, teamName, targetMs, minha } from './js/util.js';
+import { linhaTabela, logo } from './js/cenas/base.js';
+import { pista, diaPT, horaPT } from './js/cenas/f1.js';
+import { fundo } from './js/backgrounds.js';
+import { iniciarAjuste } from './js/preview.js';
 
 const MOCK = new URLSearchParams(location.search).get('mock') === '1';
 const DADOS = MOCK ? '/dados/desporto-mock.json' : '/dados/desporto.json';
-const $ = (id) => document.getElementById(id);
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-const hhmm = (d) => d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+const DIA_MS = 864e5;
+const SELECAO_DIAS = 14;          // a seleção só aparece se jogar nos próximos 14 dias
+let NOTICIAS_POR_PAGINA = 3;
+const RODAR_NOTICIAS_MS = 20_000, ALTURA_NOTICIA = 156;   // uma notícia (140) + o espaço entre elas
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const hhmm = (d) => new Date(d).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+const $ = (sel) => document.querySelector(sel);
 
-// ---------------------------------------------------------------- relógio
-function relogio() {
-  const agora = new Date();
-  $('hora').textContent = hhmm(agora);
-  const dia = DIAS[agora.getDay()];
-  $('dia').textContent = dia.charAt(0).toUpperCase() + dia.slice(1);
-  $('data').textContent = agora.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' });
-  const h = agora.getHours();
-  $('saudacao').textContent = h >= 6 && h < 13 ? 'Bom dia' : h >= 13 && h < 20 ? 'Boa tarde' : 'Boa noite';
-  document.querySelectorAll('[data-ate]').forEach((el) => { el.textContent = falta(Number(el.dataset.ate)); });
-}
+let D = null, T = null, sitio = null, linksComando = [];
+let paginaNoticias = 0, noticias = [];
 
-// "faltam 2 d 5 h", "faltam 3 h 12 min", "faltam 8 min", "a começar"
+// ---------------------------------------------------------------- utilidades
+const quando = (m) => (m && m.iso ? Date.parse(m.iso) : null);
+const mesmoDia = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 function falta(ms) {
   const min = Math.floor((ms - Date.now()) / 60000);
   if (min <= 0) return 'a começar';
@@ -144,169 +193,340 @@ function falta(ms) {
   if (h) return `faltam ${h} h ${String(m).padStart(2, '0')} min`;
   return `faltam ${m} min`;
 }
+const diaCurto = (ms) => {
+  if (mesmoDia(ms, Date.now())) return 'Hoje';
+  if (mesmoDia(ms, Date.now() + DIA_MS)) return 'Amanhã';
+  return cap(new Date(ms).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'numeric' }).replace('.', ''));
+};
+// Todos os jogos de futebol (resultados e próximos), com a competição
+const todos = () => Object.entries(D.football || {}).flatMap(([chave, L]) =>
+  [...(L.results || []), ...(L.next || [])].map((m) => ({ ...m, chave, comp: L.name })));
 
 // ---------------------------------------------------------------- tempo (Open-Meteo)
-// Códigos WMO -> ícone e texto
 const WMO = [
   [[0], '☀️', 'Céu limpo'], [[1], '🌤️', 'Pouco nublado'], [[2], '⛅', 'Parcialmente nublado'], [[3], '☁️', 'Nublado'],
   [[45, 48], '☁️', 'Nevoeiro'], [[51, 53, 55, 56, 57], '🌦️', 'Chuvisco'], [[61, 63, 66, 80, 81], '🌧️', 'Chuva'],
   [[65, 67, 82], '🌧️', 'Chuva forte'], [[71, 73, 75, 77, 85, 86], '🌨️', 'Neve'], [[95, 96, 99], '⛈️', 'Trovoada'],
 ];
-const tempo = (c, noite) => {
-  const w = WMO.find(([cs]) => cs.includes(c)) || [[], '·', ''];
-  return { ic: noite && c <= 1 ? '🌙' : w[1], txt: w[2] };
-};
+const ceu = (c, noite) => { const w = WMO.find(([cs]) => cs.includes(c)) || [[], '·', '']; return { ic: noite && c <= 1 ? '🌙' : w[1], txt: w[2] }; };
 
 function tempoFicticio() {
-  const agora = new Date(); agora.setMinutes(0, 0, 0);
-  const hora = (i) => new Date(agora.getTime() + i * 3600e3).toISOString().slice(0, 16);
-  const dia = (i) => new Date(Date.now() + i * 864e5).toISOString().slice(0, 10);
+  const h0 = new Date(); h0.setMinutes(0, 0, 0);
+  const hora = (i) => new Date(h0.getTime() + i * 3600e3).toISOString().slice(0, 16);
+  const dia = (i) => new Date(Date.now() + i * DIA_MS).toISOString().slice(0, 10);
   return {
     current: { temperature_2m: 17.4, apparent_temperature: 16.8, weather_code: 2, is_day: 1, time: hora(0) },
-    hourly: { time: Array.from({ length: 24 }, (_, i) => hora(i)), temperature_2m: Array.from({ length: 24 }, (_, i) => 17 - Math.abs(6 - i) * 0.6),
-      weather_code: Array.from({ length: 24 }, (_, i) => [2, 3, 61, 3][i % 4]), precipitation_probability: Array.from({ length: 24 }, (_, i) => (i % 4 === 2 ? 60 : 10)) },
+    hourly: { time: Array.from({ length: 24 }, (_, i) => hora(i)), temperature_2m: Array.from({ length: 24 }, (_, i) => 17 + 3 * Math.sin(i / 4) - i * 0.25),
+      weather_code: Array.from({ length: 24 }, (_, i) => [2, 3, 61, 3][i % 4]), precipitation_probability: Array.from({ length: 24 }, (_, i) => [5, 20, 70, 35][i % 4]) },
     daily: { time: Array.from({ length: 7 }, (_, i) => dia(i)), weather_code: [2, 61, 80, 3, 1, 0, 95],
       temperature_2m_max: [19, 17, 16, 18, 21, 22, 20], temperature_2m_min: [11, 12, 10, 9, 10, 12, 13],
-      precipitation_probability_max: [10, 80, 70, 30, 5, 0, 60] },
+      precipitation_probability_max: [10, 80, 70, 30, 5, 0, 60],
+      sunrise: Array.from({ length: 7 }, (_, i) => dia(i) + 'T07:52'), sunset: Array.from({ length: 7 }, (_, i) => dia(i) + 'T18:41') },
   };
 }
 
-async function mostrarTempo() {
-  const caixa = $('tempo');
+async function lerTempo() {
   try {
-    const cfg = MOCK ? { tempo: { nome: 'Porto (fictício)', latitude: 0, longitude: 0 } } : await (await fetch('/api/inicio', { cache: 'no-store' })).json();
-    const sitio = cfg.tempo;
-    if (!sitio || sitio.latitude == null) { caixa.innerHTML = '<h2>Tempo</h2><div class="vazio">Escolhe o sítio no config.local.json do hub ("inicio" → "tempo").</div>'; return; }
+    if (MOCK) { sitio = { nome: 'Porto (fictício)' }; T = tempoFicticio(); return; }
+    const cfg = await (await fetch('/api/inicio', { cache: 'no-store' })).json();
+    sitio = cfg.tempo || null;
+    if (!sitio || sitio.latitude == null) { T = null; return; }
     const url = 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
       latitude: sitio.latitude, longitude: sitio.longitude, timezone: 'auto', forecast_days: 7,
       current: 'temperature_2m,apparent_temperature,weather_code,is_day',
       hourly: 'temperature_2m,weather_code,precipitation_probability',
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
     });
-    const T = MOCK ? tempoFicticio() : await (await fetch(url)).json();
-    const c = T.current, agora = tempo(c.weather_code, !c.is_day);
-    // As próximas 12 horas, a partir da hora em que estamos
-    const i0 = Math.max(0, T.hourly.time.findIndex((t) => t >= c.time.slice(0, 13)));
-    const horas = T.hourly.time.slice(i0 + 1, i0 + 13).map((t, k) => {
-      const i = i0 + 1 + k, h = Number(t.slice(11, 13)), p = T.hourly.precipitation_probability[i];
-      return `<div>${h}h<b>${tempo(T.hourly.weather_code[i], h < 7 || h >= 20).ic}</b><span>${Math.round(T.hourly.temperature_2m[i])}°</span><i>${p >= 20 ? p + '%' : ''}</i></div>`;
-    }).join('');
-    // Os 5 dias seguintes (amanhã em diante)
-    const dias = T.daily.time.slice(1, 6).map((d, k) => {
-      const i = k + 1, nome = k === 0 ? 'Amanhã' : DIAS[new Date(d + 'T12:00').getDay()].replace('-feira', '');
-      const p = T.daily.precipitation_probability_max[i];
-      return `<div><span>${nome.charAt(0).toUpperCase() + nome.slice(1)}</span><span class="ic">${tempo(T.daily.weather_code[i]).ic}</span>
-        <span>${Math.round(T.daily.temperature_2m_max[i])}° <span class="min">${Math.round(T.daily.temperature_2m_min[i])}°</span></span><span class="chuva">${p >= 20 ? `💧 ${p}%` : ''}</span></div>`;
-    }).join('');
-    const hoje = `máx. ${Math.round(T.daily.temperature_2m_max[0])}° · mín. ${Math.round(T.daily.temperature_2m_min[0])}°`;
-    caixa.innerHTML = `<h2>Tempo<small>${esc(sitio.nome || '')}</small></h2>
-      <div class="agora"><span class="ic">${agora.ic}</span><span class="t">${Math.round(c.temperature_2m)}°</span>
-        <div class="txt">${agora.txt}<small>sensação ${Math.round(c.apparent_temperature)}° · ${hoje}</small></div></div>
-      <div class="horas">${horas}</div><div class="dias">${dias}</div>`;
-  } catch (e) {
-    if (!caixa.querySelector('.agora')) caixa.innerHTML = `<h2>Tempo</h2><div class="vazio">Sem previsão (${esc(e.message)}).</div>`;
-    console.warn('Tempo:', e);
+    T = await (await fetch(url)).json();
+  } catch (e) { console.warn('Tempo:', e); }
+}
+
+// Gráfico das próximas 12 h: a temperatura numa linha (com o valor) e a probabilidade de chuva em barras
+function graficoHoras(horas) {
+  const W = 1000, H = 250, topo = 62, base = 190;
+  const temps = horas.map((h) => h.t);
+  const min = Math.min(...temps) - 1, max = Math.max(...temps) + 1;
+  const x = (i) => 40 + (i / (horas.length - 1)) * (W - 80);
+  const y = (t) => base - ((t - min) / (max - min || 1)) * (base - topo);
+  const pts = horas.map((h, i) => `${x(i)},${y(h.t)}`).join(' ');
+  const barras = horas.map((h, i) => h.p >= 10 ? `<rect class="chuva" x="${x(i) - 16}" y="${base + 12 - (h.p / 100) * 40}" width="32" height="${(h.p / 100) * 40}" rx="6"/>` : '').join('');
+  const rot = horas.map((h, i) => `<text x="${x(i)}" y="${y(h.t) - 16}" text-anchor="middle">${Math.round(h.t)}°</text>
+    <text class="hora" x="${x(i)}" y="${H - 2}" text-anchor="middle">${h.h}h</text>
+    ${h.p >= 20 ? `<text class="pct" x="${x(i)}" y="${base + 6 - (h.p / 100) * 40 - 4}" text-anchor="middle">${h.p}%</text>` : ''}
+    <text class="ic" x="${x(i)}" y="${topo - 22}" text-anchor="middle">${h.ic}</text>`).join('');
+  return `<svg class="grafico-horas" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Próximas 12 horas">
+    <defs><linearGradient id="gradTemp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <polygon class="area" points="${x(0)},${base} ${pts} ${x(horas.length - 1)},${base}"/>${barras}<polyline class="linha" points="${pts}"/>${rot}</svg>`;
+}
+
+function blocoTempo() {
+  if (!T || !T.current) {
+    return `<section class="vidro bloco entra"><div class="titulo-bloco">Tempo</div><div class="vazio">${sitio && sitio.latitude == null ? 'Escolhe o sítio no config.local.json do hub ("inicio" → "tempo").' : 'A carregar a previsão…'}</div></section>`;
   }
+  const c = T.current, agora = ceu(c.weather_code, !c.is_day);
+  const i0 = Math.max(0, T.hourly.time.findIndex((t) => t >= c.time.slice(0, 13)));
+  const horas = T.hourly.time.slice(i0 + 1, i0 + 13).map((t, k) => {
+    const i = i0 + 1 + k, h = Number(t.slice(11, 13));
+    return { h, t: T.hourly.temperature_2m[i], p: T.hourly.precipitation_probability[i] || 0, ic: ceu(T.hourly.weather_code[i], h < 7 || h >= 20).ic };
+  });
+  const dias = T.daily.time.slice(1, 6).map((d, k) => {
+    const i = k + 1, p = T.daily.precipitation_probability_max[i];
+    const nome = k === 0 ? 'Amanhã' : cap(DIAS[new Date(d + 'T12:00').getDay()].replace('-feira', '').slice(0, 3));
+    return `<div class="dia5"><span class="n">${nome}</span><span class="ic">${ceu(T.daily.weather_code[i]).ic}</span>
+      <span class="mm">${Math.round(T.daily.temperature_2m_max[i])}° <span>${Math.round(T.daily.temperature_2m_min[i])}°</span></span>
+      <span class="p">${p >= 20 ? `💧 ${p}%` : ''}</span></div>`;
+  }).join('');
+  return `<section class="vidro bloco entra" style="animation-delay:.08s">
+    <div class="titulo-bloco">Tempo<small>${esc(sitio && sitio.nome || '')}</small></div>
+    <div class="tempo-agora"><span class="ic">${agora.ic}</span><span class="t">${Math.round(c.temperature_2m)}°</span>
+      <div class="desc">${agora.txt}<small>Sensação ${Math.round(c.apparent_temperature)}° · máx. ${Math.round(T.daily.temperature_2m_max[0])}° · mín. ${Math.round(T.daily.temperature_2m_min[0])}°</small></div></div>
+    ${graficoHoras(horas)}
+    <div class="dias">${dias}</div>
+  </section>`;
 }
 
-// ---------------------------------------------------------------- desporto (live.json)
-// Todos os jogos de todas as competições, com o nome da competição
-const todos = (D, lista) => Object.values(D.football || {}).flatMap((L) => (L[lista] || []).map((m) => ({ ...m, comp: L.name })));
-const quando = (m) => (m.iso ? Date.parse(m.iso) : null);
-
-// Próximo jogo de uma equipa: o mais cedo dos que têm hora; sem hora (o mock), o primeiro que aparecer
-function proximoJogo(D, code) {
-  const jogos = todos(D, 'next').filter((m) => (m.home === code || m.away === code) && m.status !== 'adiado');
-  const futuros = jogos.filter((m) => quando(m) == null || quando(m) > Date.now() - 2 * 3600e3);
-  return futuros.sort((a, b) => (quando(a) ?? Infinity) - (quando(b) ?? Infinity))[0] || null;
+// ---------------------------------------------------------------- hoje no desporto (só o live.json)
+function blocoHoje() {
+  const hoje = todos().filter((m) => quando(m) && mesmoDia(quando(m), Date.now()) && m.status !== 'adiado');
+  const vistos = new Set();
+  const lista = hoje.filter((m) => { const k = `${m.home}-${m.away}`; if (vistos.has(k)) return false; vistos.add(k); return true; })
+    .sort((a, b) => (minha(D, b.home) || minha(D, b.away)) - (minha(D, a.home) || minha(D, a.away)) || quando(a) - quando(b));
+  if (!lista.length) return '';
+  const MAX = 4;
+  // O live.json não é em direto: um jogo sem resultado que começou há menos de 2 h conta como "a decorrer"
+  const decorre = (m) => m.live || (m.hs == null && quando(m) <= Date.now() && Date.now() - quando(m) < 2 * 3600e3);
+  const aDecorrer = lista.filter(decorre).length;
+  // Primeiro os meus, depois os que estão a decorrer, depois os outros; mostram-se pela hora
+  const escolhidos = [...lista].sort((a, b) => (minha(D, b.home) || minha(D, b.away)) - (minha(D, a.home) || minha(D, a.away)) || decorre(b) - decorre(a)).slice(0, MAX);
+  const linhas = escolhidos.sort((a, b) => quando(a) - quando(b)).map((m) => {
+    const eu = minha(D, m.home) || minha(D, m.away);
+    const r = m.live ? `<div class="r">${m.hs}–${m.as}<small>AO VIVO${m.clock ? ' ' + esc(m.clock) : ''}</small></div>`
+      : m.hs != null ? `<div class="r fim">${m.hs}–${m.as}<small>FINAL</small></div>`
+      : decorre(m) ? '<div class="r decorre">AO VIVO</div>' : '<div class="r vs">vs</div>';
+    return `<div class="hj${eu ? ' me' : ''}"><span class="h">${hhmm(quando(m))}</span>
+      <span class="e casa"><span>${esc(teamName(D, m.home))}</span>${badge(D, m.home)}</span>${r}
+      <span class="e">${badge(D, m.away)}<span>${esc(teamName(D, m.away))}</span></span><span class="l">${logo(m.chave, m.comp)}</span></div>`;
+  }).join('');
+  return `<section class="vidro bloco entra" style="animation-delay:.16s">
+    <div class="titulo-bloco">Hoje no desporto<small>${lista.length === 1 ? '1 jogo' : `${lista.length} jogos`}${lista.length > MAX ? ` · ${MAX} em destaque` : ''}</small></div>
+    <div class="hoje-lista">${linhas}</div>
+    ${aDecorrer ? `<div class="ao-vivo-aviso"><i></i>${aDecorrer === 1 ? '1 jogo a decorrer' : `${aDecorrer} jogos a decorrer`}: abre o Ao vivo no comando</div>` : ''}
+  </section>`;
 }
-function ultimoJogo(D, code) {
-  const jogos = todos(D, 'results').filter((m) => (m.home === code || m.away === code) && m.hs != null && !m.live);
-  return jogos.sort((a, b) => (quando(b) ?? 0) - (quando(a) ?? 0))[0] || null;
+
+// ---------------------------------------------------------------- FC Porto (compacto) e F1
+function proximoDe(code) {
+  return todos().filter((m) => (m.home === code || m.away === code) && m.hs == null && m.status !== 'adiado')
+    .filter((m) => quando(m) == null || quando(m) > Date.now() - 2 * 3600e3)
+    .sort((a, b) => (quando(a) ?? Infinity) - (quando(b) ?? Infinity))[0] || null;
+}
+function ultimoDe(code) {
+  return todos().filter((m) => (m.home === code || m.away === code) && m.hs != null && !m.live)
+    .sort((a, b) => (quando(b) ?? 0) - (quando(a) ?? 0))[0] || null;
 }
 
-const equipa = (D, code, lado) => `<div class="eq ${lado}">${badge(D, code)}<span>${esc(teamName(D, code))}</span></div>`;
-function cartaoJogo(D, m) {
-  const t = quando(m);
-  const [dia, ...hora] = (m.when || '').split(' ');
-  const quandoTxt = t
-    ? `<div class="hora">${hhmm(new Date(t))}</div><div class="dia">${new Date(t).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' })}</div>`
-    : `<div class="hora">${esc(hora.join(' '))}</div><div class="dia">${esc(dia)}${m.date ? ' ' + esc(m.date) : ''}</div>`;
-  return `<div class="jogo">${equipa(D, m.home, 'casa')}<div class="meio">${quandoTxt}</div>${equipa(D, m.away, 'fora')}</div>
-    <div class="meta"><span>${esc(m.comp || '')}</span>${t ? `<span class="conta" data-ate="${t}">${falta(t)}</span>` : ''}</div>`;
-}
-
-function mostrarPorto(D) {
-  const code = D.myTeam.code, nome = teamName(D, code);
-  const prox = proximoJogo(D, code), ult = ultimoJogo(D, code);
-  let html = `<h2>${esc(nome)}<small>próximo jogo</small></h2>` + (prox ? cartaoJogo(D, prox) : '<div class="vazio">Sem jogos marcados.</div>');
+function blocoClube() {
+  const code = D.myTeam.code;
+  const prox = proximoDe(code), ult = ultimoDe(code);
+  const t = quando(prox);
+  let html = `<div class="titulo-bloco">${badge(D, code, 'mini')}${esc(teamName(D, code))}</div>`;
+  if (prox) {
+    const [dia, ...hora] = (prox.when || '').split(' ');
+    html += `<div class="prox">
+      <div class="eq">${badge(D, prox.home)}${esc(teamName(D, prox.home))}</div>
+      <div class="q"><b>${t ? hhmm(t) : esc(hora.join(' '))}</b><span>${t ? diaCurto(t) : esc(dia)}</span></div>
+      <div class="eq">${badge(D, prox.away)}${esc(teamName(D, prox.away))}</div></div>
+      <div class="comp">${esc(prox.comp || '')}</div>${t ? `<span class="conta" data-ate="${t}">${falta(t)}</span>` : ''}`;
+  } else html += '<div class="comp">Sem jogos marcados</div>';
   if (ult) {
     const nos = ult.home === code ? ult.hs : ult.as, eles = ult.home === code ? ult.as : ult.hs;
-    const [cls, txt] = nos > eles ? ['v', 'V'] : nos === eles ? ['e', 'E'] : ['d', 'D'];
-    html += `<div class="ultimo"><span class="r ${cls}">${txt}</span>Último: ${esc(teamName(D, ult.home))}
-      <b>${ult.hs}–${ult.as}</b> ${esc(teamName(D, ult.away))} <span class="vazio">· ${esc(ult.comp || '')}</span></div>`;
+    const [c, l] = nos > eles ? ['v', 'V'] : nos === eles ? ['e', 'E'] : ['d', 'D'];
+    const outro = ult.home === code ? ult.away : ult.home;
+    html += `<div class="ult"><span class="vde ${c}">${l}</span>${ult.hs}–${ult.as} ${ult.home === code ? 'vs' : 'em'} ${esc(teamName(D, outro))}</div>`;
   }
-  $('porto').innerHTML = html;
+  // Mini-tabela da liga: o lugar acima, o FC Porto e o lugar abaixo
+  const tabela = Object.values(D.football || {}).find((L) => (!L.tipo || L.tipo === 'liga') && (L.table || []).some((r) => r.team === code) && L.name && /Portugal/.test(L.name))
+    || Object.values(D.football || {}).find((L) => (L.table || []).some((r) => r.team === code));
+  if (tabela) {
+    const i = tabela.table.findIndex((r) => r.team === code);
+    const de = Math.max(0, Math.min(i - 1, tabela.table.length - 3));
+    html += `<div class="mini table">${tabela.table.slice(de, de + 3).map((r, k) =>
+      linhaTabela(D, r.team, de + k + 1, [{ v: r.pts, cls: 'pts' }])).join('')}</div>`;
+  }
+  return `<section class="vidro bloco clube entra" style="animation-delay:.24s">${html}</section>`;
 }
 
-function mostrarSelecao(D) {
-  const code = D.myTeam.selecao || 'PRT';
-  const prox = proximoJogo(D, code);
-  const caixa = $('selecao');
-  caixa.hidden = !prox;
-  if (prox) caixa.innerHTML = `<h2>${esc(teamName(D, code))}</h2>${cartaoJogo(D, prox)}`;
-}
-
-function mostrarF1(D) {
+function blocoF1() {
   const n = D.f1 && D.f1.next;
-  const caixa = $('f1');
-  caixa.hidden = !n;
-  if (!n) return;
+  if (!n) return '';
   const t = targetMs(n);
-  caixa.innerHTML = `<h2>Fórmula 1</h2><div class="gp">${esc(n.name)}</div>
-    <div class="onde">${esc([n.circuit, n.country].filter(Boolean).join(' · '))} · ${new Date(t).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' })} ${hhmm(new Date(t))}</div>
-    <span class="conta" data-ate="${t}">${falta(t)}</span>`;
+  const w = D.f1.weekend;
+  // Num fim de semana de GP (a 1.ª sessão a menos de 4 dias), o horário das sessões em vez dos dados da pista
+  const sessoes = w && (w.sessions || []).length && Date.parse(w.sessions[0].date) - Date.now() < 4 * DIA_MS ? w.sessions : null;
+  const prox = sessoes && sessoes.find((s) => Date.parse(s.date) > Date.now());
+  return `<section class="vidro bloco f1c entra" style="animation-delay:.3s">
+    <div class="titulo-bloco">Fórmula 1</div>
+    <div class="corpo">${n.track ? pista(n.track) : ''}
+    <div class="gp">${esc(n.name)}</div>
+    <div class="onde">${esc([n.circuit, n.country].filter(Boolean).join(' · '))}</div>
+    <span class="conta" data-ate="${t}">${falta(t)}</span>
+    ${sessoes ? `<div class="sess">${sessoes.filter((s) => Date.parse(s.date) > Date.now() - 3 * 3600e3).slice(0, 3).map((s) => `<div class="${Date.parse(s.date) < Date.now() ? 'feita' : s === prox ? 'prox' : ''}">
+      <span>${esc(s.name)}</span><span>${diaPT(s.date)} ${horaPT(s.date)}</span></div>`).join('')}</div>` : ''}</div>
+  </section>`;
 }
 
-// Os 3 títulos mais recentes do FC Porto (em qualquer competição) ou da Liga Portugal
-function mostrarNoticias(D) {
+// ---------------------------------------------------------------- seleção (só nos próximos 14 dias)
+function blocoSelecao() {
+  const code = D.myTeam.selecao || 'PRT';
+  const m = proximoDe(code);
+  const t = quando(m);
+  if (!m || !t || t - Date.now() > SELECAO_DIAS * DIA_MS) return '';
+  return `<section class="vidro selecao entra" style="animation-delay:.36s">
+    <span class="rot">${esc(teamName(D, code))}</span>
+    <div class="jogo-sel">${badge(D, m.home)}${esc(teamName(D, m.home))} <span style="color:var(--muted)">–</span> ${esc(teamName(D, m.away))}${badge(D, m.away)}</div>
+    <div class="q">${diaCurto(t)} · ${hhmm(t)}<span class="conta" data-ate="${t}">${falta(t)}</span></div>
+  </section>`;
+}
+
+// ---------------------------------------------------------------- notícias (do FC Porto ou da Liga), a rodar
+function juntarNoticias() {
   const nome = teamName(D, D.myTeam.code);
-  const daEquipa = (n) => n.title && (n.title.includes(nome) || /\bPorto\b|Dragão|dragões/.test(n.title));
-  const todas = Object.entries(D.news || {}).flatMap(([k, lista]) => lista.filter((n) => k === 'pt' || daEquipa(n)));
+  const doClube = (n) => n.title && (n.title.includes(nome) || /\bPorto\b|Dragão|dragões|Farioli/.test(n.title));
   const vistas = new Set();
-  const top = todas.filter((n) => !vistas.has(n.title) && vistas.add(n.title))
-    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 3);
-  const caixa = $('noticias');
-  caixa.hidden = !top.length;
-  caixa.innerHTML = `<h2>Notícias</h2><ol>${top.map((n) => `<li>${esc(n.title)}<small>${esc(n.source || '')}</small></li>`).join('')}</ol>`;
+  return Object.entries(D.news || {}).flatMap(([k, lista]) => lista.filter((n) => k === 'pt' || doClube(n)))
+    .filter((n) => !vistas.has(n.title) && vistas.add(n.title))
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 9);
+}
+function haQuanto(iso) {
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!(min >= 0)) return '';
+  if (min < 60) return `há ${Math.max(1, min)} min`;
+  const h = Math.round(min / 60);
+  return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`;
+}
+function paginaDeNoticias() {
+  const n = Math.max(1, Math.ceil(noticias.length / NOTICIAS_POR_PAGINA));
+  paginaNoticias = ((paginaNoticias % n) + n) % n;
+  const estas = noticias.slice(paginaNoticias * NOTICIAS_POR_PAGINA, (paginaNoticias + 1) * NOTICIAS_POR_PAGINA);
+  return `<div class="nts">${estas.map((x) => `<div class="nti${x.img ? '' : ' sem-img'}">
+      ${x.img ? `<img src="${esc(x.img)}" alt="" onerror="this.parentNode.classList.add('sem-img');this.remove()">` : ''}
+      <div><b>${esc(x.title)}</b><small>${esc(x.source || '')}${x.date ? ' · ' + haQuanto(x.date) : ''}</small></div></div>`).join('')}</div>
+    ${n > 1 ? `<div class="pontos">${Array.from({ length: n }, (_, i) => `<i class="${i === paginaNoticias ? 'on' : ''}"></i>`).join('')}</div>` : ''}`;
+}
+function blocoNoticias() {
+  noticias = juntarNoticias();
+  if (!noticias.length) return '<div class="noticias-bloco"></div>';
+  return `<section class="vidro bloco noticias-bloco entra" style="animation-delay:.42s">
+    <div class="titulo-bloco">Notícias<small>FC Porto e Liga</small></div><div id="nts">${paginaDeNoticias()}</div></section>`;
+}
+function mudarNoticias(delta) {
+  const caixa = document.getElementById('nts');
+  if (!caixa || noticias.length <= NOTICIAS_POR_PAGINA) return;
+  const nts = caixa.querySelector('.nts');
+  nts.classList.add('sai');
+  setTimeout(() => { paginaNoticias += delta; caixa.innerHTML = paginaDeNoticias(); }, 700);
 }
 
-function quandoDados(iso) {
-  if (!iso) return '';
-  const d = new Date(iso), hoje = new Date();
-  const dias = Math.round((new Date(hoje.toDateString()) - new Date(d.toDateString())) / 864e5);
-  return `Dados do desporto: ${dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} ${hhmm(d)}`;
+// ---------------------------------------------------------------- extras (só se sobrar espaço)
+function blocoJogador() {
+  const p = (D.players || [])[0];
+  if (!p) return '';
+  return `<section class="vidro bloco extra entra" style="animation-delay:.46s"><div class="titulo-bloco">Jogador em destaque<small>${esc(p.tag || '')}</small></div>
+    <div class="jogador">${badge(D, p.team)}<div><div class="nome">${esc(p.name)}</div><div class="tag">${esc(teamName(D, p.team))}</div></div>
+    <div class="stats">${(p.stats || []).slice(0, 4).map((x) => `<div class="stat"><span class="v">${esc(x.value)}</span><span class="l">${esc(x.label)}</span></div>`).join('')}</div></div></section>`;
+}
+function blocoCuriosidades() {
+  const f = D.fun || {};
+  const itens = [...(f.records || []), ...(f.comparisons || [])];
+  if (!itens.length) return '';
+  const k = new Date().getDate();
+  const dois = [itens[k % itens.length], itens[(k + 1) % itens.length]].filter((x, i, a) => a.indexOf(x) === i);
+  return `<section class="vidro bloco extra entra" style="animation-delay:.5s"><div class="titulo-bloco">Curiosidades</div>
+    <div class="curios">${dois.map((x) => `<p>${x.year ? `<b>${esc(x.year)}</b>` : ''}${esc(x.text)}</p>`).join('')}</div></section>`;
 }
 
-async function mostrarDesporto() {
-  try {
-    const D = await (await fetch(DADOS, { cache: 'no-store' })).json();
-    for (const f of [mostrarPorto, mostrarSelecao, mostrarF1, mostrarNoticias]) {
-      try { f(D); } catch (e) { console.warn(f.name, e); }
-    }
-    $('dados').textContent = MOCK ? 'Dados fictícios (?mock=1)' : quandoDados((D._atualizado || {}).futebol);
-  } catch (e) {
-    $('porto').innerHTML = `<h2>Desporto</h2><div class="vazio">Sem dados do desporto (${esc(e.message)}).</div>`;
-    console.warn('Desporto:', e);
+// ---------------------------------------------------------------- rodapé
+function rodape() {
+  const fun = (D.fun && D.fun.onThisDay) || [];
+  const curiosidade = fun.length ? fun[new Date().getDate() % fun.length] : null;
+  const iso = (D._atualizado || {}).futebol;
+  const dados = MOCK ? 'Dados fictícios (?mock=1)' : iso ? `Desporto: ${diaCurto(Date.parse(iso)).toLowerCase()} ${hhmm(iso)}` : '';
+  return `<footer class="rodape entra" style="animation-delay:.5s">
+    <div class="neste">${curiosidade ? `<b>Neste dia · ${esc(curiosidade.year)}</b>${esc(curiosidade.text)}` : ''}</div>
+    <div class="dir">${esc(dados)}${linksComando.length ? `<br>Comando: <b>${esc(linksComando[0])}</b>` : ''}</div></footer>`;
+}
+
+// ---------------------------------------------------------------- topo e montagem
+function topo() {
+  const sol = T && T.daily && T.daily.sunrise ? `☀️ ${T.daily.sunrise[0].slice(11, 16)} · 🌙 ${T.daily.sunset[0].slice(11, 16)}` : '';
+  return `<header class="topo entra"><div class="relogio" id="relogio"></div>
+    <div class="topo-dir"><span class="dia" id="dia"></span><span class="data" id="data"></span><span class="ola" id="ola"></span>
+    <span class="sol">${sol}</span></div></header>`;
+}
+
+function relogio() {
+  const agora = new Date();
+  const r = document.getElementById('relogio');
+  if (!r) return;
+  r.innerHTML = `${hhmm(agora)}`;
+  document.getElementById('dia').textContent = cap(DIAS[agora.getDay()]);
+  document.getElementById('data').textContent = agora.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' });
+  const h = agora.getHours();
+  const ola = h >= 6 && h < 13 ? 'Bom dia' : h < 20 && h >= 13 ? 'Boa tarde' : 'Boa noite';
+  document.getElementById('ola').textContent = D && D.utilizador ? `${ola}, ${D.utilizador}` : ola;
+  document.querySelectorAll('[data-ate]').forEach((el) => { el.textContent = falta(Number(el.dataset.ate)); });
+}
+
+function montar() {
+  const ecra = document.getElementById('ecra');
+  if (!D) { ecra.innerHTML = fundo('casa') + topo() + blocoTempo(); relogio(); return; }
+  const f1 = blocoF1(), clube = blocoClube();
+  ecra.innerHTML = fundo('casa') + topo() + blocoTempo() + blocoHoje() +
+    `<div class="duas${f1 ? '' : ' uma'}">${clube}${f1}</div>` + blocoSelecao() + blocoNoticias() + blocoJogador() + blocoCuriosidades() + rodape();
+  // Os extras só ficam se couberem (do último para o primeiro), sem tirar o lugar a 2 notícias
+  ecra.classList.add('a-medir');
+  const minimoNoticias = noticias.length ? 2 * ALTURA_NOTICIA + 110 : 0;
+  for (const extra of [...ecra.querySelectorAll('.extra')].reverse()) {
+    const nb = ecra.querySelector('.noticias-bloco');
+    if (ecra.scrollHeight > ecra.clientHeight || (nb && nb.getBoundingClientRect().height < minimoNoticias)) extra.remove();
   }
+  if (!noticias.length && ecra.querySelector('.extra')) ecra.querySelector('.noticias-bloco')?.remove();
+  if (D.myTeam && D.teams[D.myTeam.code]) document.documentElement.style.setProperty('--me', D.teams[D.myTeam.code].c1);
+  // As notícias ficam com o espaço que sobra: tantas por página quantas couberem (1 a 4)
+  const caixa = document.getElementById('nts');
+  if (caixa) {
+    const livre = caixa.getBoundingClientRect().height + (ecra.scrollHeight > ecra.clientHeight ? ecra.clientHeight - ecra.scrollHeight : 0);
+    const cabem = Math.max(1, Math.min(4, Math.floor((livre + 16 - 30) / ALTURA_NOTICIA)));   // 30: os pontos das páginas
+    if (cabem !== NOTICIAS_POR_PAGINA) { NOTICIAS_POR_PAGINA = cabem; caixa.innerHTML = paginaDeNoticias(); }
+  }
+  ecra.classList.remove('a-medir');
+  relogio();
 }
 
-relogio();
+async function lerDesporto() {
+  try { D = await (await fetch(DADOS, { cache: 'no-store' })).json(); }
+  catch (e) { console.warn('Desporto:', e); }
+}
+async function lerComando() {
+  try { linksComando = (await (await fetch('/api/estado', { cache: 'no-store' })).json()).links_comando || []; } catch { /* fora do hub */ }
+}
+
+// ◀ ▶ do comando (o hub só as passa quando o Início está no ecrã)
+window.addEventListener('message', (e) => {
+  const m = e.data;
+  if (m && m.monitorhub === 1 && m.tipo === 'comando' && (m.acao === 'esquerda' || m.acao === 'direita')) mudarNoticias(m.acao === 'direita' ? 1 : -1);
+});
+window.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') mudarNoticias(e.key === 'ArrowRight' ? 1 : -1); });
+
+iniciarAjuste();
+await Promise.all([lerDesporto(), lerTempo(), lerComando()]);
+montar();
 setInterval(relogio, 1000);
-mostrarTempo();
-setInterval(mostrarTempo, 30 * 60e3);
-mostrarDesporto();
-setInterval(mostrarDesporto, 5 * 60e3);
+setInterval(() => mudarNoticias(1), RODAR_NOTICIAS_MS);
+// O desporto a cada 5 min (o live.json muda quando se atualiza), o tempo a cada 30 min. Sem animação de entrada.
+const semEntrada = () => document.querySelectorAll('.entra').forEach((el) => el.classList.remove('entra'));
+setInterval(async () => { await lerDesporto(); montar(); semEntrada(); }, 5 * 60e3);
+setInterval(async () => { await lerTempo(); montar(); semEntrada(); }, 30 * 60e3);
 </script>
 </body>
 </html>

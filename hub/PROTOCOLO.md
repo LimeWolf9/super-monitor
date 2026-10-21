@@ -3,7 +3,7 @@
 Uma app do MonitorHub é uma página web que o ecrã da parede abre num `iframe`.
 Para obedecer ao comando do telemóvel, a app só precisa de trocar mensagens
 `postMessage` com o hub. Uma app que ignore isto continua a funcionar: só não
-reage às setas, e "Voltar" leva ao menu.
+reage às setas, e "Voltar" leva ao Início.
 
 Todas as mensagens têm `monitorhub: 1`.
 
@@ -25,14 +25,14 @@ quando o que faz sentido mudar (ex.: sem `ir_nba` no Ao vivo).
 quando a app aberta inclui `"atualizar"` nas `acoes` do `pronto`. A app decide o que
 fazer (ex.: o desporto chama o seu `POST /api/atualizar` e mostra o progresso); pode
 responder com um `aviso` (ex.: "Já está a atualizar").
-(`menu` e `energia` são tratadas pelo próprio hub e nunca chegam à app.)
+(`menu` (o botão ⌂ Início) e `energia` são tratadas pelo próprio hub e nunca chegam à app.)
 
 ## App → hub
 
 | Mensagem | Quando |
 |---|---|
 | `{ monitorhub: 1, tipo: "pronto", acoes: [...] }` | Ao arrancar. `acoes` diz que botões a app usa; os outros mostram um aviso no ecrã. Lista vazia = todos. |
-| `{ monitorhub: 1, tipo: "nao_tratado", acao: "voltar" }` | A app já está no "início" e "Voltar" deve sair para o menu. |
+| `{ monitorhub: 1, tipo: "nao_tratado", acao: "voltar" }` | A app já está no "início" dela e "Voltar" deve sair para o Início do hub. |
 | `{ monitorhub: 1, tipo: "aviso", texto: "⏸ Em pausa" }` | Mostra uma mensagem curta em baixo no ecrã. |
 
 ## Exemplo mínimo
@@ -59,7 +59,7 @@ A app completa de exemplo é `web/apps/relogio.html`.
 - `pausa`: fixa a cena atual (mostrar um ⏸ discreto)
 - `cima` / `baixo`: mover o foco entre notícias ou jogos da cena
 - `ok`: abrir a notícia com foco (por cima da cena); `voltar` fecha-a
-- `voltar` sem nada aberto: `nao_tratado` → menu
+- `voltar` sem nada aberto: `nao_tratado` → Início
 - `atualizar`: anunciar em `pronto` e correr a atualização dos dados
 
 ## Atualizar dados sem abrir a app
@@ -94,6 +94,6 @@ campos são opcionais; o hub usa estes:
   "decorrido_s": 42,             // segundos desde o início
   "estimativa_s": 120,           // duração total estimada, em segundos
   "terminado_em": "2026-10-19T10:00:00",   // quando acabou (para o "atualizado há 2 h")
-  "erro": "texto"                // se falhou, porquê (curto: aparece na linha da app no menu, ex.: "Falharam: RSS Marca")
+  "erro": "texto"                // se falhou, porquê (curto: aparece no comando, em "Atualizar dados", ex.: "Falharam: RSS Marca")
 }
 ```

@@ -5,7 +5,7 @@ Uso:  python hub.py                 (porto 8080, aceita ligações da rede de ca
       python hub.py --host 127.0.0.1 (só este PC; o telemóvel deixa de chegar cá)
 
 Páginas:
-  /          ecrã da parede (menu, loading e a app escolhida)
+  /          ecrã da parede (o Início, o código, o loading e a app escolhida; as apps escolhem-se no comando)
   /comando   comando para o telemóvel
 
 Cada app está em apps.json. Uma app com "arrancar" só corre enquanto está escolhida:
@@ -43,8 +43,8 @@ FICHEIRO_CONFIG = RAIZ / "config.json"
 FICHEIRO_CONFIG_LOCAL = RAIZ / "config.local.json"   # fora do git: o que muda neste PC (ex.: a localidade do tempo)
 NO_WINDOWS = os.name == "nt"
 
-# Ações que o comando envia. As de navegação vão para o menu ou para a app ativa.
-# "sair" fecha a app e volta ao menu de onde ela foi aberta (o ecrã manda-a quando a app não trata o "voltar").
+# Ações que o comando envia. As de navegação vão para a app ativa (no Início, ◀ ▶ mudam as notícias).
+# "sair" fecha a app e volta ao Início (o ecrã manda-a quando a app não trata o "voltar").
 # "atualizar" só faz sentido numa app que o anuncie (o comando só mostra o botão nesse caso).
 ACOES = {"cima", "baixo", "esquerda", "direita", "ok", "voltar", "pausa", "menu", "energia", "sair", "atualizar"}
 
@@ -53,8 +53,9 @@ def e_acao(acao):
     """Ações conhecidas, mais os atalhos "ir_<sítio>" que uma app anuncia (ex.: ir_f1 salta para a F1)."""
     return acao in ACOES or bool(re.fullmatch(r"ir_[a-z0-9_]{1,30}", acao))
 CAMPOS_MENU = ("id", "nome", "icone", "descricao", "em_breve", "etiqueta")
-# Início (web/apps/inicio.html): o ecrã de repouso. Ao fim deste tempo sem teclas no menu inicial, volta a ele.
-REPOUSO_S = 60
+# Ações que o Início (web/apps/inicio.html) recebe quando está no ecrã; as outras são ignoradas
+ACOES_INICIO = {"esquerda", "direita"}
+EXT_PASTAS = ("js", "css", "png", "svg", "webp", "jpg", "woff2")
 # A cada 5 códigos errados seguidos, o bloqueio cresce: 1 min, 5, 15 e depois sempre 60.
 # Só volta a 1 min depois de um código certo.
 BLOQUEIOS_PIN = (60, 5 * 60, 15 * 60, 60 * 60)
@@ -150,14 +151,12 @@ class Hub:
         # servir a pasta inteira punha a base de dados das despesas acessível na rede de casa.
         self.ficheiros = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
                           for url, caminho in (a.get("ficheiros") or {}).items()}
-        # Pastas só de imagens (ex.: os emblemas do desporto para o ecrã Início): servem só .png/.svg/.webp
-        # com nomes simples, nunca outro tipo de ficheiro nem subpastas.
-        self.imagens = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
-                        for url, caminho in (a.get("imagens") or {}).items()}
-        threading.Thread(target=self._vigiar_repouso, daemon=True).start()
+        # Pastas de páginas (ex.: o web/ do desporto, para o Início usar as mesmas peças e o mesmo estilo):
+        # servem só código e imagens (EXT_PASTAS), nunca dados nem nada fora da pasta.
+        self.pastas = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
+                       for url, caminho in (a.get("pastas") or {}).items()}
         self.grupo = None           # id do grupo cujo submenu está no ecrã (None = menu inicial)
-        self.modo = "inicio"        # inicio | menu | pin | a_carregar | app | erro | desligado
-        self.ultima_tecla = time.time()   # para voltar ao Início ao fim de REPOUSO_S sem teclas no menu
+        self.modo = "inicio"        # inicio | pin | a_carregar | app | erro | desligado (a parede já não tem menu)
         self.pin = ""               # dígitos já marcados no ecrã do código
         self.tentativas = 0         # códigos errados seguidos
         self.bloqueado_ate = 0.0    # depois de 5 errados, espera (ver BLOQUEIOS_PIN)
@@ -199,8 +198,10 @@ class Hub:
                 "grupo": {k: self.grupo_atual().get(k) for k in ("id", "nome", "icone")} if self.grupo else None,
                 "apps": [{**{k: a.get(k) for k in CAMPOS_MENU}, "submenu": bool(a.get("apps"))} for a in self.itens()],
                 # Para os atalhos do comando: tudo o que se pode abrir, já sem grupos
-                "atalhos": [{**{k: a.get(k) for k in CAMPOS_MENU}, "nome": a.get("atalho") or a["nome"]}
+                "atalhos": [{**{k: a.get(k) for k in CAMPOS_MENU}, "nome": a.get("atalho") or a["nome"], "grupo": a.get("_grupo")}
                             for a in self.folhas.values()],
+                # Os grupos (ex.: Desporto), para o comando mostrar as apps de cada um juntas
+                "grupos": [{k: g.get(k) for k in ("id", "nome", "icone")} for g in self.raiz if g.get("apps")],
                 # Dados que se podem atualizar sem abrir a app, e como está cada atualização
                 # "definicoes": página de definições da app (ex.: "http://{host}:8000/definicoes"), se tiver
                 "atualizacoes": [{"id": i, "nome": a["nome"], "icone": a.get("icone"), "definicoes": a.get("definicoes"),
@@ -235,21 +236,15 @@ class Hub:
         else:
             self.foco = next((i for i, a in enumerate(itens) if not a.get("em_breve")), 0)
 
-    def _vigiar_repouso(self):
-        """No menu inicial, sem teclas há REPOUSO_S segundos: volta ao Início."""
-        while True:
-            time.sleep(2)
-            with self.lock:
-                if self.modo == "menu" and not self.grupo and time.time() - self.ultima_tecla >= REPOUSO_S:
-                    self.modo = "inicio"
-                    self.emitir_estado()
-
-    def imagem(self, caminho):
-        """(ficheiro, app) de um pedido a uma pasta de imagens, ou None."""
-        for url, (pasta, app_id) in self.imagens.items():
-            nome = caminho[len(url):] if caminho.startswith(url) else None
-            if nome and re.fullmatch(r"[A-Za-z0-9_-]{1,40}\.(png|svg|webp)", nome):
-                return pasta / nome, app_id
+    def de_pasta(self, caminho):
+        """(ficheiro, app) de um pedido a uma das "pastas" (só código e imagens, sem sair da pasta), ou None."""
+        for url, (pasta, app_id) in self.pastas.items():
+            nome = unquote(caminho[len(url):]) if caminho.startswith(url) else ""
+            if not re.fullmatch(r"(?:[A-Za-z0-9_-]+/){0,4}[A-Za-z0-9_.-]{1,80}\.(?:" + "|".join(EXT_PASTAS) + ")", nome) or ".." in nome:
+                continue
+            alvo = (pasta / nome).resolve()
+            if pasta.resolve() in alvo.parents:
+                return alvo, app_id
         return None
 
     # ------------------------------------------------------------ comandos
@@ -280,15 +275,13 @@ class Hub:
             if self.modo == "desligado":
                 return True                       # ecrã apagado: só o botão de energia acorda
 
-            self.ultima_tecla = time.time()
-            if self.modo == "inicio":
-                # Início: a primeira tecla (qualquer uma) só mostra o menu inicial por cima; não move nem abre
-                self.modo, self.grupo = "menu", None
-                self.focar()
-                self.emitir_estado()
+            if self.modo == "inicio" and acao != "atualizar":
+                # Início: as apps abrem-se no comando ("abrir"); aqui só ◀ ▶ fazem alguma coisa (mudam as notícias)
+                if acao in ACOES_INICIO:
+                    self.emitir({"tipo": "comando", "acao": acao})
                 return True
             if acao == "menu":
-                self.fechar(inicio=True)
+                self.fechar()
                 return True
             if acao == "sair":
                 self.fechar()
@@ -304,28 +297,6 @@ class Hub:
                 for alvo in (app.get("id"), app.get("_grupo"), self.grupo):
                     if alvo in self.atualizaveis:
                         return self.atualizar(alvo)
-                return True
-
-            if self.modo == "menu":
-                itens = self.itens()
-                n = len(itens)
-                passo = -1 if acao in ("cima", "esquerda") else 1 if acao in ("baixo", "direita") else 0
-                if passo and n:
-                    for _ in range(n):                # salta as apps "em breve"
-                        self.foco = (self.foco + passo) % n
-                        if not itens[self.foco].get("em_breve"):
-                            break
-                elif acao == "ok" and n:
-                    item = itens[self.foco]
-                    if item.get("apps"):               # grupo: entra no submenu
-                        self.grupo = item["id"]
-                        self.focar()
-                    else:
-                        return self.abrir(item["id"])
-                elif acao == "voltar" and self.grupo:  # sai do submenu
-                    anterior, self.grupo = self.grupo, None
-                    self.focar(anterior)
-                self.emitir_estado()
                 return True
 
             if self.modo == "pin":
@@ -565,22 +536,22 @@ class Hub:
             self.mensagem = texto
             self.emitir_estado()
 
-    def fechar(self, inicio=False):
-        """Fecha a app e volta ao menu de onde foi aberta (ou ao ecrã Início, com o botão Menu)."""
+    def fechar(self):
+        """Fecha a app e volta ao Início (com o botão Menu, com ↩, ou ao desistir do código ou do loading)."""
         self.acoes_app = []
-        if inicio and self.grupo:
+        if self.grupo:
             anterior, self.grupo = self.grupo, None
             self.focar(anterior)
         self.geracao += 1
         self.pin = ""
         self.parar_processo()
         self.ativa = None
-        self.modo = "inicio" if inicio else "menu"
+        self.modo = "inicio"
         self.mensagem = ""
         self.emitir_estado()
 
     def desligar(self):
-        self.fechar(inicio=True)
+        self.fechar()
         self.modo = "desligado"
         self.emitir_estado()
         self.correr_gancho("ao_desligar_ecra")
@@ -635,6 +606,8 @@ class Handler(SimpleHTTPRequestHandler):
         ".webmanifest": "application/manifest+json",
         ".css": "text/css",
         ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+        ".woff2": "font/woff2",
     }
 
     def log_message(self, *args):
@@ -669,11 +642,11 @@ class Handler(SimpleHTTPRequestHandler):
             if not HUB.pode_ler(app_id):
                 return self.send_error(403)
             return self.ficheiro(ficheiro)
-        imagem = HUB.imagem(caminho)
-        if imagem:
-            if not HUB.pode_ler(imagem[1]):
+        da_pasta = HUB.de_pasta(caminho)
+        if da_pasta:
+            if not HUB.pode_ler(da_pasta[1]):
                 return self.send_error(403)
-            return self.ficheiro(imagem[0])
+            return self.ficheiro(da_pasta[0])
         return super().do_GET()
 
     def do_POST(self):

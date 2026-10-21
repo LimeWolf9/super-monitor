@@ -21,6 +21,9 @@
     <button class="redondo energia" data-acao="energia" aria-label="Ligar ou desligar o ecrã">⏻</button>
   </div>
 
+  <!-- As apps: é aqui que se escolhem (o monitor não tem menu). Agrupadas como no apps.json (ex.: Desporto) -->
+  <div id="apps"></div>
+
   <!-- Teclado numérico: só aparece quando o monitor pede o código -->
   <div class="teclado">
     <div id="pin-titulo">Código</div>
@@ -43,7 +46,7 @@
   <div class="linha">
     <button class="redondo" data-acao="voltar" aria-label="Voltar">↩<span>Voltar</span></button>
     <button class="redondo" data-acao="pausa" aria-label="Pausa">⏯<span>Pausa</span></button>
-    <button class="redondo" data-acao="menu" aria-label="Menu">☰<span>Menu</span></button>
+    <button class="redondo" data-acao="menu" aria-label="Início">⌂<span>Início</span></button>
   </div>
 
   <!-- Só aparece quando a app aberta anuncia "atualizar" (ex.: o desporto) -->
@@ -51,9 +54,6 @@
 
   <!-- Atalhos que a app aberta anuncia como "ir_<sítio>" (ex.: no desporto, saltar para a F1) -->
   <div id="atalhos-app"></div>
-
-  <div class="rotulo apps-titulo">Abrir direto</div>
-  <div id="apps"></div>
 
   <!-- Atualizar os dados de uma app sem a abrir (ex.: Desporto), e as definições dela, se tiver -->
   <div id="dados-bloco">
