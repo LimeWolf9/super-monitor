@@ -269,6 +269,12 @@ ainda não tem coordenadas fica fora do mapa, mas com o cartão.
   Ambos são cache local (fora do git). Pedidos um de cada vez, com pausa e User-Agent próprio: na atualização à mão
   (passo "Estádios", `tools/atualizar_estadios.py`: os jogos dos próximos 7 dias que faltam, até 7 minutos por
   atualização; o Overpass demora ~1 min por estádio) e, num jogo a decorrer sem eles, em fundo pelo servidor.
+  Para não esperar, `python tools/estadios.py --todos` prepara de uma vez os estádios da época toda: os de todos os
+  jogos marcados nos próximos 8 meses (competições ligadas e NBA, pelos scoreboards da ESPN mês a mês, que dão os
+  estádios de todas as equipas). Primeiro as coordenadas de todos, depois o OpenStreetMap de cada estádio de futebol
+  (o do jogo mais próximo primeiro), com 5 s entre pedidos. Grava a cada estádio: se parar, corre-se outra vez e
+  continua; os erros de rede repetem-se ao fim de 15 minutos. Demora horas (~1 min por estádio, ~200 KB cada); o
+  progresso fica em `data/estadios_todos.json` (formato do `data/atualizacao.json`).
 - **Mapas de base**: `web/mapas/europa.json`, `america_norte.json`, `america_sul.json` (países a 50 m; cidades, costa,
   rios e lagos a 10 m para o meio do zoom; o da América do Norte, da NBA, só tem os países e os estados dos EUA), gerados por `tools/gerar_mapas.py` a partir do Natural Earth. Guardam
   longitude/latitude; a projeção (Lambert azimutal de áreas iguais, centrada em cada continente) faz-se no browser.

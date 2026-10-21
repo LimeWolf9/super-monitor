@@ -19,6 +19,7 @@ Quem chama:
   em cache (preparar).
 
 Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (procura e mostra, sem gravar)
+            python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
 Só usa a biblioteca standard do Python.
 """
 
@@ -572,8 +573,124 @@ def preparar(venues, mostrar=print):
     return ja, novos, falhas
 
 
+# ------------------------------------------------------------ todos de uma vez (--todos)
+
+PROGRESSO = RAIZ / "data" / "estadios_todos.json"   # o progresso, no formato do data/atualizacao.json
+MESES = 8                    # os jogos de hoje até ao fim da época (os estádios de todas as equipas)
+PAUSA_TODOS = 5.0            # mais calma do que no resto: são centenas de pedidos seguidos
+RONDAS = 4                   # voltas aos que deram erro de rede (cada uma ao fim de REPETIR_ERRO_S)
+
+
+def _todos_venues(mostrar):
+    """[(data do 1.º jogo, venue, desporto)] de todos os jogos marcados nas competições ligadas e na NBA, dos
+    próximos MESES meses (os scoreboards da ESPN de cada mês). As ligas dão os estádios de todas as equipas; as
+    taças e as seleções, os dos jogos já marcados. Cada estádio uma só vez, pelo jogo mais próximo."""
+    from datetime import datetime, timedelta
+    import atualizar_estadios
+    import competicoes
+    hoje = datetime.now()
+    ate = hoje + timedelta(days=31 * MESES)
+    fontes = [(f"soccer/{liga}", nome, filtro) for _c, nome, liga, _t, filtro in competicoes.a_buscar()]
+    fontes.append(("basketball/nba", "NBA", None))
+    todos = []
+    for caminho, nome, filtro in fontes:
+        # venues() pede os meses das duas pontas; aqui pede-se mês a mês
+        mes, n = hoje, 0
+        while mes <= ate:
+            fim = min(ate, (mes.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1))
+            try:
+                lista = atualizar_estadios.venues(caminho, mes, fim, filtro)
+                todos += lista
+                n += len(lista)
+            except Exception as e:
+                mostrar(f"Aviso: {nome} {mes:%Y-%m}: {e}")
+            mes = fim + timedelta(days=1)
+        mostrar(f"{nome}: {n} jogos")
+    vistos, lista = set(), []
+    for quando, v, desporto in sorted(todos, key=lambda x: x[0]):
+        c = chave(v)
+        if c and c not in vistos:
+            vistos.add(c)
+            lista.append((quando, v, desporto))
+    return lista
+
+
+def todos():
+    """Prepara já todos os estádios da época, para o mapa nunca ter de esperar.
+
+    Fase A: as coordenadas (Wikidata) de todos os que faltam. Fase B: o OSM (Overpass, ~1 minuto cada) de todos os
+    estádios de futebol que faltam, um de cada vez, o do jogo mais próximo primeiro. Grava depois de cada estádio:
+    se parar a meio, volta a correr e continua onde ficou. Os erros de rede repetem-se ao fim de 15 minutos
+    (RONDAS vezes); um estádio que não se encontrou fica para o dia seguinte (como no resto). O progresso fica em
+    data/estadios_todos.json."""
+    global PAUSA
+    PAUSA = max(PAUSA, PAUSA_TODOS)
+    t0 = time.time()
+    estado = {"estado": "a correr", "passo": "Estádios: lista", "feitos": 0, "total": 0, "decorrido_s": 0,
+              "estimativa_s": None, "inicio_em": time.strftime("%Y-%m-%dT%H:%M:%S"), "terminado_em": None, "erro": None}
+
+    def gravar_progresso(**mudar):
+        estado.update(mudar, decorrido_s=round(time.time() - t0, 1))
+        tmp = PROGRESSO.with_suffix(".tmp")
+        tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(PROGRESSO)
+
+    def mostrar(texto):
+        print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
+
+    gravar_progresso()
+    lista = _todos_venues(mostrar)
+    estadios_ = [(quando, info(v, d), d) for quando, v, d in lista]
+    estadios_ = [(q, e, d) for q, e, d in estadios_ if e]
+    futebol = [(q, e) for q, e, d in estadios_ if d == "football"]
+    mostrar(f"{len(estadios_)} estádios ({len(futebol)} de futebol, {len(estadios_) - len(futebol)} da NBA)")
+
+    # Fase A: só as coordenadas
+    a_fazer = [e for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is None]
+    mostrar(f"Fase A: coordenadas de {len(a_fazer)} estádios (os outros já estão)")
+    for i, e in enumerate(a_fazer, 1):
+        gravar_progresso(passo=f"Coordenadas: {e['nome']}", feitos=i - 1, total=len(a_fazer))
+        r = resolver(e, False)
+        mostrar(f"A {i}/{len(a_fazer)} {e['nome']} ({e.get('cidade') or '?'}): "
+                + (f"{r['lat']}, {r['lon']} ({r.get('fonte')})" if r.get("lat") is not None else f"sem coordenadas {r.get('erro') or ''}"))
+    com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
+    mostrar(f"Fase A feita: {com}/{len(estadios_)} com coordenadas")
+
+    # Fase B: o OSM, o do jogo mais próximo primeiro (a lista já vem por data)
+    for ronda in range(RONDAS):
+        a_fazer = [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)
+                   and ler().get(e["id"], {}).get("lat") is not None]
+        if not a_fazer:
+            break
+        if ronda:
+            mostrar(f"Ronda {ronda + 1}: {len(a_fazer)} com erro de rede; a esperar {REPETIR_ERRO_S // 60} minutos")
+            time.sleep(REPETIR_ERRO_S + 5)
+        mostrar(f"Fase B: OpenStreetMap de {len(a_fazer)} estádios (~1 minuto cada)")
+        t1 = time.time()
+        for i, e in enumerate(a_fazer, 1):
+            media = (time.time() - t1) / (i - 1) if i > 1 else 60
+            gravar_progresso(passo=f"OpenStreetMap: {e['nome']}", feitos=i - 1, total=len(a_fazer),
+                             estimativa_s=round(time.time() - t0 + media * (len(a_fazer) - i + 1)))
+            r = resolver(e, True)
+            ok = ficheiro_osm(e["id"]).exists()
+            mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
+        time.sleep(1)
+        # os que deram erro voltam a ser tentados; os outros (não encontrados, só a cidade) ficam
+        if not any(ler().get(e["id"], {}).get("erro") for e in a_fazer):
+            break
+
+    osm = sum(1 for _q, e in futebol if ficheiro_osm(e["id"]).exists())
+    com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
+    fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap"
+    gravar_progresso(estado="ok", passo=None, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"), feitos=estado["total"], erro=None)
+    mostrar("Feito: " + fim)
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if sys.argv[1:] == ["--todos"]:
+        todos()
+        sys.exit()
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     nome, cid, pais = (sys.argv[1:] + [None, None])[:3]

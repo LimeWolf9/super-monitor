@@ -14,6 +14,8 @@ desporto/data/competicoes.json
 desporto/data/*.tmp
 desporto/data/estadios.json
 desporto/data/estadios_osm/
+desporto/data/estadios_todos.json
+desporto/data/estadios_todos.log
 desporto/web/img/jogadores/
 desporto/web/img/equipas/
 desporto/web/img/ligas/
