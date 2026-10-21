@@ -113,12 +113,15 @@ function eDestaque(D, chave, m) {
 // Jogos da jornada dos resultados que ainda estão por jogar (aparecem nos resultados e também nos próximos jogos)
 export const pendentes = (L) => (L.results || []).filter((m) => m.hs == null && m.status !== 'adiado');
 
-// Próximos jogos por ordem: primeiro os destaques, depois os restantes (cada grupo pela ordem de calendário).
-// Incluem o que falta da jornada em curso.
+// Próximos jogos por ordem: primeiro o que falta da jornada em curso, depois os seguintes; em cada parte os
+// destaques primeiro e depois os restantes (pela ordem de calendário).
 function proximosOrdenados(D, chave) {
   const L = D.football[chave];
-  const lista = pendentes(L).concat(L.next || []).map((m) => ({ m, d: eDestaque(D, chave, m) }));
-  return lista.filter((x) => x.d).concat(lista.filter((x) => !x.d));
+  const parte = (lista, atual) => {
+    const xs = lista.map((m) => ({ m, d: eDestaque(D, chave, m), atual }));
+    return xs.filter((x) => x.d).concat(xs.filter((x) => !x.d));
+  };
+  return parte(pendentes(L), true).concat(parte(L.next || [], false));
 }
 
 // ---------- Próximos jogos (2 por linha) + notícias da liga no espaço que sobra ----------
@@ -220,25 +223,46 @@ function blocoNoticias(lista, chave) {
 
 // Jogos da jornada seguinte em grelha de 2 por linha (destaques primeiro) e, por baixo, as notícias da liga.
 // Se não couberem os jogos todos e as notícias mínimas, mostram-se os primeiros e um "+N jogos".
+// Com uma jornada a meio (ex.: a Champions entre terça e quarta), o que falta dela vem primeiro, com um subtítulo
+// próprio ("Jornada 3 · faltam 9 jogos"), e só depois a jornada seguinte. O que falta da jornada mostra-se sempre todo;
+// se não couber tudo, é a seguinte que fica com o "+N jogos".
+const CABECALHO_PARTE = 76;      // subtítulo de cada parte (o mesmo tamanho do das notícias)
 function cenaProximos(D, chave) {
   const L = D.football[chave];
   const jogos = proximosOrdenados(D, chave);
+  const atuais = jogos.filter((x) => x.atual), seguintes = jogos.filter((x) => !x.atual);
+  const partes = atuais.length && seguintes.length;
   const noticias = noticiasDaLiga(D, chave);
-  const reserva = noticias.length ? CABECALHO_NOTICIAS + Math.min(MIN_NOTICIAS, noticias.length) * ALTURA_NOTICIA : 0;
+  const reserva = (noticias.length ? CABECALHO_NOTICIAS + Math.min(MIN_NOTICIAS, noticias.length) * ALTURA_NOTICIA : 0)
+    + (partes ? 2 * CABECALHO_PARTE : 0);
   const maxLinhas = Math.max(1, Math.floor((ALTURA_JOGOS - reserva) / LINHA_PJ));
-  let mostrar = jogos;
+  // Linhas para a jornada seguinte, depois de pôr todos os que faltam da atual
+  const linhasAtuais = Math.ceil(atuais.length / 2);
+  const cabemSeguintes = Math.max(partes ? 1 : 0, maxLinhas - linhasAtuais) * 2;
+  let mostrarSeg = seguintes;
   let resto = 0;
-  if (Math.ceil(jogos.length / 2) > maxLinhas) {
-    mostrar = jogos.slice(0, maxLinhas * 2 - 1);   // o último lugar fica para o "+N jogos"
-    resto = jogos.length - mostrar.length;
+  if (seguintes.length > cabemSeguintes) {
+    mostrarSeg = seguintes.slice(0, cabemSeguintes - 1);   // o último lugar fica para o "+N jogos"
+    resto = seguintes.length - mostrarSeg.length;
   }
-  const linhas = Math.ceil((mostrar.length + (resto ? 1 : 0)) / 2);
-  const livre = ALTURA_JOGOS - linhas * LINHA_PJ - CABECALHO_NOTICIAS;
+  const mostrar = atuais.concat(mostrarSeg);
+  const linhas = linhasAtuais + Math.ceil((mostrarSeg.length + (resto ? 1 : 0)) / 2);
+  const livre = ALTURA_JOGOS - linhas * LINHA_PJ - CABECALHO_NOTICIAS - (partes ? 2 * CABECALHO_PARTE : 0);
   const nNoticias = Math.min(MAX_NOTICIAS, noticias.length, Math.max(0, Math.floor(livre / ALTURA_NOTICIA)));
-  // Com o que falta da jornada em curso e a seguinte misturados, não se diz o número da jornada
-  const jornada = !L.nextMixed && !pendentes(L).length && L.round && L.round.startsWith('Jornada') ? ' · ' + nomeJornadaSeguinte(L.round) : '';
-  return titulo(L.name, `Próximos jogos${jornada}`, chave) +
-    `<div class="pjs">${mostrar.map((x) => jogoCompacto(D, x.m, x.d)).join('')}${resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>` +
+  const grelha = (xs, comResto) => `<div class="pjs">${xs.map((x) => jogoCompacto(D, x.m, x.d)).join('')}` +
+    `${comResto && resto ? `<div class="pj mais">+${resto} jogos</div>` : ''}</div>`;
+  const ehJornada = L.round && L.round.startsWith('Jornada');
+  // Com o que falta da jornada em curso e a seguinte misturados nos próximos, não se diz o número da jornada
+  const nomeSeguinte = !L.nextMixed && ehJornada ? nomeJornadaSeguinte(L.round) : 'A seguir';
+  let corpo;
+  if (partes) {
+    const falta = `${ehJornada ? L.round : 'Esta jornada'} · ${atuais.length === 1 ? 'falta 1 jogo' : `faltam ${atuais.length} jogos`}`;
+    corpo = subtitulo(falta) + grelha(atuais, false) + subtitulo(nomeSeguinte) + grelha(mostrarSeg, true);
+  } else {
+    corpo = grelha(mostrar, true);
+  }
+  const jornada = !partes && !atuais.length && nomeSeguinte !== 'A seguir' ? ' · ' + nomeSeguinte : '';
+  return titulo(L.name, `Próximos jogos${jornada}`, chave) + corpo +
     notaProb(D, mostrar.map((x) => x.m)) + blocoNoticias(noticias.slice(0, nNoticias), chave);
 }
 
@@ -293,7 +317,8 @@ function alturaCartao(linhas, livre) {
 // seguinte) ou nada (as duas coisas no mesmo ecrã)
 function paginasTaca(D, L, chave, modo) {
   const res = modo === 'proximos' ? [] : destaquesPrimeiro(D, L.results || []);
-  const prox = modo === 'resultados' ? [] : destaquesPrimeiro(D, (modo === 'proximos' ? pendentes(L) : []).concat(L.next || []));
+  // O que falta da eliminatória em curso primeiro, e só depois a seguinte (cada parte com os destaques primeiro)
+  const prox = modo === 'resultados' ? [] : destaquesPrimeiro(D, modo === 'proximos' ? pendentes(L) : []).concat(destaquesPrimeiro(D, L.next || []));
   const maxProx = res.length ? MAX_PROXIMOS_TACA : 2 * Math.floor(ALTURA_JOGOS / LINHA_PJ);
   const nProx = prox.length > maxProx ? maxProx - 1 : prox.length;
   const altProx = prox.length ? (res.length ? CABECALHO_NOTICIAS : 0) + Math.ceil((nProx + (prox.length > nProx ? 1 : 0)) / 2) * LINHA_PJ : 0;
