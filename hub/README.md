@@ -144,7 +144,7 @@ também o teu monitor principal). No mini PC, onde o monitor é o único ecrã, 
 ## Plano
 
 1. ✅ Hub, Início, loading, comando no telemóvel (onde se escolhem as apps), ecrã apagado.
-2. Dashboard de desporto a obedecer ao comando (pausa, setas, abrir notícia).
+2. ✅ Dashboard de desporto a obedecer ao comando (pausa, setas, abrir notícia).
 3. ✅ Página de despesas para a parede: o mês do último extracto (total, entrou/sobrou,
    categorias vs. o normal) e os últimos meses com os objetivos. Só totais, nunca
    movimentos nem o saldo em conta.

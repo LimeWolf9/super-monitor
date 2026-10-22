@@ -23,6 +23,7 @@ def git(*args: str) -> bytes:
 
 
 def main() -> int:
+    sys.stdout.reconfigure(encoding="utf-8")   # no Windows o terminal do git estragava os acentos
     lista = RAIZ / ".privado.txt"
     termos = []
     if lista.exists():
@@ -46,6 +47,7 @@ def main() -> int:
         print("Commit travado: há informação privada.")
         print("\n".join("  " + p for p in problemas))
         return 1
+    print(f"Verificação de dados privados: ok ({len(list(filter(None, ficheiros)))} ficheiros).")
     return 0
 
 

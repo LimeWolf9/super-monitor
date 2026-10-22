@@ -16,6 +16,21 @@ HTML/CSS/JS sem frameworks.
 
 > Todas as capturas usam dados fictícios (`?mock=1` no desporto e no Início, "Despesas (demo)" no hub).
 
+## Versão 2.0
+
+O **Ao vivo** passa a ser o centro do ecrã nos dias de jogo (tag `v2.0`; o que mudou em cada versão está no
+[`CHANGELOG.md`](CHANGELOG.md)):
+
+- **Mapa dos jogos seguidos:** quando são todos no mesmo continente (Europa até ao Cazaquistão, América do Sul, ou os
+  EUA por estados na NBA), um mapa com um ponto em cada estádio e o resultado. Em cada golo, penálti ou vermelho, o
+  mapa voa até ao estádio, com as ruas à volta, e mostra a cara de quem marcou.
+- **Estádios preparados antes:** as coordenadas (Wikidata) e as ruas (OpenStreetMap) descarregam-se na atualização ou
+  de uma vez para a época toda, com calma e um limite diário; durante o jogo não se descarrega nada.
+- **Aquecimento:** os jogos entram na lista 10 min antes da hora.
+- **F1 ao vivo:** durante os treinos, a qualificação e a corrida, um ecrã próprio com os tempos, os intervalos, a
+  eliminação na qualificação e o mapa da pista (com os carros, se houver token da F1 TV).
+- **Comando:** o ⚙ Definições abre sempre, e o hub liga o servidor do desporto se estiver desligado.
+
 ## Versão 1.0
 
 A primeira versão fechada do ecrã (tag `v1.0`):
@@ -38,7 +53,7 @@ A primeira versão fechada do ecrã (tag `v1.0`):
 | Pasta | O que é |
 |---|---|
 | [`hub/`](hub/) | **MonitorHub.** Servidor (Python, stdlib) com a lista de apps em `apps.json`. O monitor abre sempre a mesma página (o Início, o ecrã de carregamento, a app ativa num iframe); o telemóvel abre `/comando`, uma PWA com as apps, setas, OK, voltar, pausa, ⌂ Início e ⏻. Arranca e para o processo de cada app a pedido. |
-| [`desporto/`](desporto/) | **Dashboard desportivo** 1080×2560: futebol (Liga Portugal, Premier League, La Liga, Bundesliga, Ligue 1, Serie A e taças europeias), Fórmula 1 e NBA, com notícias. Cenas em rotação, controladas pelo comando. Todas as fontes são públicas e sem chave de API (ESPN, Jolpica F1, OpenF1, Record RSS, Wikipédia). |
+| [`desporto/`](desporto/) | **Dashboard desportivo** 1080×2560: futebol (Liga Portugal, Premier League, La Liga, Bundesliga, Ligue 1, Serie A e taças europeias), Fórmula 1 e NBA, com notícias. Cenas em rotação, controladas pelo comando. Todas as fontes são públicas e sem chave de API (ESPN, Jolpica F1, OpenF1, Record RSS, Wikipédia; no Ao vivo, o live timing da F1, a Wikidata e o OpenStreetMap). |
 | [despesas-casal](https://github.com/LimeWolf9/despesas-casal) (repositório à parte) | **Despesas do casal.** App Streamlit + SQLite que importa extractos bancários em PDF, valida cada um pelos saldos, e categoriza por regras que aprendem com um clique. Exporta só totais (sem movimentos nem saldo) para a página do monitor (`hub/web/apps/despesas.html`). Tem modo demo com dados inventados. |
 
 ## Como as peças falam

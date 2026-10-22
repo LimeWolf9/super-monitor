@@ -131,7 +131,6 @@ class WebSocket:
         if " 101 " not in estado + " ":
             raise FechadoErro(f"handshake recusado: {estado}")
         self.partes = []
-        self.op_partes = None
 
     def enviar(self, dados, op=0x1):
         if isinstance(dados, str):
@@ -186,7 +185,7 @@ class WebSocket:
                 elif op in (0x1, 0x2):
                     if fin:
                         return dados.decode("utf-8", errors="replace")
-                    self.partes, self.op_partes = [dados], op
+                    self.partes = [dados]
                 elif op == 0x0:
                     self.partes.append(dados)
                     if fin:

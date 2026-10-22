@@ -34,7 +34,8 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
 - **Ao vivo** (`web/js/aovivo.js` e `tools/aovivo.py`): o passado e o futuro só mudam quando se atualiza; o Ao vivo
   pergunta ao servidor a cada 30 s enquanto está aberto (`GET /api/aovivo`, com 30 s de cache), e não grava no `live.json`.
   Vai à ESPN só nas competições ligadas que jogam hoje (segundo o `live.json`), à Liga Portugal quando há jogo da Taça da
-  Liga e à NBA. A lista mostra os jogos a decorrer, por competição, com o resultado e o minuto; os do FC Porto e de
+  Liga e à NBA. A lista mostra os jogos a decorrer, por competição, com o resultado e o minuto (10 min antes da hora o jogo entra
+  em "Aquecimento", sem resultado, e passa a decorrer quando a ESPN o dá como começado); os do FC Porto e de
   Portugal vêm marcados. ▲▼ foco, OK marca/desmarca, ▶ (ou "Acompanhar") abre o acompanhamento (ver "Mapa do Ao
   vivo" abaixo): o mapa dos estádios em cima e os cartões por baixo, 2 por linha e até 6 por página (com mais jogos as
   páginas trocam sozinhas a cada 10 s; ◀▶ também trocam), com os golos, penáltis e vermelhos; um jogo que acabe fica
@@ -124,7 +125,7 @@ Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogad
 - Botão **Atualizar** do comando do MonitorHub (ação `atualizar`; no teclado, tecla **U**): começa logo a atualização. Se já estiver a atualizar, o hub mostra "Já está a atualizar".
 - Durante a atualização aparece uma barra em baixo: "A atualizar: Futebol (2/8) · 0:18 de ~0:38". A estimativa vem do que cada passo demorou da última vez (`data/duracoes.json`). No fim aparece "Atualizado às 10:52" durante uns segundos (ou que parte falhou, que fica com os dados anteriores), e o ecrã recarrega os dados sozinho.
 - Em todos os ecrãs, no canto de baixo: "Dados de hoje 09:12", com a hora da parte desse ecrã (F1, futebol...).
-- Os passos, em série: F1 → futebol → Taça da Liga → 11 da jornada → ClubElo → NBA → notícias → fotos → destaques → curiosidades. Um que falhe não para os outros; o resultado aparece no terminal.
+- Os passos, em série: F1 → futebol → Taça da Liga → 11 da jornada → ClubElo → NBA → notícias → fotos → destaques → curiosidades → estádios (do mapa do Ao vivo). Um que falhe não para os outros; o resultado aparece no terminal.
 - Por baixo: `POST /api/atualizar` começa (recusa com 409 se já houver uma a correr) e `GET /api/atualizar/estado` diz o passo, os feitos de N, o tempo decorrido e o estimado.
 
 **Atualizar sem abrir o dashboard** (ex.: pelo MonitorHub): `.venv\Scripts\python.exe tools\atualizar_tudo.py`, na pasta do projeto. É o mesmo código do botão do dashboard.
@@ -170,7 +171,7 @@ Marcadores: um só ecrã com todas as competições da rotação, pela mesma ord
 
 ### Cenas da F1
 
-Pensada para os dias sem corrida, por esta ordem: primeiro a época inteira, depois o próximo GP, por fim a última corrida. Tudo vem de corridas já feitas (o live timing fica para mais tarde). O `atualizar_f1.py` prepara cada parte à parte; se uma falhar, fica a `null` e esse ecrã sai da rotação (nunca se inventa). ~15 s por atualização.
+Pensada para os dias sem corrida, por esta ordem: primeiro a época inteira, depois o próximo GP, por fim a última corrida. Tudo vem de corridas já feitas (o direto está em "F1 ao vivo", no Ao vivo). O `atualizar_f1.py` prepara cada parte à parte; se uma falhar, fica a `null` e esse ecrã sai da rotação (nunca se inventa). ~15 s por atualização.
 
 | Cena | O que mostra | Fonte |
 |---|---|---|
@@ -263,23 +264,31 @@ ainda não tem coordenadas fica fora do mapa, mas com o cartão.
   mais de 3 à espera), e o voo de volta (2,4 s). O cartão do jogo brilha entretanto. Sem mapa, só o destaque.
 - **NBA**: mapa dos EUA (e do Canadá, para Toronto) com os pontos e o resultado/período; sem zoom nem destaques.
 - **Estádios** (`tools/estadios.py`): o estádio de cada jogo vem da ESPN (o mesmo scoreboard); as coordenadas da
-  Wikidata (pesquisa pelo nome, P625, confirmada pela cidade; senão a cidade), em `data/estadios.json`. No futebol, o
-  OpenStreetMap à volta (Overpass: ruas num raio de 2,5 km mais as estradas grandes até 15 km, prédios a 350 m, o
-  estádio e o relvado, que dá o centro e o ângulo do desenho), já simplificado, em `data/estadios_osm/<id>.json`.
-  Ambos são cache local (fora do git). Pedidos um de cada vez, com pausa e User-Agent próprio: na atualização à mão
-  (passo "Estádios", `tools/atualizar_estadios.py`: os jogos dos próximos 7 dias que faltam, até 7 minutos por
-  atualização; o Overpass demora ~1 min por estádio) e, num jogo a decorrer sem eles, em fundo pelo servidor.
-  Para não esperar, `python tools/estadios.py --todos` prepara de uma vez os estádios da época toda: os de todos os
-  jogos marcados nos próximos 8 meses (competições ligadas e NBA, pelos scoreboards da ESPN mês a mês, que dão os
-  estádios de todas as equipas). Primeiro as coordenadas de todos, depois o OpenStreetMap de cada estádio de futebol
-  (o do jogo mais próximo primeiro), com 5 s entre pedidos. Grava a cada estádio: se parar, corre-se outra vez e
-  continua; os erros de rede repetem-se ao fim de 15 minutos. Demora horas (~1 min por estádio, ~200 KB cada); o
-  progresso fica em `data/estadios_todos.json` (formato do `data/atualizacao.json`).
-  Cada chave da ESPN descarrega-se uma vez. No fim, o registo lista (sem apagar nem juntar) os estádios que parecem
-  o mesmo com chaves diferentes: o ponto de um dentro do contorno do estádio do outro.
-  Na página `/definicoes` (secção "Estádios do mapa") vê-se o estado, a fase, feitos/total, o tempo que falta e o
-  fim do registo; o botão "Continuar download" arranca o `--todos` num processo à parte se não estiver a correr
-  (`GET /api/estadios`, `POST /api/estadios/continuar`; a tranca `data/estadios_todos.lock` impede dois ao mesmo tempo).
+  Wikidata (pesquisa pelo nome, P625, confirmada pela cidade; senão a cidade, com o aviso "só cidade"), em
+  `data/estadios.json`. As que a Wikidata erra corrigem-se à mão em `tools/estadios_correcoes.json` (no git; nunca
+  são substituídas). No futebol, o OpenStreetMap à volta (Overpass: ruas, linhas, água e parques num raio de 2,5 km,
+  as estradas grandes até 8 km, prédios a 250 m, o estádio e o relvado, que dá o centro e o ângulo do desenho), já
+  simplificado, em `data/estadios_osm/<id>.json`. Ambos são cache local (fora do git).
+- **Preparam-se antes, nunca durante o jogo**: o Ao vivo só lê o cache. Sem o OSM, o jogo fica no mapa sem o zoom
+  das ruas (só o destaque); sem coordenadas, só o cartão. Os pedidos vão um de cada vez, com pausa e User-Agent
+  próprio, no máximo 40 descarregamentos do OSM por dia; ao fim de 3 estádios seguidos com erro de rede o Overpass
+  fica 24 h em pausa (3 servidores, e um que falhe fica 10 min de parte).
+  - Passo "Estádios" da atualização à mão (`tools/atualizar_estadios.py`): só os estádios dos jogos dos próximos 30
+    dias que faltam, até 7 minutos; sem nada em falta não liga a ninguém. `--seco` só diz o que falta.
+  - `python tools/estadios.py --todos` prepara de uma vez os estádios da época: os de todos os jogos marcados nos
+    próximos 8 meses (competições ligadas e NBA, pelos scoreboards da ESPN mês a mês). Primeiro as coordenadas de
+    todos (~1 pedido por segundo), depois o OpenStreetMap de cada estádio de futebol (o do jogo mais próximo
+    primeiro, 30 s entre pedidos). Grava a cada estádio: se parar, corre-se outra vez e continua; os erros de rede
+    repetem-se ao fim de 15, 30 e 60 minutos. Demora dias, pelo limite diário; o progresso fica em
+    `data/estadios_todos.json` (formato do `data/atualizacao.json`). `--retomar` (com `pythonw`, numa tarefa
+    agendada do Windows) continua-o se não acabou nem está a correr. Cada chave da ESPN descarrega-se uma vez; no
+    fim, o registo lista os que parecem o mesmo com chaves diferentes (o ponto de um dentro do contorno do outro).
+  - `--testar <nome>` tenta já o OSM desse estádio (mesmo com o Overpass em pausa; se vier, segue como o
+    `--retomar`), `--refazer <id>` marca um para voltar a descarregar, `--corrigir` aplica as correções à mão, `--seco` só mostra.
+  - Na página `/definicoes` (secção "Estádios do mapa") vê-se o estado, feitos/total, a pausa do Overpass, os
+    estádios dos próximos jogos sem coordenadas ou sem ruas e o fim do registo; o botão "Continuar download" arranca
+    o `--todos` num processo à parte se não estiver a correr (`GET /api/estadios`, `POST /api/estadios/continuar`;
+    a tranca `data/estadios_todos.lock` impede dois ao mesmo tempo).
 - **Mapas de base**: `web/mapas/europa.json`, `america_norte.json`, `america_sul.json` (países a 50 m; cidades, costa,
   rios e lagos a 10 m para o meio do zoom; o da América do Norte, da NBA, só tem os países e os estados dos EUA), gerados por `tools/gerar_mapas.py` a partir do Natural Earth. Guardam
   longitude/latitude; a projeção (Lambert azimutal de áreas iguais, centrada em cada continente) faz-se no browser.

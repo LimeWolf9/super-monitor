@@ -73,10 +73,6 @@ def _valores(entidade, prop):
     return [c["mainsnak"].get("datavalue", {}).get("value") for c in entidade.get("claims", {}).get(prop, [])]
 
 
-def _ids(entidade, prop):
-    return {v.get("id") for v in _valores(entidade, prop) if isinstance(v, dict)}
-
-
 # Palavras genéricas dos nomes dos clubes: não contam para comparar "Leça" com "Leça Futebol Clube"
 GENERICAS = {"clube", "club", "futebol", "football", "sport", "sporting", "desportivo", "desportiva", "desportos",
              "associacao", "grupo", "sociedade", "recreativo", "recreativa", "cultural", "uniao", "de", "da", "do",

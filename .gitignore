@@ -16,6 +16,7 @@ desporto/data/estadios.json
 desporto/data/estadios_osm/
 desporto/data/estadios_todos.json
 desporto/data/estadios_todos.log
+desporto/data/estadios_todos.lock
 desporto/data/estadios_osm_dia.json
 desporto/data/estadios_em_falta.json
 desporto/data/estadios_overpass_pausa.json
@@ -31,7 +32,6 @@ hub/config.local.json
 
 # Lista privada da verificação antes de cada commit
 .privado.txt
-desporto/data/estadios_todos.lock
 
 # F1: token pessoal da F1 TV e gravações do live timing (nunca para o git)
 desporto/data/f1tv_token.txt

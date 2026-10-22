@@ -17,7 +17,6 @@
 Só usa a biblioteca standard do Python.
 """
 
-import base64
 import bisect
 import json
 import os
@@ -132,7 +131,6 @@ class Direto:
         self.fim_volta = {}
         self.pista_t = []
         self.ligado = False
-        self.com_token = False
         self.erro = None
         self.mapa, self.transf, self.mapa_id = None, None, None
         self.circuito = None
@@ -163,7 +161,7 @@ class Direto:
                         raise
                     token = None   # token recusado ou expirado: segue com os tópicos gratuitos
                     ws = grav.ligar(None, TOPICOS)
-                self.ligado, self.com_token, self.erro = True, bool(token), None
+                self.ligado, self.erro = True, None
                 registar_fonte(FONTE, itens=1, esperado=False,
                                aviso=None if token else "sem token da F1 TV: sem posições dos carros")
                 tentativas = 0
@@ -216,7 +214,7 @@ class Direto:
         # as posições já estão todas (o ecrã só usa as de até agora), na hora UTC
         for n, (ts, xs, ys, fora) in sessao.pos.items():
             self.posicoes.pos[n] = (array("d", (x + base for x in ts)), xs, ys, fora)
-        self.ligado, self.com_token = True, True
+        self.ligado = True
         for t, topico, dados in sessao.msgs:
             while base + t > relogio():
                 if time.time() - self.ultimo_pedido > PARAR_S:

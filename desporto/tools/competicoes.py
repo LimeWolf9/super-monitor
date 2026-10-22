@@ -61,7 +61,6 @@ _LISTA = [
     ("n_ojogo",       "O Jogo",       "Notícias", None, "fonte", False, "o site proíbe o acesso automático"),
 ]
 COMPETICOES = [dict(zip(("chave", "nome", "grupo", "espn", "tipo", "omissao", "nota"), c)) for c in _LISTA]
-POR_CHAVE = {c["chave"]: c for c in COMPETICOES}
 POR_DEFEITO = {c["chave"]: c["omissao"] for c in COMPETICOES
                if c["espn"] or c["tipo"] == "equipa" or (c["tipo"] == "fonte" and c["chave"] != "n_ojogo")}
 
