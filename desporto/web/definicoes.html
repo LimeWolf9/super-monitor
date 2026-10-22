@@ -184,6 +184,7 @@ async function mostrarEstadios() {
     const e = await r.json();
     const titulo = e.a_correr ? `<span class="ok">● A correr</span> · ${esc(FASE[e.fase] || '')}`
       : e.estado === 'ok' ? '<span class="ok">✓ Feito</span>'
+      : e.estado === 'incompleto' ? `<span class="mal">◐ Quase</span>${e.erro ? ` · ${esc(e.erro)}` : ''}`
       : e.estado ? `<span class="mal">■ Parado</span>${e.erro ? ` · ${esc(e.erro)}` : ''}` : 'Ainda não correu';
     const pct = e.total ? Math.round(100 * e.feitos / e.total) : 0;
     const falta = e.a_correr && e.estimativa_s ? `falta ~${duracao(Math.max(0, e.estimativa_s - e.decorrido_s))}` : '';

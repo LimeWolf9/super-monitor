@@ -21,6 +21,7 @@ Quem chama:
 Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (procura e mostra, sem gravar)
             python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
             pythonw tools/estadios.py --retomar   (o mesmo, só se não acabou nem está a correr: a tarefa agendada)
+            python tools/estadios.py --refazer 10409   (o OSM desse estádio volta a descarregar-se no próximo --retomar)
 Só usa a biblioteca standard do Python.
 """
 
@@ -43,8 +44,11 @@ CACHE = RAIZ / "data" / "estadios.json"
 PASTA_OSM = RAIZ / "data" / "estadios_osm"
 UA = f"{USER_AGENT} estadios.py (mapa do Ao vivo; um pedido de cada vez)"
 WIKIDATA = "https://www.wikidata.org/w/api.php"
-# Overpass: o servidor principal e, se estiver ocupado (502/504), outro servidor público
-OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+# Overpass: o servidor principal e, se não responder, outros servidores públicos (por esta ordem)
+OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
+OVERPASS_LEITURA_S = 200     # s à espera da resposta (a consulta pede [timeout:180] ao servidor)
+OVERPASS_DE_PARTE_S = 10 * 60   # um servidor que falhou (sem ligação, tempo esgotado, 5xx) fica de parte 10 minutos
 PAUSA = 2.0                  # segundos entre pedidos (Wikidata e Overpass)
 REPETIR_S = 86400            # um estádio que não se encontrou só se procura outra vez no dia seguinte
 REPETIR_ERRO_S = 15 * 60     # um erro de rede (ex.: Overpass ocupado) repete-se ao fim de 15 minutos
@@ -52,7 +56,9 @@ MAX_CIDADE_KM = 80           # o estádio da Wikidata tem de ficar a menos disto
 RAIO_RUAS = 2500             # m: ruas, linhas, água, parques
 RAIO_ESTRADAS = 15000        # m: auto-estradas e estradas principais (para o meio do zoom)
 RAIO_PREDIOS = 350           # m
-E = 100_000                  # o OSM grava-se em 1/100 000 de grau (~1 m)
+RAIO_PEQUENO = (1200, 6000)  # m (ruas, estradas): quando a consulta normal esgota o tempo
+PERTO_SEM_NOME_M = 300       # um estádio do OSM sem o nome do da ESPN só conta se estiver a menos disto
+E = 100_000                 # o OSM grava-se em 1/100 000 de grau (~1 m)
 
 _tranca = threading.Lock()   # data/estadios.json (o servidor tem várias threads)
 
@@ -114,7 +120,7 @@ def info(venue, desporto="football"):
 _ultimo = [0.0]
 
 
-def _pedir(url, dados=None, tentativas=3):
+def _pedir(url, dados=None, tentativas=3, timeout=180):
     """GET (ou POST com dados) com pausa entre pedidos; respeita o 429 / Retry-After."""
     for n in range(tentativas):
         espera = _ultimo[0] + PAUSA - time.time()
@@ -122,7 +128,7 @@ def _pedir(url, dados=None, tentativas=3):
             time.sleep(espera)
         pedido = urllib.request.Request(url, data=dados, headers={"User-Agent": UA, "Accept": "application/json"})
         try:
-            with urllib.request.urlopen(pedido, timeout=180) as r:
+            with urllib.request.urlopen(pedido, timeout=timeout) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
             if e.code not in (429, 502, 503, 504) or n == tentativas - 1:
@@ -133,7 +139,7 @@ def _pedir(url, dados=None, tentativas=3):
 
 
 def _wikidata(texto, lingua="en"):
-    """[(qid, rótulo, descrição, lat, lon, tipos P31, tem população)] dos resultados com coordenadas."""
+    """[(qid, rótulo, descrição, lat, lon, tipos P31, população (0 se não tem))] dos resultados com coordenadas."""
     d = _pedir(f"{WIKIDATA}?" + urllib.parse.urlencode({"action": "wbsearchentities", "search": texto, "language": lingua,
                                                          "uselang": lingua, "type": "item", "limit": 8, "format": "json"}))
     ids = [x["id"] for x in d.get("search", [])]
@@ -149,8 +155,10 @@ def _wikidata(texto, lingua="en"):
         if not coord:
             continue
         tipos = {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get("P31", [])}
+        pop = max((float(c["mainsnak"]["datavalue"]["value"].get("amount", 0)) for c in claims.get("P1082", [])
+                   if c["mainsnak"].get("datavalue")), default=0)
         lista.append((i, ent[i].get("labels", {}).get("en", {}).get("value", ""), ent[i].get("descriptions", {}).get("en", {}).get("value", ""),
-                      coord["latitude"], coord["longitude"], tipos, "P1082" in claims))
+                      coord["latitude"], coord["longitude"], tipos, pop or ("P1082" in claims)))
     return lista
 
 
@@ -164,15 +172,48 @@ PAISES = {"Q6256", "Q3624078", "Q7275", "Q35657", "Q3024240"}   # país, estado 
 LOCAL = ("stadium", "arena", "venue", "ground", "field", "park", "dome", "center", "centre", "estadio", "stadion", "coliseum")
 
 
+# Na NBA a morada da ESPN só traz o estado ou a província (ex.: "DC", "NC", "ON"): o que procurar na Wikidata
+ESTADOS = {
+    "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california", "CO": "colorado",
+    "CT": "connecticut", "DE": "delaware", "DC": "washington, d.c.|district of columbia", "FL": "florida",
+    "GA": "georgia", "HI": "hawaii", "ID": "idaho", "IL": "illinois", "IN": "indiana", "IA": "iowa", "KS": "kansas",
+    "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland", "MA": "massachusetts", "MI": "michigan",
+    "MN": "minnesota", "MS": "mississippi", "MO": "missouri", "MT": "montana", "NE": "nebraska", "NV": "nevada",
+    "NH": "new hampshire", "NJ": "new jersey", "NM": "new mexico", "NY": "new york", "NC": "north carolina",
+    "ND": "north dakota", "OH": "ohio", "OK": "oklahoma", "OR": "oregon", "PA": "pennsylvania", "RI": "rhode island",
+    "SC": "south carolina", "SD": "south dakota", "TN": "tennessee", "TX": "texas", "UT": "utah", "VT": "vermont",
+    "VA": "virginia", "WA": "washington", "WV": "west virginia", "WI": "wisconsin", "WY": "wyoming",
+    "ON": "ontario", "QC": "quebec", "BC": "british columbia",
+}
+CANADA = {"ON", "QC", "BC"}
+# a descrição da Wikidata às vezes só traz o adjetivo ("French commune and city in Haute-Garonne")
+ADJETIVOS = {"France": "french", "Spain": "spanish", "Germany": "german", "Italy": "italian", "Portugal": "portuguese",
+             "Netherlands": "dutch", "Belgium": "belgian", "England": "english", "Scotland": "scottish", "Wales": "welsh",
+             "Turkey": "turkish", "Greece": "greek", "Austria": "austrian", "Switzerland": "swiss", "Poland": "polish"}
+
+
 def cidade(nome, pais):
-    """(lat, lon) da cidade, pela Wikidata: o primeiro resultado com população que não seja um país
-    (de preferência com o país na descrição)."""
+    """(lat, lon) da cidade, pela Wikidata: dos resultados com população que não sejam um país, os que têm o país
+    (ou o estado: "DC", "NC"...) no rótulo ou na descrição; destes, o de mais população (Washington DC e não
+    Washington NC; Gillingham do Kent e não a do Dorset)."""
     if not nome:
         return None
-    lista = [r for r in _wikidata(nome) if r[6] and not (r[5] & PAISES)]
+    resultados = [r for r in _wikidata(nome) if not (r[5] & PAISES)]
+    lista = [r for r in resultados if r[6]]
     if pais:
-        no_pais = [r for r in lista if pais.lower() in r[2].lower() or (pais == "England" and "united kingdom" in r[2].lower())]
-        lista = no_pais or lista
+        if pais in ESTADOS:
+            termos = [ESTADOS[pais].split("|"), ["canada" if pais in CANADA else "united states"]]
+        else:
+            termos = [[pais.lower(), ADJETIVOS.get(pais, pais.lower())]
+                      + (["united kingdom"] if pais in ("England", "Scotland", "Wales") else [])]
+        # com população primeiro; senão um sem população mas no país (o "East London" de Londres não tem)
+        for t in termos:
+            no_pais = ([r for r in lista if any(x in f"{r[1]} {r[2]}".lower() for x in t)]
+                       or [r for r in resultados if any(x in f"{r[1]} {r[2]}".lower() for x in t)])
+            if no_pais:
+                lista = no_pais
+                break
+    lista.sort(key=lambda r: -float(r[6]))
     return (lista[0][3], lista[0][4]) if lista else None
 
 
@@ -200,15 +241,31 @@ def coordenadas(nome, nome_cidade, pais):
 
 # ------------------------------------------------------------ OpenStreetMap
 
+_de_parte = {}   # servidor do Overpass -> quando falhou
+
+
 def _overpass(consulta):
+    """Pergunta aos servidores do Overpass, por ordem. Um que falhou (sem ligação, tempo esgotado, 5xx) fica de
+    parte OVERPASS_DE_PARTE_S, para não se esperar por ele em cada estádio. Se nenhum responder, sobe o erro (de
+    preferência o TimeoutError, que leva buscar_osm a tentar com um raio menor); o estádio repete-se mais tarde."""
     dados = urllib.parse.urlencode({"data": consulta}).encode()
-    for i, url in enumerate(OVERPASS):
+    erros = []
+    for url in OVERPASS:
+        if time.time() - _de_parte.get(url, 0) < OVERPASS_DE_PARTE_S:
+            continue
         try:
-            return _pedir(url, dados, tentativas=2)
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
-            if i == len(OVERPASS) - 1:
-                raise
-            print(f"Aviso: Overpass {url} ({e}); a tentar outro servidor")
+            return _pedir(url, dados, tentativas=2, timeout=OVERPASS_LEITURA_S)
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 502, 503, 504):
+                raise   # a consulta está mal: outro servidor diria o mesmo
+            erros.append(e)
+        except OSError as e:   # URLError, TimeoutError, ConnectionResetError...
+            erros.append(e)
+        _de_parte[url] = time.time()
+        print(f"Aviso: Overpass {url} ({erros[-1]}); fica de parte {OVERPASS_DE_PARTE_S // 60} min")
+    if not erros:
+        raise ConnectionError(f"nenhum servidor do Overpass respondeu nos últimos {OVERPASS_DE_PARTE_S // 60} min")
+    raise next((e for e in erros if isinstance(e, TimeoutError)), erros[-1])
 
 
 def _centro(pts):
@@ -223,19 +280,27 @@ def _parecido(a, b):
     return len(pa & pb)
 
 
+def _nomes(tags):
+    return " ".join(v for k, v in tags.items() if k.startswith(("name", "alt_name", "official_name", "old_name")))
+
+
 def afinar(nome, lat, lon, raio):
-    """O estádio no OSM com o nome mais parecido (ou o mais perto) num raio: (lat, lon) do centro, ou None."""
-    d = _overpass(f'[out:json][timeout:60];nwr(around:{raio},{lat},{lon})[leisure=stadium];out center tags;')
+    """O estádio no OSM com o nome mais parecido num raio: (lat, lon) do centro, ou None. Sem nenhum com o nome,
+    só o mais perto se estiver a menos de PERTO_SEM_NOME_M (o Stadio dei Marmi fica a 250 m do Olimpico). Também
+    contam os contornos com nome e sport=soccer sem leisure (o Olimpico, no OSM, não tem leisure=stadium)."""
+    d = _overpass(f'[out:json][timeout:90];(nwr(around:{raio},{lat},{lon})[leisure=stadium];'
+                  f'nwr(around:{min(raio, 1500)},{lat},{lon})[name][sport~"soccer|football"][!leisure];);out center tags;')
     melhor = None
     for e in d.get("elements", []):
         c = e.get("center") or ({"lat": e["lat"], "lon": e["lon"]} if "lat" in e else None)
         if not c:
             continue
-        nomes = " ".join(v for k, v in e.get("tags", {}).items() if k.startswith(("name", "alt_name", "official_name", "old_name")))
-        nota = (_parecido(nome, nomes), -km(lat, lon, c["lat"], c["lon"]))
+        nota = (_parecido(nome, _nomes(e.get("tags", {}))), -km(lat, lon, c["lat"], c["lon"]))
+        if nota[0] == 0 and "leisure" not in e.get("tags", {}):
+            continue
         if melhor is None or nota > melhor[0]:
             melhor = (nota, (c["lat"], c["lon"]))
-    if melhor and (melhor[0][0] > 0 or -melhor[0][1] < 1.0):   # o nome bate certo, ou está a menos de 1 km
+    if melhor and (melhor[0][0] > 0 or -melhor[0][1] * 1000 < PERTO_SEM_NOME_M):
         return melhor[1]
     return None
 
@@ -247,12 +312,13 @@ RUAS = {"motorway": "maior", "trunk": "maior", "primary": "maior", "motorway_lin
 FECHADAS = {"agua", "parque", "edif", "estadio"}   # camadas de polígonos (o resto são linhas)
 
 
-def _consulta(lat, lon):
-    r = f"{RAIO_RUAS},{lat},{lon}"
-    return f"""[out:json][timeout:150];
+def _consulta(lat, lon, pequeno=False):
+    ruas, estradas = RAIO_PEQUENO if pequeno else (RAIO_RUAS, RAIO_ESTRADAS)
+    r = f"{ruas},{lat},{lon}"
+    return f"""[out:json][timeout:180];
 (
   way(around:{r})[highway~"^(motorway|trunk|primary|secondary|tertiary|residential|living_street|unclassified|pedestrian)(_link)?$"];
-  way(around:{RAIO_ESTRADAS},{lat},{lon})[highway~"^(motorway|trunk|primary)$"];
+  way(around:{estradas},{lat},{lon})[highway~"^(motorway|trunk|primary)$"];
   way(around:{r})[railway~"^(rail|light_rail|subway|tram)$"];
   way(around:{r})[natural=water];
   relation(around:{r})[natural=water];
@@ -260,6 +326,7 @@ def _consulta(lat, lon):
   way(around:{r})[leisure=park];
   way(around:{RAIO_PREDIOS},{lat},{lon})[building];
   nwr(around:800,{lat},{lon})[leisure=stadium];
+  way(around:800,{lat},{lon})[name][sport~"soccer|football"][!leisure];
   way(around:800,{lat},{lon})[leisure=pitch];
 );
 out geom qt;"""
@@ -408,23 +475,39 @@ def osm_compacto(d, lat0, lon0, nome=""):
             estadios.append((t, pts))
         elif t.get("leisure") == "pitch":
             campos.append((t, pts))
-        elif "building" in t:
-            por("edif", pts)
+        else:
+            if "leisure" not in t and "sport" in t and _parecido(nome, _nomes(t)) and len(pts) > 3:
+                estadios.append((t, pts))   # o contorno com o nome do estádio, sem leisure=stadium (o Olimpico)
+            if "building" in t:
+                por("edif", pts)
 
-    # O estádio: o do nome mais parecido, senão o mais perto do ponto procurado
-    estadio = max(estadios, key=lambda s: (_parecido(nome, s[0].get("name", "")), -math.hypot(*_centro(s[1]))), default=None)
+    # O estádio: o do nome mais parecido; sem nenhum com o nome, o que tem o ponto procurado lá dentro, senão o
+    # mais perto (a menos de PERTO_SEM_NOME_M: um vizinho como o Stadio dei Marmi não serve)
+    nota = lambda s: (_parecido(nome, _nomes(s[0])), -math.hypot(*_centro(s[1])))
+    estadio = max(estadios, key=nota, default=None)
+    if estadio and nota(estadio)[0] == 0:
+        com_ponto = [s for s in estadios if _dentro((0, 0), s[1])]
+        estadio = com_ponto[0] if com_ponto else estadio if -nota(estadio)[1] < PERTO_SEM_NOME_M else None
     if estadio:
         por("estadio", estadio[1])
-    # O relvado: um de futebol dentro do estádio (o maior); senão o de futebol mais perto, a menos de 300 m
+
+    # O relvado: um de futebol dentro do estádio (o maior); senão o maior dos mais perto do centro do estádio (ou do
+    # ponto procurado), a menos de 300 m
     def area(pts):
         return abs(sum(pts[i - 1][0] * pts[i][1] - pts[i][0] * pts[i - 1][1] for i in range(len(pts)))) / 2
-    futebol = [c for c in campos if c[0].get("sport") in ("soccer", "football", None) and len(c[1]) >= 4]
+    def de_futebol(t):
+        return not t.get("sport") or bool({"soccer", "football"} & {s.strip() for s in t["sport"].split(";")})
+    futebol = [c for c in campos if de_futebol(c[0]) and len(c[1]) >= 4]
     dentro = [c for c in futebol if estadio and _dentro(_centro(c[1]), estadio[1])]
     if dentro:
         relvado = max(dentro, key=lambda c: area(c[1]))[1]
     else:
-        perto = [c for c in futebol if math.hypot(*_centro(c[1])) < 300 and area(c[1]) > 4000]
-        relvado = min(perto, key=lambda c: math.hypot(*_centro(c[1])))[1] if perto else None
+        ox, oy = _centro(estadio[1]) if estadio else (0, 0)
+        dist = lambda c: math.hypot(_centro(c[1])[0] - ox, _centro(c[1])[1] - oy)
+        # nunca o relvado de dentro de outro estádio (o Jean-Bouin, de râguebi, ficava com o do Parc des Princes)
+        perto = [c for c in futebol if dist(c) < 300 and area(c[1]) > 4000
+                 and not any(s is not estadio and _dentro(_centro(c[1]), s[1]) for s in estadios)]
+        relvado = min(perto, key=lambda c: (round(dist(c) / 50), -area(c[1])))[1] if perto else None
     campo = None
     base = relvado or (estadio[1] if estadio else None)
     if base:
@@ -455,8 +538,17 @@ def osm_compacto(d, lat0, lon0, nome=""):
 
 
 def buscar_osm(c, lat, lon, nome):
-    """Descarrega e grava o OSM à volta do estádio. Devolve o campo (centro e eixo do relvado) ou None."""
-    d = _overpass(_consulta(lat, lon))
+    """Descarrega e grava o OSM à volta do estádio. Devolve o campo (centro e eixo do relvado) ou None. Se a consulta
+    esgotar o tempo, tenta logo com um raio menor (RAIO_PEQUENO), e esse estádio passa a ir sempre com ele."""
+    pequeno = ler().get(c, {}).get("pequeno")
+    try:
+        d = _overpass(_consulta(lat, lon, pequeno))
+    except TimeoutError:
+        if pequeno:
+            raise
+        _gravar_entrada(c, {"pequeno": True})
+        print(f"Aviso: {nome}: a consulta esgotou o tempo; outra vez com o raio menor")
+        d = _overpass(_consulta(lat, lon, True))
     compacto = osm_compacto(d, lat, lon, nome)
     PASTA_OSM.mkdir(parents=True, exist_ok=True)
     destino = ficheiro_osm(c)
@@ -497,10 +589,12 @@ def resolver(e, com_osm):
             if fino:
                 novo.update(lat=round(fino[0], 6), lon=round(fino[1], 6), fonte=guardado["fonte"] + "+osm")
             guardado = _gravar_entrada(c, novo)
-        if com_osm and not ficheiro_osm(c).exists() and "cidade" != guardado.get("fonte"):
+        if com_osm and (not ficheiro_osm(c).exists() or guardado.get("refazer")) and "cidade" != guardado.get("fonte"):
             campo = buscar_osm(c, guardado["lat"], guardado["lon"], e["nome"])
+            novo = {"osm_t": agora, "falhou": None, "erro": None, "refazer": None}
             if campo:   # o ponto do mapa passa a ser o centro do relvado
-                guardado = _gravar_entrada(c, {"lon": campo["c"][0], "lat": campo["c"][1], "osm_t": agora, "falhou": None, "erro": None})
+                novo.update(lon=campo["c"][0], lat=campo["c"][1])
+            guardado = _gravar_entrada(c, novo)
         return guardado
     except Exception as ex:
         print(f"Aviso: estádio {e['nome']}: {ex!r}")
@@ -536,6 +630,8 @@ def falta(e, com_osm):
     if falhou_ha_pouco(guardado):
         return False
     if guardado.get("lat") is None:
+        return True
+    if com_osm and guardado.get("refazer"):
         return True
     return com_osm and not e.get("osm") and (guardado.get("fonte") != "cidade" or guardado.get("afinar", True))
 
@@ -764,10 +860,11 @@ def _fases(gravar_progresso, mostrar, t0):
                    and ler().get(e["id"], {}).get("lat") is not None]
         if not a_fazer:
             break
-        if ronda:
-            mostrar(f"Ronda {ronda + 1}: {len(a_fazer)} com erro de rede; a esperar {REPETIR_ERRO_S // 60} minutos")
-            gravar_progresso(passo=f"À espera {REPETIR_ERRO_S // 60} min para repetir {len(a_fazer)} com erro de rede")
-            time.sleep(REPETIR_ERRO_S + 5)
+        if ronda:   # 15, 30, 60 minutos
+            espera = REPETIR_ERRO_S * 2 ** (ronda - 1)
+            mostrar(f"Ronda {ronda + 1}: {len(a_fazer)} com erro de rede; a esperar {espera // 60} minutos")
+            gravar_progresso(passo=f"À espera {espera // 60} min para repetir {len(a_fazer)} com erro de rede")
+            time.sleep(espera + 5)
         mostrar(f"Fase B: OpenStreetMap de {len(a_fazer)} estádios (~1 minuto cada)")
         t1 = time.time()
         for i, e in enumerate(a_fazer, 1):
@@ -785,8 +882,13 @@ def _fases(gravar_progresso, mostrar, t0):
     osm = sum(1 for _q, e in futebol if ficheiro_osm(e["id"]).exists())
     com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
     fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap"
-    gravar_progresso(estado="ok", fase="fim", passo=fim, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"), feitos=osm, total=len(futebol), erro=None)
-    mostrar("Feito: " + fim)
+    # os que ainda têm erro de rede não ficam esquecidos: "incompleto" (e não "ok") faz a tarefa agendada
+    # (--retomar, de 30 em 30 minutos) voltar a tentá-los
+    com_erro = sum(1 for _q, e in futebol if ler().get(e["id"], {}).get("erro"))
+    erro = f"{com_erro} estádios com erro de rede (Overpass); a tarefa agendada repete" if com_erro else None
+    gravar_progresso(estado="incompleto" if com_erro else "ok", fase="fim", passo=fim, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"),
+                     feitos=osm, total=len(futebol), erro=erro)
+    mostrar("Feito: " + fim + (f" ({erro})" if erro else ""))
     duplicados([e for _q, e in futebol], mostrar)
 
 
@@ -797,16 +899,26 @@ if __name__ == "__main__":
         todos()
         sys.exit()
     if sys.argv[1:] == ["--retomar"]:
-        # pela tarefa agendada do Windows (pythonw, sem consola): só se o --todos não acabou nem está a correr
+        # pela tarefa agendada do Windows (pythonw, sem consola): só se o --todos não está a correr e não acabou (ou
+        # acabou mas ainda há estádios com erro de rede ou marcados com --refazer)
         try:
             acabou = json.loads(PROGRESSO.read_text(encoding="utf-8")).get("estado") == "ok"
         except (OSError, ValueError):
             acabou = False
+        pendentes = [c for c, v in ler().items() if v.get("refazer") or v.get("erro") and (
+            v.get("lat") is None or not ficheiro_osm(c).exists())]
+        acabou = acabou and not pendentes
         if acabou or todos_a_correr():
             sys.exit()
         sys.stdout = sys.stderr = open(REGISTO, "a", encoding="utf-8", buffering=1)
         print(f"{time.strftime('%H:%M:%S')} Retomado pela tarefa agendada", flush=True)
         todos()
+        sys.exit()
+    if sys.argv[1:2] == ["--refazer"]:
+        # marca estádios (pela chave) para o OSM se descarregar outra vez no próximo --todos / --retomar
+        for c in sys.argv[2:]:
+            _gravar_entrada(c, {"refazer": True, "falhou": None, "erro": None})
+        print(f"Marcados para refazer: {', '.join(sys.argv[2:]) or 'nenhum'}")
         sys.exit()
     if len(sys.argv) < 2:
         sys.exit(__doc__)
