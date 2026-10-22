@@ -16,22 +16,27 @@ import { esc, badge } from './util.js';
 
 const W = 1080, H = 1290;   // tamanho do mapa no ecrã (px)
 const R = 6371, GRAU = Math.PI / 180;
-// Centro da projeção e largura mínima da vista geral (km), por continente
+// Centro da projeção e largura mínima da vista geral (km), por continente: a vista enquadra só os jogos seguidos
+// (só Portugal: Portugal; Inglaterra e França: só esses dois)
 export const REGIOES = {
-  europa: { centro: [10, 50], minimo: 900 },
-  america_norte: { centro: [-96, 39], minimo: 1800 },
-  america_sul: { centro: [-60, -20], minimo: 1800 },
+  europa: { centro: [10, 50], minimo: 420 },
+  america_norte: { centro: [-96, 39], minimo: 900 },
+  america_sul: { centro: [-60, -20], minimo: 900 },
 };
+// Competições da UEFA (ligas, taças, provas europeias, seleções): são da Europa mesmo com o estádio fora da caixa
+const UEFA = new Set(['pt', 'tp', 'tl', 'stp', 'en', 'fa', 'efl', 'es', 'cdr', 'de', 'dfb', 'it', 'cit', 'fr', 'cdf',
+  'ucl', 'uel', 'uecl', 'usc', 'unl', 'wcq', 'euq', 'euro']);
 const DESCER_MS = 3800, SUBIR_MS = 2400;
 const LARGURA_FINAL = 1.1;    // km: o estádio e as ruas à volta
 const AREA = { x0: 150, x1: 930, y0: 230, y1: 1060 };   // onde ficam os pontos na vista geral (px)
 
 // Continente de um jogo (pelas coordenadas do estádio; sem elas, pelo desporto/competição), ou null. O Ao vivo só
-// pergunta pelos que têm coordenadas (temLugar).
+// pergunta pelos que têm coordenadas (temLugar). A Europa vai até ao Cazaquistão (a caixa de tools/gerar_mapas.py).
 export function continente(j) {
   const e = j.estadio;
+  if (j.sport !== 'nba' && UEFA.has(j.comp && j.comp.chave)) return 'europa';
   if (e && e.lat != null) {
-    if (e.lon > -32 && e.lon < 62 && e.lat > 25 && e.lat < 72) return 'europa';
+    if (e.lon > -32 && e.lon < 82 && e.lat > 25 && e.lat < 72) return 'europa';
     if (e.lon < -48 && e.lat > 12) return 'america_norte';
     if (e.lon < -28 && e.lon > -95 && e.lat <= 12 && e.lat > -58) return 'america_sul';
     return null;
@@ -157,7 +162,8 @@ export function criarMapa(host, { dados }) {
     mostrarCamada(gDetalhe, eDet * (1 - eOsm * 0.9));
     mostrarCamada(gOsm, gOsm.childElementCount ? eOsm : 0);
     mostrarCamada(gEstadio, gEstadio.childElementCount ? eEst : 0);
-    gTerras.setAttribute('opacity', 1 - Math.max(eEst, eDet * 0.7));
+    // os países só se apagam abaixo dos 250 km (uma vista geral apertada, ex.: só Portugal, ainda os mostra)
+    gTerras.setAttribute('opacity', 1 - Math.max(eEst, entre(0, 1, (250 - V.w) / 150) * 0.7));
     $('.av-credito').style.opacity = gOsm.childElementCount && eOsm > 0.05 ? 1 : 0;
     // nomes das cidades a meio do zoom (as maiores primeiro, sem se taparem)
     let html = '';
