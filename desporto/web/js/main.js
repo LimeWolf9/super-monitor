@@ -60,6 +60,17 @@ async function arrancar() {
   precarregarLogos(dados);
 
   // Ao vivo: sem rotação de cenas; a página dos jogos a decorrer (aovivo.js) trata do comando e pergunta ao servidor
+  // Só para testar entre corridas (?cat=aovivo&simular=f1): o ecrã da F1 com uma sessão do arquivo (f1aovivo.js);
+  // em direto, a F1 é uma página do acompanhamento do Ao vivo
+  if (CATEGORIA === 'aovivo' && params.get('simular') === 'f1') {
+    const { iniciarF1AoVivo } = await import('./f1aovivo.js');
+    document.body.classList.add('aovivo');
+    document.getElementById('secao').textContent = NOMES_SECOES.f1;
+    iniciarF1AoVivo({ host: document.getElementById('scene-host') });
+    tickClock();
+    setInterval(tickClock, 1000);
+    return;
+  }
   if (CATEGORIA === 'aovivo') {
     const { iniciarAoVivo } = await import('./aovivo.js');
     document.body.classList.add('aovivo');

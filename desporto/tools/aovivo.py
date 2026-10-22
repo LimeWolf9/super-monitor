@@ -45,6 +45,7 @@ import atualizar_futebol as fut   # noqa: E402  (siglas, eventos e o mapa das eq
 import atualizar_nba as nba       # noqa: E402
 import competicoes                # noqa: E402
 import estadios                   # noqa: E402  (onde fica cada estádio, para o mapa)
+import f1_direto                  # noqa: E402  (a F1 em direto: um item da lista durante as sessões)
 
 CACHE_S = 30
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
@@ -293,7 +294,7 @@ def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_esta
     dia = agora.strftime("%Y%m%d")
     jogos, falhas = [], []
 
-    # Fontes do Ao vivo: (nome em data/fontes.json, função). A F1 entra aqui quando houver uma fonte em direto.
+    # Fontes do Ao vivo: (nome em data/fontes.json, função). A F1 é um item só, durante as sessões do fim de semana.
     hoje = competicoes_de_hoje(dados, agora)
 
     def futebol():
@@ -313,7 +314,7 @@ def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_esta
         ("ESPN ao vivo", futebol),
         ("Liga Portugal ao vivo", lambda: (jogos_taca_liga(dados, equipas_fut, agora), [])),
         ("ESPN NBA ao vivo", lambda: (jogos_nba(equipas_nba, agora), [])),
-        # ("F1 ao vivo", f1_ao_vivo),   # quando houver uma fonte gratuita em direto
+        ("F1 ao vivo", lambda: (f1_direto.entrada_ao_vivo(dados, agora), [])),
     ]
     if simulado:   # sem a Taça da Liga
         FONTES = [FONTES[0], FONTES[2]]
@@ -349,11 +350,17 @@ def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_esta
     meus = {(dados.get("myTeam") or {}).get("code"), (dados.get("myTeam") or {}).get("selecao") or "PRT"}
     mostrar = [j for j in jogos if not j.get("cancelado") and (j["estado"] in ("in", "aquecimento") or j["id"] in seguir)]
     for j in mostrar:
-        j["meu"] = j["home"] in meus or j["away"] in meus
+        j["meu"] = bool({j.get("home"), j.get("away")} & (meus - {None}))
     # Sem jogos a decorrer: o próximo de hoje (dos scoreboards) ou, se não houver, o do live.json
     por_jogar = sorted((j for j in jogos if j["estado"] == "pre"), key=lambda j: j["iso"] or "")
     proximo = None if any(j["estado"] in ("in", "aquecimento") for j in jogos) else (por_jogar[0] if por_jogar else proximo_do_live(dados, agora))
-    usados = {c for j in mostrar + ([proximo] if proximo else []) for c in (j["home"], j["away"])}
+    # a próxima sessão da F1, se vier antes do próximo jogo
+    if not simulado and not any(j["estado"] in ("in", "aquecimento") for j in jogos):
+        f1 = f1_direto.proximo(dados, agora)
+        h = _quando(proximo) if proximo else None
+        if f1 and (h is None or datetime.fromisoformat(f1["iso"]) < h):
+            proximo = f1
+    usados = {c for j in mostrar + ([proximo] if proximo else []) for c in (j.get("home"), j.get("away")) if c}
     return {
         "agora": agora.isoformat(timespec="seconds"),
         "jogos": sorted(mostrar, key=lambda j: (j["comp"]["nome"] or "", j["iso"] or "")),

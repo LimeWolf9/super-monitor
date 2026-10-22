@@ -10,6 +10,11 @@ Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a d
 de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json e nunca descarrega estádios (só lê
 data/estadios.json e data/estadios_osm/, preparados antes pelo passo "Estádios" e pelo tools/estadios.py --todos). GET /api/aovivo/cara?pid=&nome=&sigla=
 dá a cara de quem marcou. Os mapas de base estão em web/mapas/; o OSM à volta dos estádios em data/estadios_osm/.
+F1 ao vivo: GET /api/f1/aovivo[?mapa=1] dá a sessão em direto (tools/f1_direto.py, que só fica ligado enquanto se pergunta);
+o Ao vivo mostra-a como um item da lista (sport "f1") e, seguida, como uma página do acompanhamento.
+Para testar entre corridas: GET /api/f1/aovivo?simular=<pasta de data/f1_gravacoes/arquivo/ ou 1>&inicio=<min desde a partida>
+(ou &volta=<n>, ou na qualificação &parte=Q2)&decorrido=<s>&vel=<x>[&mapa=1] dá uma sessão do arquivo nesse instante
+(tools/f1_aovivo.py); o ecrã ?cat=aovivo&simular=f1 pergunta a cada segundo.
 Estádios (na página /definicoes): GET /api/estadios dá o progresso do "tools/estadios.py --todos" e o fim do registo;
 POST /api/estadios/continuar arranca-o num processo à parte (409 se já estiver a correr).
 
@@ -41,6 +46,8 @@ import atualizar_tudo   # noqa: E402  (o mesmo código do comando "python tools/
 import competicoes      # noqa: E402  (a lista das competições e a escolha em data/competicoes.json)
 import aovivo           # noqa: E402  (os jogos a decorrer: GET /api/aovivo, para o ecrã Ao vivo)
 import estadios         # noqa: E402  (o --todos dos estádios do mapa: GET /api/estadios)
+import f1_aovivo        # noqa: E402  (F1 ao vivo: o redutor, o ecrã e a simulação a partir do arquivo)
+import f1_direto        # noqa: E402  (F1 ao vivo em direto: GET /api/f1/aovivo sem ?simular=)
 
 def comecar_atualizacao():
     """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub)."""
@@ -147,6 +154,18 @@ class Handler(SimpleHTTPRequestHandler):
                                                           aquecimento=lista("aquecimento")))
             except Exception as e:   # o Ao vivo não pode deitar o servidor abaixo
                 return self.responder_json({"erro": str(e), "jogos": [], "proximo": None, "teams": {}}, 502)
+        if caminho == "/api/f1/aovivo":
+            q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
+            num = lambda k: float(q[k]) if q.get(k) not in (None, "") else None
+            try:
+                if not q.get("simular"):   # em direto (tools/f1_direto.py); a simulação só com ?simular=
+                    return self.responder_json(f1_direto.DIRETO.vista(mapa=q.get("mapa") == "1"))
+                return self.responder_json(f1_aovivo.simular(
+                    q.get("simular"), inicio=num("inicio"), volta=num("volta"), decorrido=num("decorrido") or 0.0,
+                    vel=num("vel") or 1.0, mapa=q.get("mapa") == "1",
+                    parte=q.get("parte")))
+            except Exception as e:   # tal como o Ao vivo: não pode deitar o servidor abaixo
+                return self.responder_json({"erro": str(e)}, 502)
         if caminho == "/api/aovivo/cara":
             # a cara de quem marcou (?pid=<id ESPN>&nome=<nome completo>&sigla=<equipa>): {"url": ... ou null}
             q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
@@ -179,7 +198,7 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, formato, *args):
         # str(): nos erros (send_error) o 1.º argumento é um HTTPStatus, não o pedido
         pedido = str(args[0]) if args else ""
-        if "/api/atualizar/estado" not in pedido and "/api/estadios " not in pedido:   # perguntam a cada poucos segundos
+        if "/api/atualizar/estado" not in pedido and "/api/estadios " not in pedido and "/api/f1/aovivo" not in pedido:   # perguntam a cada poucos segundos
             super().log_message(formato, *args)
 
     def end_headers(self):

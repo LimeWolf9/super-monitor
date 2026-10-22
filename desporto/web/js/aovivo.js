@@ -13,6 +13,9 @@
 // Estádios: só os que já estão preparados (o Ao vivo nunca descarrega nada). Um jogo sem coordenadas fica só no
 // cartão e não conta para o continente do mapa; sem nenhum com coordenadas, só cartões. O que falta vê-se na
 // página /definicoes, não aqui. Com mais de 3 à espera, cada um fica menos tempo.
+// F1: durante as sessões do fim de semana a sessão é um item da lista (vem marcado, como os jogos do FC Porto).
+//   Seguida, é a primeira página do acompanhamento: o ecrã da F1 inteiro (f1aovivo.js), 20 s antes de passar aos
+//   cartões (sozinha, fica). O atalho ir_f1 (tecla 2) volta a ela.
 // Pergunta ao servidor a cada 30 s, só enquanto está aberto (o hub fecha o iframe ao sair). Não mexe no live.json.
 // ?simular=1: os jogos de ontem a fingir que estão a decorrer (ver tools/aovivo.py), perguntando a cada 10 s.
 //   Só com ele: &seguir=futebol6,nba (os primeiros 6 de futebol e todos da NBA; ou ids), &vista=seguir (abre logo o
@@ -24,16 +27,21 @@ import { titulo, subtitulo } from './cenas/base.js';
 import { evento } from './cenas/futebol.js';
 import { fundo } from './backgrounds.js';
 import { criarMapa, continente, temLugar } from './mapa.js';
+import { iniciarF1AoVivo } from './f1aovivo.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const SIMULAR = PARAMS.get('simular') === '1';
 const PERGUNTAR_MS = SIMULAR ? 10_000 : 30_000;
 const POR_PAGINA = 6;
 const PAGINA_MS = 10_000;
+const PAGINA_F1_MS = 20_000;
+const SESSOES_F1 = { Race: 'Corrida', Qualifying: 'Qualificação', Sprint: 'Sprint', 'Sprint Qualifying': 'Qualificação sprint',
+  'Practice 1': 'Treino livre 1', 'Practice 2': 'Treino livre 2', 'Practice 3': 'Treino livre 3' };
 const SEGURAR_MS = 5000, SEGURAR_CURTO_MS = 3000, FILA_LONGA = 3;   // destaque: 5 s, ou 3 s com mais de 3 à espera
 const GUARDAR = 'aovivo.seguir';   // jogos seguidos e desmarcados (só neste browser; serve para não os perder ao recarregar)
-const TECLAS = { ArrowUp: 'cima', ArrowDown: 'baixo', ArrowLeft: 'esquerda', ArrowRight: 'direita', Enter: 'ok', Escape: 'voltar', Backspace: 'voltar' };
+const TECLAS = { ArrowUp: 'cima', ArrowDown: 'baixo', ArrowLeft: 'esquerda', ArrowRight: 'direita', Enter: 'ok', Escape: 'voltar', Backspace: 'voltar', 2: 'ir_f1' };
 const ACOES = { lista: ['cima', 'baixo', 'ok', 'direita', 'voltar'], seguir: ['esquerda', 'direita', 'voltar'] };
+const nomeSessaoF1 = (n) => SESSOES_F1[n] || n || '';
 const TIPOS = { golo: '⚽ GOLO', pen: '⚽ PENÁLTI', og: '⚽ AUTOGOLO', pen_miss: '❌ PENÁLTI FALHADO', red: '🟥 VERMELHO' };
 const NO_SUB = { golo: 'Golo', pen: 'Penálti', og: 'Autogolo', pen_miss: 'Penálti falhado', red: 'Vermelho' };
 
@@ -88,12 +96,17 @@ export function iniciarAoVivo({ host, getData }) {
   let atual = null;        // o acontecimento a mostrar agora: { id, ev }
   let ui = null;           // o acompanhamento montado: { regiao, mapa, grelha }
   let tPagina = null;
+  let f1 = null;           // o ecrã da F1 montado (na página dele do acompanhamento)
+  let f1Desde = 0;
 
   // Os emblemas e os nomes: os do live.json, mais os das equipas que só aparecem no Ao vivo
   const D = () => { const d = getData(); return { ...d, teams: { ...resposta.teams, ...d.teams } }; };
   const jogos = () => resposta.jogos || [];
   const jogo = (id) => jogos().find((j) => j.id === id);
   const listaSeguidos = () => jogos().filter((j) => seguidos.has(j.id));
+  const f1Seguida = () => listaSeguidos().find((j) => j.sport === 'f1');
+  const cartoesSeguidos = () => listaSeguidos().filter((j) => j.sport !== 'f1');
+  const nPaginas = () => (f1Seguida() ? 1 : 0) + Math.ceil(cartoesSeguidos().length / POR_PAGINA);
   // Itens da lista: os jogos e, no fim, "Acompanhar"
   const itens = () => [...jogos().map((j) => j.id), 'acompanhar'];
 
@@ -120,7 +133,18 @@ export function iniciarAoVivo({ host, getData }) {
   const resultado = (j) => (j.estado === 'aquecimento' ? `<span class="av-res av-aq">${hora(j)}</span>`
     : j.hs == null ? '<span class="av-res">–</span>' : `<span class="av-res">${j.hs}<i>–</i>${j.as}</span>`);
 
+  function linhaF1(j, i) {
+    const marcado = seguidos.has(j.id);
+    return `<div class="av-linha f1${i === foco ? ' foco' : ''}${marcado ? ' seguido' : ''}">
+      <span class="av-check">${marcado ? '✓' : ''}</span>
+      <span class="av-eq casa"><span class="tn">${esc(j.gp || 'Fórmula 1')}</span>${j.bandeira ? `<img class="av-bandeira" src="${esc(j.bandeira)}" alt="">` : ''}</span>
+      <span class="av-meio">${minuto(j)}</span>
+      <span class="av-eq fora"><span class="tn">${esc(nomeSessaoF1(j.sessao))}</span></span>
+    </div>`;
+  }
+
   function linha(dd, j, i) {
+    if (j.sport === 'f1') return linhaF1(j, i);
     const marcado = seguidos.has(j.id);
     return `<div class="av-linha${i === foco ? ' foco' : ''}${marcado ? ' seguido' : ''}${j.meu ? ' me' : ''}">
       <span class="av-check">${marcado ? '✓' : ''}</span>
@@ -142,7 +166,10 @@ export function iniciarAoVivo({ host, getData }) {
       el.innerHTML = fundo('football') + titulo('Ao vivo', 'Jogos a decorrer agora') + `<section class="block construcao">
         <div class="cons-icone">📡</div>
         <div class="cons-titulo">Sem jogos ao vivo</div>
-        ${p ? `<div class="cons-data"><span>Próximo jogo · ${esc(p.comp && p.comp.nome || '')}</span>
+        ${p && p.sport === 'f1' ? `<div class="cons-data"><span>Próxima sessão · Fórmula 1</span>
+          <b>${esc(p.gp || '')} · ${esc(nomeSessaoF1(p.sessao))}</b>
+          <small>${esc(dia)}${hora ? ' · ' + hora : ''}</small></div>`
+        : p ? `<div class="cons-data"><span>Próximo jogo · ${esc(p.comp && p.comp.nome || '')}</span>
           <b>${esc(teamName(dd, p.home))} – ${esc(teamName(dd, p.away))}</b>
           <small>${esc(dia)}${hora ? ' · ' + hora : ''}</small></div>` : '<div class="cons-texto">Não há jogos marcados nas competições escolhidas.</div>'}
         ${resposta.erro ? `<div class="cons-texto">${esc(resposta.erro)}</div>` : ''}
@@ -204,11 +231,27 @@ export function iniciarAoVivo({ host, getData }) {
   function desmontar() {
     if (ui && ui.mapa) ui.mapa.destruir();
     ui = null;
+    if (f1) { f1.parar(); f1 = null; }
+  }
+
+  // A página da F1: o ecrã inteiro da F1 (o resto do Ao vivo continua: os destaques dos golos aparecem por cima)
+  function desenharF1() {
+    if (f1) return;
+    desmontar();
+    el.innerHTML = '<div class="av-f1"></div>';
+    f1 = iniciarF1AoVivo({ host: el.querySelector('.av-f1'), embutido: true });
+    f1Desde = Date.now();
   }
 
   function desenharSeguir() {
     const dd = D();
-    const lista = listaSeguidos();
+    const temF1 = !!f1Seguida();
+    const paginasF1 = Math.max(1, nPaginas());
+    pagina = ((pagina % paginasF1) + paginasF1) % paginasF1;
+    if (temF1 && pagina === 0) { desenharF1(); return; }
+    if (f1) desmontar();
+    const lista = cartoesSeguidos();
+    const pag = pagina - (temF1 ? 1 : 0);
     if (!lista.length) {
       desmontar();
       el.innerHTML = fundo('football') + titulo('Ao vivo', 'A acompanhar · ↩ lista') +
@@ -226,9 +269,7 @@ export function iniciarAoVivo({ host, getData }) {
     if (ui.mapa && regiao) { ui.regiao = regiao; ui.mapa.atualizar(lista, regiao); }
     const sub = el.querySelector('.scene-title small');
     if (sub) sub.textContent = subSeguir(lista);
-    const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
-    pagina = ((pagina % paginas) + paginas) % paginas;
-    ui.grelha.innerHTML = lista.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA).map((j) => cartao(dd, j)).join('');
+    ui.grelha.innerHTML = lista.slice(pag * POR_PAGINA, (pag + 1) * POR_PAGINA).map((j) => cartao(dd, j)).join('');
   }
 
   const desenhar = () => (vista === 'lista' ? desenharLista() : desenharSeguir());
@@ -237,7 +278,8 @@ export function iniciarAoVivo({ host, getData }) {
   function reiniciarPaginas() {
     clearInterval(tPagina);
     tPagina = setInterval(() => {
-      if (vista !== 'seguir' || atual || listaSeguidos().length <= POR_PAGINA) return;
+      if (vista !== 'seguir' || atual || nPaginas() <= 1) return;
+      if (f1 && Date.now() - f1Desde < PAGINA_F1_MS) return;   // a página da F1 fica 20 s
       pagina++;
       desenharSeguir();
     }, PAGINA_MS);
@@ -264,9 +306,9 @@ export function iniciarAoVivo({ host, getData }) {
     const vermelho = tipo(ev) === 'red' ? ' vermelho' : '';
     const html = cara(j, ev).then((foto) => destaqueHTML(D(), jogo(id) || j, ev, foto));
     // o cartão do jogo brilha (e fica à vista: vai-se para a página dele)
-    const lista = listaSeguidos();
+    const lista = cartoesSeguidos();
     const i = lista.findIndex((x) => x.id === id);
-    if (i >= 0) pagina = Math.floor(i / POR_PAGINA);
+    if (i >= 0) pagina = Math.floor(i / POR_PAGINA) + (f1Seguida() ? 1 : 0);
     if (vista === 'seguir') desenharSeguir();
     // o voo até às ruas só com o OSM do estádio (mapa.acontecimento devolve false sem ele)
     if (vista === 'seguir' && ui && ui.mapa && ui.mapa.tem(id) && j.estadio && j.estadio.osm
@@ -334,17 +376,18 @@ export function iniciarAoVivo({ host, getData }) {
     // Os jogos do FC Porto e de Portugal entram marcados (a não ser que já se tenham desmarcado)
     if (!(SIMULAR && PARAMS.get('seguir'))) {
       for (const j of jogos()) {
-        if (j.meu && !desmarcados.has(j.id) && !seguidos.has(j.id)) { seguidos.add(j.id); mudou = true; }
+        if ((j.meu || j.sport === 'f1') && !desmarcados.has(j.id) && !seguidos.has(j.id)) { seguidos.add(j.id); mudou = true; }
       }
     }
     if (mudou) guardar(seguidos, desmarcados);
     foco = Math.min(foco, itens().length - 1);
+    if (vista === 'seguir') anunciar();   // a F1 pode ter aparecido ou acabado (o atalho ir_f1)
     desenhar();
     procurarNovos();
   }
 
   // ---------------------------------------------------------------- comando
-  function anunciar() { hub({ tipo: 'pronto', acoes: ACOES[vista] }); }
+  function anunciar() { hub({ tipo: 'pronto', acoes: vista === 'seguir' && f1Seguida() ? [...ACOES.seguir, 'ir_f1'] : ACOES[vista] }); }
   function irPara(v) { vista = v; pagina = 0; anunciar(); desenhar(); reiniciarPaginas(); }
 
   function alternar(id) {
@@ -366,6 +409,10 @@ export function iniciarAoVivo({ host, getData }) {
       if (acao === 'direita') { if (listaSeguidos().length) irPara('seguir'); else hub({ tipo: 'aviso', texto: 'Marca um jogo com OK' }); return; }
       if (acao === 'voltar') { hub({ tipo: 'nao_tratado', acao: 'voltar' }); return; }
     } else {
+      if (acao === 'ir_f1') {
+        if (f1Seguida()) { pagina = 0; desenharSeguir(); reiniciarPaginas(); } else hub({ tipo: 'aviso', texto: 'Sem F1 a decorrer' });
+        return;
+      }
       if (acao === 'esquerda' || acao === 'direita') {
         pagina += acao === 'direita' ? 1 : -1;
         desenharSeguir();

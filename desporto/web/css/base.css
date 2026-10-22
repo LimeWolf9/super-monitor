@@ -749,3 +749,185 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
 .sem-mapa .av-c.nba .av-res { font-size: 70px; }
 .sem-mapa .av-c.nba .eq .badge { width: 90px; height: 90px; }
 .sem-mapa .av-c .av-evs { font-size: 27px; }
+
+/* ---------- F1 ao vivo (?cat=aovivo&simular=f1, js/f1aovivo.js): cabeçalho, mapa da pista, torre e rodapé ---------- */
+.scene-f1av { gap: 16px; padding-bottom: 46px; }
+.f1av-cab { display: flex; align-items: center; gap: 26px; padding-left: 12px; }
+.f1av-cab .tt { flex: 1; min-width: 0; }
+.f1av-gp { display: block; padding-bottom: .14em; margin-bottom: -.14em; font: 700 84px/1.02 var(--font); letter-spacing: -2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f1av-sub { display: block; font: 500 36px var(--font); color: var(--muted); margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f1av-pais { flex: none; padding: 10px 16px; border-radius: 18px; font: 800 30px var(--font); letter-spacing: 2px;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); }
+.f1av-pais:empty { display: none; }
+.f1av-pais.bandeira { padding: 0; overflow: hidden; border-radius: 14px; width: 104px; height: 70px; }
+.f1av-pais.bandeira img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.f1av-volta { flex: none; display: flex; flex-direction: column; align-items: flex-end; padding: 10px 26px; border-radius: 30px;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); }
+.f1av-volta small { font: 600 24px var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
+.f1av-volta { min-width: 180px; }
+.f1av-volta b { font: 800 76px/1 var(--font); font-variant-numeric: tabular-nums; }
+.f1av-volta i { font: 600 34px var(--font); font-style: normal; color: var(--muted); margin-top: -6px; }
+.f1av-volta b + i { align-self: flex-end; }
+
+.f1av-mapa { position: relative; flex: none; height: 640px; border-radius: 46px; overflow: hidden;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); background-color: rgba(10, 12, 20, .45); }
+.f1av-mapa svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.f1av-base { fill: none; stroke: rgba(255, 255, 255, .14); stroke-width: 26; stroke-linejoin: round; stroke-linecap: round; }
+.f1av-linha { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 4; stroke-linejoin: round; filter: drop-shadow(0 0 8px var(--accent)); }
+.f1av-partida { fill: #fff; stroke: #05060a; stroke-width: 4; }
+.f1av-carro circle { stroke: #fff; stroke-width: 3; }
+.f1av-carro text { font: 800 21px var(--font); fill: #fff; text-anchor: middle; paint-order: stroke; stroke: rgba(5, 6, 10, .85); stroke-width: 6px; }
+.f1av-carro .anel { fill: none; stroke: #ffd43b; stroke-width: 5; }
+.f1av-carro.box, .f1av-carro.abd { opacity: .35; }
+.f1av-carro.abd text { display: none; }
+.f1av-faixa { position: absolute; left: 0; right: 0; top: 0; z-index: 2; padding: 16px; text-align: center; font: 900 54px/1 var(--font);
+  letter-spacing: 6px; color: #111; background: #ffc400; box-shadow: 0 8px 30px rgba(0, 0, 0, .4); animation: pisca 1.6s ease-in-out infinite; }
+.f1av-faixa[hidden] { display: none; }
+.f1av-faixa.amarela { background: #ffe14a; animation: none; }
+.f1av-faixa.vermelha { background: #ff2d2d; color: #fff; }
+.f1av-faixa.vsc_fim { background: #ffe14a; animation: none; }
+
+/* Aviso de 7 s no meio do mapa (como o destaque dos golos) */
+.f1av-aviso { position: absolute; left: 50%; top: 50%; z-index: 3; min-width: 640px; max-width: 940px; transform: translate(-50%, -50%) scale(.9); opacity: 0;
+  transition: opacity .5s, transform .5s; padding: 28px 44px; border-radius: 40px; text-align: center; pointer-events: none;
+  --av: var(--accent); border: 3px solid var(--av); background: var(--vidro); background-color: rgba(10, 12, 20, .78);
+  box-shadow: 0 0 80px color-mix(in srgb, var(--av) 50%, transparent), var(--vidro-sombra); backdrop-filter: blur(20px); }
+.f1av-aviso.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.f1av-aviso .tipo { font: 900 80px/1.05 var(--font); color: var(--av); letter-spacing: 3px; }
+.f1av-aviso .quem { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 12px; font: 700 46px/1.2 var(--font); }
+.f1av-aviso .quem i { width: 14px; height: 52px; border-radius: 7px; flex: none; }
+.f1av-aviso.penalizacao .quem { font-size: 32px; }
+.f1av-aviso:is(.sc, .vsc, .vsc_fim) { --av: #ffc400; }
+.f1av-aviso.vermelha, .f1av-aviso.partida { --av: #ff3b3b; }
+.f1av-aviso.verde { --av: #22d17b; }
+.f1av-aviso.rapida { --av: #b44bff; }
+.f1av-aviso.lider { --av: #ffd43b; }
+.f1av-aviso.penalizacao { --av: #ff8a1f; }
+.f1av-aviso.abd { --av: #a0a8b8; }
+.f1av-aviso.xadrez { --av: #ffffff; }
+
+/* Torre de tempos: uma linha por piloto */
+.f1av-torre { flex: none; display: flex; flex-direction: column; padding: 6px 18px; border-radius: 46px;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); backdrop-filter: blur(30px) saturate(170%); }
+.f1av-l { display: grid; grid-template-columns: 54px 10px 110px 200px 150px 70px 1fr 80px; align-items: center; column-gap: 14px;
+  height: 54px; font: 600 36px var(--font); white-space: nowrap; }
+.f1av-l + .f1av-l { border-top: 1.5px solid rgba(255, 255, 255, .10); }
+.f1av-l.head { height: 42px; font-size: 22px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.f1av-l.head + .f1av-l { border-top: 0; }
+.f1av-l .pos { text-align: right; font-weight: 700; color: var(--muted); }
+.f1av-l .cor { width: 10px; height: 38px; border-radius: 5px; }
+.f1av-l.head .cor { height: 0; }
+.f1av-l .tla { font-weight: 800; letter-spacing: 1px; }
+.f1av-l .int { text-align: right; color: var(--muted); overflow: hidden; }
+.f1av-l .int .lider { color: #ffd43b; font-weight: 700; }
+.f1av-l .par { text-align: center; color: var(--muted); }
+.f1av-l .ult { text-align: right; }
+.f1av-l .ult.roxo { color: #c77dff; font-weight: 800; }
+.f1av-l .ult.verde { color: #22d17b; }
+.f1av-tag { display: inline-block; padding: 2px 14px; border-radius: 12px; font: 800 26px var(--font); letter-spacing: 1px; }
+.f1av-tag.box { background: #ffc400; color: #111; }
+.f1av-tag.abd { background: rgba(255, 255, 255, .14); color: var(--muted); }
+.f1av-pneu { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
+.f1av-pneu i { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 900 22px var(--font); font-style: normal;
+  color: #fff; background: #111; border: 5px solid var(--pc); }
+.f1av-d { text-align: right; font-size: 28px; font-weight: 700; }
+.f1av-d.sobe { color: #22d17b; }
+.f1av-d.desce { color: #ff5a5a; }
+.f1av-l.box { background: linear-gradient(90deg, rgba(255, 196, 0, .16), transparent 60%); }
+.f1av-l.abd { opacity: .45; }
+
+/* Rodapé: direção de prova e tempo */
+.f1av-rodape { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; }
+.f1av-dir, .f1av-tempo { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; padding: 18px 24px; border-radius: 40px;
+  background: var(--vidro); border: 1.5px solid var(--vidro-borda); box-shadow: var(--vidro-sombra); }
+.f1av-rodape .sub { padding-left: 0; font-size: 24px; }
+.f1av-msg { display: flex; gap: 14px; font: 500 24px/1.25 var(--font); color: rgba(255, 255, 255, .88); }
+.f1av-msg b { flex: none; width: 54px; color: var(--muted); }
+.f1av-msg span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.f1av-msg.flag-yellow b, .f1av-msg.flag-double-yellow b { color: #ffc400; }
+.f1av-msg.flag-red b { color: #ff3b3b; }
+.f1av-msg.flag-green b { color: #22d17b; }
+.f1av-tempo > div { display: flex; justify-content: space-between; align-items: baseline; font: 700 34px var(--font); }
+.f1av-tempo small { font: 500 24px var(--font); color: var(--muted); }
+.f1av-tempo .chove { color: #4aa3ff; }
+.scene-f1av.captura .f1av-aviso { transition: none; }
+
+/* F1 ao vivo, qualificação (e treinos): torre com melhor tempo, o que o carro está a fazer e os setores; eliminação */
+.f1av-l.q { grid-template-columns: 50px 10px 92px 146px 120px 118px 34px 1fr 78px; column-gap: 10px; }
+.f1av-l.q .mv { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.f1av-l.q .int { font-variant-numeric: tabular-nums; }
+.f1av-l.q .eq { display: flex; justify-content: flex-end; }
+.f1av-l.q .f1av-tag { font-size: 22px; padding: 2px 12px; }
+.f1av-tag.saida { background: rgba(255, 255, 255, .14); color: #fff; }
+.f1av-tag.lancada { background: #b44bff; color: #fff; }
+.f1av-tag.lenta { background: transparent; color: var(--muted); padding-right: 0; }
+.f1av-set { display: flex; gap: 6px; justify-content: flex-end; }
+.f1av-set i { width: 20px; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); }
+.f1av-set i.roxo { background: #b44bff; }
+.f1av-set i.verde { background: #22d17b; }
+.f1av-set i.amarelo { background: #ffd12e; }
+.f1av-l.head .f1av-set { font-size: 22px; }
+.f1av-l.q.corte { border-bottom: 4px solid #ff3b3b; box-shadow: 0 6px 14px -6px rgba(255, 59, 59, .8); }
+.f1av-l.q.corte + .f1av-l { border-top: 0; }
+.f1av-l.q.zona .pos { color: #ff5a5a; }
+.f1av-l.q.fora { opacity: .42; }
+.f1av-l.q.fora .mv { font-weight: 600; }
+.f1av-l.q.fora .int { grid-column: span 3; text-align: left; padding-left: 18px; }
+.f1av-fora { font-size: 24px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.f1av-carro.apagado { opacity: .32; }
+.f1av-carro.apagado text { display: none; }
+.f1av-carro.lancada circle:not(.anel) { stroke-width: 4; filter: drop-shadow(0 0 10px #b44bff); }
+.f1av-aviso.p1 { --av: #b44bff; }
+.f1av-aviso.anulada { --av: #ff8a1f; }
+.f1av-aviso.eliminados { --av: #ff3b3b; }
+.f1av-aviso.eliminados .quem { font-size: 40px; }
+.f1av-aviso.pole { --av: #ffd43b; }
+.f1av-aviso.pole .tipo { font-size: 96px; }
+.f1av-msg b:empty { display: none; }
+
+/* Mais dados: lutas, paragem mais rápida, campeonato (corrida); corte, delta e pneu novo/usado (qualificação) */
+.f1av-lutas line { stroke: #ff8a1f; stroke-width: 7; stroke-linecap: round; opacity: .85; filter: drop-shadow(0 0 8px #ff8a1f); }
+.f1av-carro.luta circle:not(.anel) { stroke: #ff8a1f; stroke-width: 5; }
+.f1av-l.luta { background: linear-gradient(90deg, rgba(255, 138, 31, .20), transparent 55%); }
+.f1av-l.luta.tras .int { color: #ffb066; font-weight: 700; }
+.f1av-chip { position: absolute; left: 22px; bottom: 20px; z-index: 2; display: flex; flex-direction: column; padding: 10px 20px; border-radius: 22px;
+  background: rgba(10, 12, 20, .72); border: 1.5px solid var(--vidro-borda); }
+.f1av-chip[hidden] { display: none; }
+.f1av-nota { position: absolute; right: 22px; bottom: 20px; z-index: 2; padding: 8px 18px; border-radius: 18px; font: 600 22px var(--font);
+  color: var(--muted); background: rgba(10, 12, 20, .72); border: 1.5px solid var(--vidro-borda); }
+.f1av-nota[hidden] { display: none; }
+.f1av-chip small { font: 600 18px var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.f1av-chip b { font: 800 30px var(--font); color: #ffc400; }
+.f1av-aviso.paragem { --av: #ffc400; }
+.f1av-aviso.ultrapassagem { --av: #22d17b; }
+.f1av-camp { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(3, auto); column-gap: 28px; row-gap: 8px; }
+.f1av-camp > div { display: grid; grid-template-columns: 30px 44px 8px 1fr auto 52px; align-items: center; column-gap: 10px; font: 700 28px var(--font); white-space: nowrap; }
+.f1av-camp b { text-align: right; color: var(--muted); }
+.f1av-camp em { font: 700 20px var(--font); font-style: normal; }
+.f1av-camp em.sobe { color: #22d17b; }
+.f1av-camp em.desce { color: #ff5a5a; }
+.f1av-camp i { width: 8px; height: 28px; border-radius: 4px; }
+.f1av-camp span { overflow: hidden; text-overflow: ellipsis; }
+.f1av-camp.equipas > div { font-size: 24px; }
+.f1av-camp strong { font-variant-numeric: tabular-nums; }
+.f1av-camp small { font: 600 20px var(--font); color: #22d17b; }
+.f1av-l.q .f1av-pneu { justify-content: flex-start; gap: 8px; }
+.f1av-pneu em { font: 600 26px var(--font); font-style: normal; color: var(--muted); white-space: nowrap; }
+.f1av-pneu em.novo { font-weight: 800; font-size: 22px; color: #22d17b; text-transform: uppercase; letter-spacing: .5px; }
+.f1av-l.q .int { align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+.f1av-l.q.fora .int { justify-content: flex-start; }
+.f1av-corte { display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+.f1av-corte b { font: 800 28px/1 var(--font); font-variant-numeric: tabular-nums; }
+.f1av-corte small { font: 600 15px/1 var(--font); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+.f1av-corte.dentro b, .f1av-corte.dentro small { color: #22d17b; }
+.f1av-corte.fora b, .f1av-corte.fora small { color: #ff5a5a; }
+.f1av-l.q .eq { gap: 8px; align-items: center; }
+.f1av-dv { font: 800 26px var(--font); font-variant-numeric: tabular-nums; }
+.f1av-dv.ganha { color: #22d17b; }
+.f1av-dv.perde { color: #ff5a5a; }
+
+/* Ao vivo: a F1 na lista (bandeira) e como página do acompanhamento (o ecrã da F1 dentro do Ao vivo) */
+.av-bandeira { width: 72px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
+.av-linha.f1 .av-eq.fora .tn { color: var(--muted); }
+.scene-aovivo .av-f1 { position: absolute; inset: 0; }
+.scene-aovivo .av-f1 > .scene { position: absolute; inset: 0; }
