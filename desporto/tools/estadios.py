@@ -26,7 +26,9 @@ Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (p
             python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
             pythonw tools/estadios.py --retomar   (o mesmo, só se não acabou nem está a correr: a tarefa agendada)
             python tools/estadios.py --refazer 10409   (o OSM desse estádio volta a descarregar-se no próximo --retomar)
-            python tools/estadios.py --corrigir   (aplica já tools/estadios_correcoes.json e marca-os com --refazer)
+            pythonw tools/estadios.py --testar Riazor   (só o OSM desse estádio; se vier, segue como o --retomar)
+            python tools/estadios.py --testar Riazor --seco   (só mostra o que faria, sem pedidos)
+            python tools/estadios.py --corrigir  (aplica já tools/estadios_correcoes.json e marca-os com --refazer)
 Só usa a biblioteca standard do Python.
 """
 
@@ -985,6 +987,58 @@ def _fases(gravar_progresso, mostrar, t0):
     duplicados([e for _q, e in futebol], mostrar)
 
 
+def testar(nome, seco=False):
+    """Um só estádio de futebol já em cache (pelo nome ou pela chave), com as regras do --todos (User-Agent, raios,
+    vaga no /api/status, PAUSA_TODOS, OSM_POR_DIA). Se o OSM vier, segue com um --todos (os que faltam, como um
+    --retomar); se não, para e diz que o bloqueio continua. Tudo no registo e no progresso (a página /definicoes).
+    seco: só mostra o que faria, sem pedidos nem gravar nada."""
+    global PAUSA
+
+    def mostrar(texto):
+        print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
+
+    tudo = ler()
+    c = nome if nome in tudo else next((k for k, v in tudo.items() if simples(v.get("nome")) == simples(nome)), None)
+    if not c or tudo[c].get("lat") is None:
+        mostrar(f"Teste: {nome} não está em data/estadios.json com coordenadas; nada feito")
+        return False
+    g = tudo[c]
+    e = {"id": c, "nome": g.get("nome") or nome, "cidade": g.get("cidade"), "pais": g.get("pais")}
+    if seco:
+        mostrar(f"Teste (a seco): {e['nome']} ({c}) em {g['lat']}, {g['lon']}; raios {RAIO_RUAS}/{RAIO_ESTRADAS}/"
+                f"{RAIO_PREDIOS} m{' (pequeno)' if g.get('pequeno') else ''}; pausa {PAUSA_TODOS:.0f} s; "
+                f"{OSM_POR_DIA}/dia; consulta de {len(_consulta(g['lat'], g['lon'], g.get('pequeno')))} caracteres; "
+                f"servidores {', '.join(OVERPASS)}; UA {UA}")
+        return True
+    if todos_a_correr():
+        mostrar("Teste: já há um --todos a correr (data/estadios_todos.lock); nada feito")
+        return False
+    t0 = time.time()
+    estado = {"estado": "a correr", "fase": "teste", "passo": f"Teste: OpenStreetMap de {e['nome']}", "feitos": 0, "total": 1,
+              "decorrido_s": 0, "estimativa_s": 120, "inicio_em": time.strftime("%Y-%m-%dT%H:%M:%S"), "terminado_em": None, "erro": None}
+    tmp = PROGRESSO.with_suffix(".tmp")
+    tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(PROGRESSO)
+    mostrar(f"Teste: OpenStreetMap só de {e['nome']} ({c})")
+    PAUSA = max(PAUSA, PAUSA_TODOS)
+    _gravar_entrada(c, {"refazer": True, "falhou": None, "erro": None})   # descarrega mesmo que já houvesse
+    try:
+        r = resolver(e, True)
+    except LimiteDiario as ex:
+        r = {"erro": str(ex)}
+    ok = ficheiro_osm(c).exists() and not r.get("refazer")
+    if ok:
+        mostrar(f"Teste: {e['nome']} ok ({time.time() - t0:.0f} s); o Overpass responde. Segue o resto (como o --retomar)")
+        return True
+    fim = f"Teste: {e['nome']} falhou ({r.get('erro') or 'sem OSM'}): o bloqueio do Overpass continua; paro aqui"
+    mostrar(fim)
+    estado.update(estado="erro", fase="fim", passo=fim, erro=fim[:200], decorrido_s=round(time.time() - t0, 1),
+                  terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"))
+    tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(PROGRESSO)
+    return False
+
+
 if __name__ == "__main__":
     if sys.stdout:   # com pythonw (a tarefa agendada) não há consola
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1006,6 +1060,15 @@ if __name__ == "__main__":
         sys.stdout = sys.stderr = open(REGISTO, "a", encoding="utf-8", buffering=1)
         print(f"{time.strftime('%H:%M:%S')} Retomado pela tarefa agendada", flush=True)
         todos()
+        sys.exit()
+    if sys.argv[1:2] == ["--testar"] and len(sys.argv) > 2:
+        # pela tarefa agendada "(teste Riazor)": um estádio só; se o OSM vier, um --todos com os que faltam
+        seco = "--seco" in sys.argv
+        nome = " ".join(a for a in sys.argv[2:] if a != "--seco")
+        if not seco:
+            sys.stdout = sys.stderr = open(REGISTO, "a", encoding="utf-8", buffering=1)
+        if testar(nome, seco) and not seco:
+            todos()
         sys.exit()
     if sys.argv[1:] == ["--corrigir"]:
         # grava já no cache as correções à mão novas ou mudadas (o ler() põe-nas por cima e marca-as para o OSM
