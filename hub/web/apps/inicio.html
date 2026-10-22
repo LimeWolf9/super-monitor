@@ -120,9 +120,10 @@
   /* Notícias: 3 de cada vez, a rodar */
   .noticias-bloco { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
   #nts { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .nts { flex: 1; display: flex; flex-direction: column; gap: 16px; min-height: 0; transition: opacity .8s; }
+  .nts { flex: none; display: flex; flex-direction: column; gap: 16px; transition: opacity .8s; }   /* a altura das notícias: se não couberem, o #nts transborda e a conta em montar() tira uma */
   .nts.sai { opacity: 0; }
   .nti { display: grid; grid-template-columns: 170px 1fr; gap: 22px; align-items: center; padding: 10px 14px; border-radius: 30px; flex: none;
+    height: 140px; box-sizing: border-box; overflow: hidden;   /* todas iguais: o que cabe na 1.ª página cabe nas outras */
     background: rgba(255, 255, 255, .07); border: 1.5px solid rgba(255, 255, 255, .12); min-height: 0; }
   .nti img { width: 170px; height: 104px; object-fit: cover; border-radius: 20px; }
   .nti.sem-img { grid-template-columns: 1fr; }
@@ -174,7 +175,7 @@ const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quint
 const DIA_MS = 864e5;
 const SELECAO_DIAS = 14;          // a seleção só aparece se jogar nos próximos 14 dias
 let NOTICIAS_POR_PAGINA = 3;
-const RODAR_NOTICIAS_MS = 20_000, ALTURA_NOTICIA = 156;   // uma notícia (140) + o espaço entre elas
+const RODAR_NOTICIAS_MS = 20_000, ALTURA_NOTICIA = 156;   // uma notícia (140, .nti) + o espaço entre elas
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const hhmm = (d) => new Date(d).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 const $ = (sel) => document.querySelector(sel);
@@ -433,12 +434,33 @@ function blocoNoticias() {
   return `<section class="vidro bloco noticias-bloco entra" style="animation-delay:.42s">
     <div class="titulo-bloco">Notícias<small>FC Porto e Liga</small></div><div id="nts">${paginaDeNoticias()}</div></section>`;
 }
+// Tantas notícias por página quantas couberem no espaço que sobra (1 a 4): desenha-se e confirma-se. Sem contas com
+// getBoundingClientRect (vem multiplicado pela escala do ecrã). Repete-se quando a caixa muda de altura (ex.: imagens
+// dos outros blocos que chegam depois), senão a última notícia ficava cortada por baixo dos pontos.
+function ajustarNoticias() {
+  const caixa = document.getElementById('nts');
+  if (!caixa) return;
+  const ecra = document.getElementById('ecra');
+  const cabe = () => caixa.scrollHeight <= caixa.clientHeight && ecra.scrollHeight <= ecra.clientHeight;
+  NOTICIAS_POR_PAGINA = 4;
+  caixa.innerHTML = paginaDeNoticias();
+  while (NOTICIAS_POR_PAGINA > 1 && !cabe()) { NOTICIAS_POR_PAGINA--; caixa.innerHTML = paginaDeNoticias(); }
+}
+let alturaNts = 0;
+const observarNts = new ResizeObserver(([e]) => {
+  const h = Math.round(e.contentRect.height);
+  if (h !== alturaNts) { alturaNts = h; ajustarNoticias(); }
+});
 function mudarNoticias(delta) {
   const caixa = document.getElementById('nts');
   if (!caixa || noticias.length <= NOTICIAS_POR_PAGINA) return;
   const nts = caixa.querySelector('.nts');
   nts.classList.add('sai');
-  setTimeout(() => { paginaNoticias += delta; caixa.innerHTML = paginaDeNoticias(); }, 700);
+  setTimeout(() => {
+    paginaNoticias += delta;
+    caixa.innerHTML = paginaDeNoticias();
+    if (caixa.scrollHeight > caixa.clientHeight) ajustarNoticias();   // garantia: nunca fica uma notícia cortada
+  }, 700);
 }
 
 // ---------------------------------------------------------------- extras (só se sobrar espaço)
@@ -497,24 +519,21 @@ function montar() {
   const f1 = blocoF1(), clube = blocoClube();
   ecra.innerHTML = fundo('casa') + topo() + blocoTempo() + blocoHoje() +
     `<div class="duas${f1 ? '' : ' uma'}">${clube}${f1}</div>` + blocoSelecao() + blocoNoticias() + blocoJogador() + blocoCuriosidades() + rodape();
+  relogio();   // antes de medir: a hora e a data enchem o topo (vazio, tinha menos ~160 px e cabiam notícias a mais)
   // Os extras só ficam se couberem (do último para o primeiro), sem tirar o lugar a 2 notícias
   ecra.classList.add('a-medir');
   const minimoNoticias = noticias.length ? 2 * ALTURA_NOTICIA + 110 : 0;
   for (const extra of [...ecra.querySelectorAll('.extra')].reverse()) {
     const nb = ecra.querySelector('.noticias-bloco');
-    if (ecra.scrollHeight > ecra.clientHeight || (nb && nb.getBoundingClientRect().height < minimoNoticias)) extra.remove();
+    if (ecra.scrollHeight > ecra.clientHeight || (nb && nb.offsetHeight < minimoNoticias)) extra.remove();
   }
   if (!noticias.length && ecra.querySelector('.extra')) ecra.querySelector('.noticias-bloco')?.remove();
   if (D.myTeam && D.teams[D.myTeam.code]) document.documentElement.style.setProperty('--me', D.teams[D.myTeam.code].c1);
-  // As notícias ficam com o espaço que sobra: tantas por página quantas couberem (1 a 4)
-  const caixa = document.getElementById('nts');
-  if (caixa) {
-    const livre = caixa.getBoundingClientRect().height + (ecra.scrollHeight > ecra.clientHeight ? ecra.clientHeight - ecra.scrollHeight : 0);
-    const cabem = Math.max(1, Math.min(4, Math.floor((livre + 16 - 30) / ALTURA_NOTICIA)));   // 30: os pontos das páginas
-    if (cabem !== NOTICIAS_POR_PAGINA) { NOTICIAS_POR_PAGINA = cabem; caixa.innerHTML = paginaDeNoticias(); }
-  }
+  ajustarNoticias();
   ecra.classList.remove('a-medir');
-  relogio();
+  const caixa = document.getElementById('nts');
+  observarNts.disconnect();
+  if (caixa) { alturaNts = caixa.clientHeight; observarNts.observe(caixa); }
 }
 
 async function lerDesporto() {

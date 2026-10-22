@@ -56,8 +56,8 @@ export function linhaTabela(D, code, pos, colunas, zonaCor) {
 export function jogo(D, m, simples = false) {
   const [dia, ...hora] = (m.when || '').split(' ');
   const meio = m.live
-    ? `<span class="score">${m.hs}<i>–</i>${m.as}</span><span class="ao-vivo">a decorrer${m.clock ? ' · ' + esc(m.clock) : ''}</span>`
-    : m.hs != null ? `<span class="score">${m.hs}<i>–</i>${m.as}</span>`
+    ? `<span class="score"><b>${m.hs}</b><i>–</i><b>${m.as}</b></span><span class="ao-vivo">a decorrer${m.clock ? ' · ' + esc(m.clock) : ''}</span>`
+    : m.hs != null ? `<span class="score"><b>${m.hs}</b><i>–</i><b>${m.as}</b></span>`
     : m.status === 'adiado' ? '<span class="when adiado">adiado</span>'
     : m.date ? `<span class="when">${esc(dia)} ${esc(m.date)}</span><span class="hora">${esc(hora.join(' '))}</span>`
     : `<span class="when">${esc(m.when)}</span>`;
