@@ -6,7 +6,7 @@ Uso:  python serve.py            (abre o browser sozinho)
 Definições do futebol (que competições seguir): http://<pc>:8000/definicoes, feita para o telemóvel. Lê e grava
 data/competicoes.json por GET/POST /api/competicoes (ver tools/competicoes.py).
 
-Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a decorrer agora (tools/aovivo.py, 30 s
+Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a decorrer agora (e os que começam daqui a 10 min) (tools/aovivo.py, 30 s
 de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json e nunca descarrega estádios (só lê
 data/estadios.json e data/estadios_osm/, preparados antes pelo passo "Estádios" e pelo tools/estadios.py --todos). GET /api/aovivo/cara?pid=&nome=&sigla=
 dá a cara de quem marcou. Os mapas de base estão em web/mapas/; o OSM à volta dos estádios em data/estadios_osm/.
@@ -143,7 +143,8 @@ class Handler(SimpleHTTPRequestHandler):
                 lista = lambda k: [x for x in ",".join(q.get(k, [])).split(",") if x]
                 return self.responder_json(aovivo.ao_vivo(seguir, simulado=q.get("simular") == ["1"], desde=desde,
                                                           golo=(q.get("golo") or [None])[0],
-                                                          sem_ruas=lista("semruas"), sem_estadio=lista("semestadio")))
+                                                          sem_ruas=lista("semruas"), sem_estadio=lista("semestadio"),
+                                                          aquecimento=lista("aquecimento")))
             except Exception as e:   # o Ao vivo não pode deitar o servidor abaixo
                 return self.responder_json({"erro": str(e), "jogos": [], "proximo": None, "teams": {}}, 502)
         if caminho == "/api/aovivo/cara":

@@ -8,6 +8,8 @@ quando se atualiza à mão; isto vai buscar à hora e não escreve no live.json.
   acontecimentos (golos com o marcador, penáltis, vermelhos): os mesmos que o atualizar_futebol.py lê.
 - Taça da Liga (se estiver ligada): a API da Liga Portugal, só quando há um jogo dela por estas horas.
 - NBA: o scoreboard da ESPN da noite americana.
+- Aquecimento: os jogos por começar entram na lista AQUECIMENTO (10 min) antes da hora, sem resultado, e passam a
+  "in" quando a ESPN os der como começados (um atrasado fica em aquecimento até lá; adiado/cancelado sai).
 - F1: ainda não (ver FONTES: é aí que entra uma função nova, ex.: f1_ao_vivo()).
 
 Cada jogo traz o estádio ("estadio": nome, cidade, coordenadas, se já há o OpenStreetMap à volta), para o mapa do
@@ -24,7 +26,8 @@ Para testar sem jogos a decorrer:  /api/aovivo?simular=1&desde=<s> (ou --simular
 NBA) a fingir que estão a decorrer. desde = segundos desde que a página abriu: o relógio começa no minuto 55 e anda
 um minuto de jogo a cada 2 s, com os golos a aparecer no minuto em que foram. Aos 10 s entra um golo inventado num
 jogo seguido (&golo=<sigla> escolhe a equipa; por omissão, a casa do primeiro jogo seguido com o OSM do estádio).
-&semruas=<siglas> e &semestadio=<siglas> (separadas por vírgulas): os jogos dessas equipas como se o estádio ainda
+&aquecimento=<siglas>: os jogos dessas equipas ficam em "Aquecimento" (por omissão, o primeiro jogo de futebol) e
+começam aos AQUECIMENTO_SIM_S segundos, do minuto 1. &semruas=<siglas> e &semestadio=<siglas> (separadas por vírgulas): os jogos dessas equipas como se o estádio ainda
 não tivesse o OSM / as coordenadas (para ver o Ao vivo sem o zoom e só com o cartão, sem tocar no cache).
 """
 
@@ -47,6 +50,9 @@ CACHE_S = 30
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
 JANELA_ANTES = timedelta(hours=3)    # um jogo que começou há menos disto pode estar a decorrer
 JANELA_DEPOIS = timedelta(hours=14)  # e os que começam até daqui a isto contam como "hoje"
+AQUECIMENTO = timedelta(minutes=10)  # um jogo por começar entra na lista este tempo antes da hora ("Aquecimento")
+AQUECIMENTO_SIM_S = 40               # simulação: o jogo em aquecimento começa ao fim disto (segundos)
+CANCELADOS = ("STATUS_POSTPONED", "STATUS_CANCELED")   # adiados/cancelados: saem da lista
 
 _cache, _tranca = {}, threading.Lock()
 
@@ -132,6 +138,7 @@ def jogos_futebol(chave, nome, liga, filtro, equipas, dia):
             "as": int(fora.get("score") or 0) if estado != "pre" else None,
             "estado": estado, "tempo": texto, "iso": fut.quando(e).astimezone().isoformat(timespec="minutes"),
             "ev": ev, "estadio": estadios.info(comp.get("venue"), "football"),
+            "cancelado": e["status"]["type"].get("name") in CANCELADOS,
         })
     return jogos
 
@@ -183,7 +190,7 @@ def jogos_nba(equipas, agora):
             "hs": int(casa.get("score") or 0) if estado != "pre" else None,
             "as": int(fora.get("score") or 0) if estado != "pre" else None,
             "estado": estado, "tempo": texto, "iso": fut.quando(e).astimezone().isoformat(timespec="minutes"), "ev": [],
-            "estadio": estadios.info(comp.get("venue"), "nba"),
+            "estadio": estadios.info(comp.get("venue"), "nba"), "cancelado": tipo.get("name") in CANCELADOS,
         })
     return jogos
 
@@ -206,11 +213,38 @@ def _num(m):
         return 0
 
 
-def simular(jogos, desde, seguir=(), golo=None):
-    """Os jogos de ontem como se estivessem a decorrer (ver o início do ficheiro). desde = segundos desde que a página abriu."""
+def aquecer(j, inicio):
+    """Este jogo por começar passa a "Aquecimento" (começa às <inicio>)."""
+    j.update(estado="aquecimento", tempo=f"Aquecimento · {inicio.strftime('%H:%M')}", hs=None, ev=[],
+             iso=inicio.isoformat(timespec="seconds"))
+    j["as"] = None
+
+
+def simular(jogos, desde, seguir=(), golo=None, aquecimento=()):
+    """Os jogos de ontem como se estivessem a decorrer (ver o início do ficheiro). desde = segundos desde que a página abriu.
+
+    Aquecimento: os jogos das equipas em <aquecimento> (por omissão, o primeiro jogo de futebol jogado) ficam em
+    "Aquecimento" até desde = AQUECIMENTO_SIM_S, com a hora de início daqui a esse tempo; depois começam no minuto 1."""
     minuto = min(95, 55 + int(desde / 2))
+    jogados = [j for j in jogos if j["estado"] != "pre"]
+    if aquecimento:
+        aquecer_ids = {j["id"] for j in jogados if {j["home"], j["away"]} & set(aquecimento)}
+    else:
+        bola = sorted((j for j in jogados if j["sport"] == "football"), key=lambda j: (j["comp"]["nome"] or "", j["iso"] or ""))
+        aquecer_ids = {bola[0]["id"]} if bola else set()
+    falta = AQUECIMENTO_SIM_S - desde
+    inicio = datetime.now().astimezone() + timedelta(seconds=falta)
     for j in jogos:
-        if j["sport"] != "football" or j["estado"] == "pre":
+        if j["id"] not in aquecer_ids:
+            continue
+        if falta > 0:
+            aquecer(j, inicio)
+        elif j["sport"] == "football":   # já começou: do minuto 1, com os golos de ontem a aparecer no minuto deles
+            m = 1 + int(-falta / 2)
+            j["ev"] = [e for e in j["ev"] if _num(e["m"]) <= m]
+            j["estado"], j["tempo"], j["aq_m"] = "in", f"{m}'", m
+    for j in jogos:
+        if j["sport"] != "football" or j["estado"] in ("pre", "aquecimento") or "aq_m" in j:
             continue
         j["ev"] = [e for e in j["ev"] if _num(e["m"]) <= minuto]
         j["estado"], j["tempo"] = ("in", f"{minuto}'") if minuto < 95 else ("post", "Terminado")
@@ -226,15 +260,18 @@ def simular(jogos, desde, seguir=(), golo=None):
         alvo["ev"].append({"m": 60, "s": lado, "p": quem["p"] if quem else "Golo simulado",
                            **({"pid": quem["pid"], "pn": quem.get("pn")} if quem else {})})
     for j in jogos:
-        if j["sport"] == "football" and j["estado"] != "pre":
+        j.pop("aq_m", None)
+        if j["sport"] == "football" and j["estado"] not in ("pre", "aquecimento"):
             golos = [e for e in j["ev"] if e.get("t") in (None, "pen", "og")]
             j["hs"] = sum(1 for e in golos if (e["s"] == "h") != (e.get("t") == "og"))
             j["as"] = sum(1 for e in golos if (e["s"] == "a") != (e.get("t") == "og"))
     # NBA: os resultados a crescer até ao final de ontem (ou até um final inventado, num jogo por jogar)
     for j in jogos:
-        if j["sport"] != "nba":
+        if j["sport"] != "nba" or j["estado"] == "aquecimento":
             continue
         f = min(1, 0.55 + desde / 600)
+        if j["id"] in aquecer_ids:   # começou há pouco: do início
+            f = min(1, -falta / 600)
         semente = sum(map(ord, j["id"]))
         hs, as_ = (j["hs"], j["as"]) if j["hs"] is not None else (98 + semente % 23, 96 + semente * 7 % 25)
         j["hs"], j["as"] = round(hs * f), round(as_ * f)
@@ -242,8 +279,10 @@ def simular(jogos, desde, seguir=(), golo=None):
     return jogos
 
 
-def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_estadio=()):
-    """O que a página do Ao vivo mostra: os jogos a decorrer (e os seguidos, mesmo que já tenham acabado)."""
+def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_estadio=(), aquecimento=()):
+    """O que a página do Ao vivo mostra: os jogos a decorrer, os que começam daqui a AQUECIMENTO ou menos (e os que já
+    deviam ter começado mas a ESPN ainda não deu como começados), e os seguidos, mesmo que já tenham acabado.
+    Adiados e cancelados saem, mesmo seguidos."""
     agora = datetime.now().astimezone()
     if simulado:
         agora -= timedelta(days=1)
@@ -301,14 +340,19 @@ def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_esta
                 e.update(lat=None, lon=None, osm=False)
             elif e and siglas & set(sem_ruas):
                 e["osm"] = False
-        jogos = simular(jogos, desde, seguir, golo)
+        jogos = simular(jogos, desde, seguir, golo, aquecimento)
+    else:
+        for j in jogos:   # a começar (ou atrasado): "Aquecimento" até a ESPN o dar como começado
+            h = _quando(j)
+            if j["estado"] == "pre" and h and agora - JANELA_ANTES <= h <= agora + AQUECIMENTO:
+                aquecer(j, h.astimezone())
     meus = {(dados.get("myTeam") or {}).get("code"), (dados.get("myTeam") or {}).get("selecao") or "PRT"}
-    mostrar = [j for j in jogos if j["estado"] == "in" or j["id"] in seguir]
+    mostrar = [j for j in jogos if not j.get("cancelado") and (j["estado"] in ("in", "aquecimento") or j["id"] in seguir)]
     for j in mostrar:
         j["meu"] = j["home"] in meus or j["away"] in meus
     # Sem jogos a decorrer: o próximo de hoje (dos scoreboards) ou, se não houver, o do live.json
     por_jogar = sorted((j for j in jogos if j["estado"] == "pre"), key=lambda j: j["iso"] or "")
-    proximo = None if any(j["estado"] == "in" for j in jogos) else (por_jogar[0] if por_jogar else proximo_do_live(dados, agora))
+    proximo = None if any(j["estado"] in ("in", "aquecimento") for j in jogos) else (por_jogar[0] if por_jogar else proximo_do_live(dados, agora))
     usados = {c for j in mostrar + ([proximo] if proximo else []) for c in (j["home"], j["away"])}
     return {
         "agora": agora.isoformat(timespec="seconds"),

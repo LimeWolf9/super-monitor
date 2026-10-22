@@ -614,6 +614,9 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
 .av-min i { width: 14px; height: 14px; border-radius: 50%; background: #ff3b3b; animation: pisca 1.2s ease-in-out infinite; }
 .av-min.pausa i { background: var(--muted); animation: none; }
 .av-min.fim { color: var(--muted); }
+.av-min.aq, .av-pop .min.aq { color: #ffc24a; }   /* aquecimento: ainda não começou */
+.av-res.av-aq { color: var(--muted); }   /* a hora de início, no lugar do resultado */
+.av-min.aq { white-space: nowrap; }
 @keyframes pisca { 50% { opacity: .25; } }
 .av-acompanhar { margin-top: 8px; padding: 30px; border-radius: 28px; text-align: center; font: 800 44px var(--font-head);
   background: var(--accent); color: #04140b; border: 3px solid transparent; }

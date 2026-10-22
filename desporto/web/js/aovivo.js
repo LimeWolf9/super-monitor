@@ -1,5 +1,6 @@
 // Ao vivo (?cat=aovivo): o "presente". Em vez da rotação de cenas, duas vistas comandadas pelo telemóvel:
-//   lista          os jogos a decorrer agora nas competições ligadas (GET /api/aovivo, ver tools/aovivo.py),
+//   lista          os jogos a decorrer agora nas competições ligadas e os que começam daqui a 10 min ou menos
+//                  ("Aquecimento", sem resultado; passam a ao vivo quando a ESPN os der como começados) (GET /api/aovivo, ver tools/aovivo.py),
 //                  por competição. ▲▼ mudam o foco, OK marca/desmarca "seguir", ▶ (ou OK em "Acompanhar") abre
 //                  o acompanhamento; ↩ volta ao menu do hub. Os jogos do FC Porto e de Portugal vêm marcados.
 //   acompanhamento os jogos seguidos: em cima o mapa do continente com os estádios (mapa.js), quando estão todos no
@@ -15,7 +16,8 @@
 // Pergunta ao servidor a cada 30 s, só enquanto está aberto (o hub fecha o iframe ao sair). Não mexe no live.json.
 // ?simular=1: os jogos de ontem a fingir que estão a decorrer (ver tools/aovivo.py), perguntando a cada 10 s.
 //   Só com ele: &seguir=futebol6,nba (os primeiros 6 de futebol e todos da NBA; ou ids), &vista=seguir (abre logo o
-//   acompanhamento), &golo=<sigla> (a equipa do golo inventado aos 10 s) e &semruas= / &semestadio=<siglas> (esses
+//   acompanhamento), &aquecimento=<siglas> (esses jogos em "Aquecimento", que começam aos 40 s; por omissão, o
+//   primeiro de futebol), &golo=<sigla> (a equipa do golo inventado aos 10 s) e &semruas= / &semestadio=<siglas> (esses
 //   jogos como se o estádio não tivesse o OSM / as coordenadas).
 import { esc, badge, teamName } from './util.js';
 import { titulo, subtitulo } from './cenas/base.js';
@@ -104,10 +106,19 @@ export function iniciarAoVivo({ host, getData }) {
   host.appendChild(caixaDestaque);
 
   // ---------------------------------------------------------------- desenhar
-  const minuto = (j) => j.estado === 'in'
+  // Aquecimento (começa daqui a 10 min ou menos): a hora no lugar do resultado; no cartão, também quanto falta
+  // (a hora já passou e a ESPN ainda não o deu como começado: "atrasado")
+  const falta = (j) => {
+    const min = Math.round((new Date(j.iso) - Date.now()) / 60_000);
+    return min >= 1 ? `em ${min} min` : min >= -1 ? 'a começar' : 'atrasado';
+  };
+  const hora = (j) => new Date(j.iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  const minuto = (j, comFalta = false) => j.estado === 'in'
     ? `<span class="av-min${j.tempo === 'Intervalo' ? ' pausa' : ''}"><i></i>${esc(j.tempo)}</span>`
+    : j.estado === 'aquecimento' ? `<span class="av-min aq">Aquecimento${comFalta ? ` · ${falta(j)}` : ''}</span>`
     : `<span class="av-min fim">${esc(j.tempo)}</span>`;
-  const resultado = (j) => (j.hs == null ? '<span class="av-res">–</span>' : `<span class="av-res">${j.hs}<i>–</i>${j.as}</span>`);
+  const resultado = (j) => (j.estado === 'aquecimento' ? `<span class="av-res av-aq">${hora(j)}</span>`
+    : j.hs == null ? '<span class="av-res">–</span>' : `<span class="av-res">${j.hs}<i>–</i>${j.as}</span>`);
 
   function linha(dd, j, i) {
     const marcado = seguidos.has(j.id);
@@ -152,7 +163,10 @@ export function iniciarAoVivo({ host, getData }) {
     const n = listaSeguidos().length;
     html += `<div class="av-acompanhar${foco === lista.length ? ' foco' : ''}${n ? '' : ' vazio'}">
       ${n ? `Acompanhar ${n === 1 ? '1 jogo' : `${n} jogos`} ▶` : 'Marca jogos com OK para os acompanhar'}</div>`;
-    el.innerHTML = fundo('football') + titulo('Ao vivo', `${lista.length === 1 ? '1 jogo' : `${lista.length} jogos`} a decorrer · OK marca, ▶ acompanha`) + `<section class="av-lista">${html}</section>`;
+    const aq = lista.filter((j) => j.estado === 'aquecimento').length;
+    const contagem = aq === lista.length ? `${aq === 1 ? '1 jogo' : `${aq} jogos`} em aquecimento`
+      : `${lista.length - aq === 1 ? '1 jogo' : `${lista.length - aq} jogos`} a decorrer${aq ? ` · ${aq} em aquecimento` : ''}`;
+    el.innerHTML = fundo('football') + titulo('Ao vivo', `${contagem} · OK marca, ▶ acompanha`) + `<section class="av-lista">${html}</section>`;
     el.querySelector('.av-linha.foco, .av-acompanhar.foco')?.scrollIntoView({ block: 'nearest' });
   }
 
@@ -160,8 +174,8 @@ export function iniciarAoVivo({ host, getData }) {
     const lado = (s) => (j.ev || []).filter((e) => e.s === s).sort((a, b) => minutoNum(a.m) - minutoNum(b.m));
     const evs = (lista) => `<div class="av-evs">${lista.map(evento).join('')}</div>`;
     const flash = atual && atual.id === j.id ? ' flash' : '';
-    return `<article class="av-c${j.sport === 'nba' ? ' nba' : ''}${j.meu ? ' me' : ''}${j.estado === 'post' ? ' terminado' : ''}${flash}">
-      <div class="cab"><b>${esc((j.estadio && j.estadio.nome) || j.comp.nome)}</b>${minuto(j)}</div>
+    return `<article class="av-c${j.sport === 'nba' ? ' nba' : ''}${j.meu ? ' me' : ''}${j.estado === 'post' ? ' terminado' : ''}${j.estado === 'aquecimento' ? ' aquecimento' : ''}${flash}">
+      <div class="cab"><b>${esc((j.estadio && j.estadio.nome) || j.comp.nome)}</b>${minuto(j, true)}</div>
       <div class="placar">
         <div class="eq">${badge(dd, j.home)}<span class="tn">${esc(teamName(dd, j.home))}</span></div>
         ${resultado(j)}
@@ -296,7 +310,7 @@ export function iniciarAoVivo({ host, getData }) {
       if (SIMULAR) {
         q.set('simular', '1');
         q.set('desde', String(Math.round((Date.now() - T0) / 1000)));
-        for (const k of ['golo', 'semruas', 'semestadio']) if (PARAMS.get(k)) q.set(k, PARAMS.get(k));
+        for (const k of ['golo', 'semruas', 'semestadio', 'aquecimento']) if (PARAMS.get(k)) q.set(k, PARAMS.get(k));
       }
       const r = await fetch(`/api/aovivo?${q}`, { cache: 'no-store' });
       resposta = await r.json();

@@ -249,7 +249,7 @@ export function criarMapa(host, { dados }) {
     const min = j.estado === 'in' ? `<i></i>${esc(j.tempo)}` : esc(j.tempo);
     return `<div class="comp">${esc(j.estadio.nome)}</div>
       <div class="placar">${badge(D, j.home)}<span class="tn">${esc(j.home)}</span><span class="res">${res}</span><span class="tn">${esc(j.away)}</span>${badge(D, j.away)}</div>
-      <div class="min${j.estado === 'in' ? '' : ' fim'}">${min}</div>`;
+      <div class="min${j.estado === 'in' ? '' : j.estado === 'aquecimento' ? ' aq' : ' fim'}">${min}</div>`;
   }
 
   // Põe no mapa estes jogos (todos do mesmo continente; os sem coordenadas ficam de fora)
