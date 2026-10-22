@@ -191,6 +191,7 @@ async function mostrarEstadios() {
     caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${falta ? ` · ${falta}` : ''}</span></div>
       ${e.total ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}
       ${e.passo ? `<span class="nota">${esc(e.passo)}</span>` : ''}
+      ${e.so_cidade && e.so_cidade.length ? `<span class="nota mal">⚠ só cidade (corrigir em tools/estadios_correcoes.json): ${esc(e.so_cidade.join(', '))}</span>` : ''}
       ${e.registo && e.registo.length ? `<pre>${esc(e.registo.slice(-5).join('\n'))}</pre>` : ''}
       <button id="continuar" ${e.a_correr ? 'disabled' : ''}>${e.a_correr ? 'A descarregar…' : 'Continuar download'}</button>`;
     caixa.querySelector('#continuar').addEventListener('click', async (ev) => {
