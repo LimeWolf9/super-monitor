@@ -32,3 +32,7 @@ hub/config.local.json
 # Lista privada da verificação antes de cada commit
 .privado.txt
 desporto/data/estadios_todos.lock
+
+# F1: token pessoal da F1 TV e gravações do live timing (nunca para o git)
+desporto/data/f1tv_token.txt
+desporto/data/f1_gravacoes/
