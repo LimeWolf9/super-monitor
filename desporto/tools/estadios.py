@@ -12,15 +12,18 @@
   até 8 km, linhas de comboio e metro, água, parques, prédios a 250 m, o estádio e o relvado), já simplificado
   e em inteiros (ver osm_compacto), em data/estadios_osm/<chave>.json (cache local, fora do git; dados ODbL,
   "© OpenStreetMap"). O relvado dá o centro e o ângulo do desenho do estádio no zoom.
-- Pedidos com calma: um de cada vez (uma só thread de fundo), com pausa entre eles e um User-Agent próprio (com o
-  link do projeto). No máximo OSM_POR_DIA descarregamentos do OSM por dia (contados em data/estadios_osm_dia.json).
-  Um estádio que não se encontrou só se procura outra vez no dia seguinte; um erro de rede, ao fim de 15 minutos.
+- Pedidos com calma: um de cada vez, com pausa entre eles e um User-Agent próprio (com o link do projeto). No
+  máximo OSM_POR_DIA descarregamentos do OSM por dia (contados em data/estadios_osm_dia.json). Um estádio que não
+  se encontrou só se procura outra vez no dia seguinte; um erro de rede, ao fim de 15 minutos.
+- Overpass em pausa: ao fim de OVERPASS_SEGUIDOS estádios seguidos com erro de rede (no --todos ou na
+  atualização), nenhum descarregamento do OSM volta a tentar durante PAUSA_OVERPASS_S (24 h), a não ser o --testar
+  (data/estadios_overpass_pausa.json; aparece no registo e na página /definicoes).
 
-Quem chama:
-- aovivo.py: info(venue) a cada pergunta; o que falta (coordenadas, OSM de um jogo de futebol a decorrer) vai
-  para a fila de fundo (pedir_em_fundo).
-- atualizar_estadios.py (na atualização à mão): os estádios dos jogos dos próximos 7 dias que ainda não estão
-  em cache (preparar).
+Quem chama (os estádios preparam-se antes; o Ao vivo nunca pede nem descarrega nada):
+- aovivo.py: só info(venue), que lê o cache (data/estadios.json e data/estadios_osm/).
+- atualizar_estadios.py (na atualização à mão): os estádios dos jogos dos próximos 30 dias que faltam (em_falta,
+  preparar), com as mesmas regras do --todos; sem nada em falta, não liga à Wikidata nem ao Overpass.
+- --todos / --retomar / --testar (abaixo).
 
 Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (procura e mostra, sem gravar)
             python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
@@ -34,7 +37,6 @@ Só usa a biblioteca standard do Python.
 
 import json
 import math
-import queue
 import re
 import sys
 import threading
@@ -72,6 +74,9 @@ PERTO_SEM_NOME_M = 300       # um estádio do OSM sem o nome do da ESPN só cont
 OSM_POR_DIA = 40             # descarregamentos do OSM (buscar_osm) por dia, no máximo: o Overpass é partilhado
 CONTADOR_OSM = RAIZ / "data" / "estadios_osm_dia.json"   # {"dia": "AAAA-MM-DD", "n": quantos hoje}
 E = 100_000                 # o OSM grava-se em 1/100 000 de grau (~1 m)
+PAUSA_OVERPASS = RAIZ / "data" / "estadios_overpass_pausa.json"   # {"ate": epoch, "ate_em": ISO, "motivo"}
+PAUSA_OVERPASS_S = 86400     # depois de OVERPASS_SEGUIDOS erros seguidos, o Overpass fica em pausa este tempo
+EM_FALTA = RAIZ / "data" / "estadios_em_falta.json"   # o que falta aos estádios dos próximos jogos (a /definicoes)
 
 _tranca = threading.Lock()   # data/estadios.json (o servidor tem várias threads)
 
@@ -130,7 +135,7 @@ def info(venue, desporto="football"):
     """O que a página precisa do estádio de um jogo (venue = o da ESPN), com o que já houver em cache.
 
     {"id", "nome", "cidade", "pais", "lat", "lon", "osm"} (lat/lon None se ainda não se sabe; osm = há o ficheiro
-    do OpenStreetMap). Não faz pedidos: o que falta pede-se com pedir_em_fundo()."""
+    do OpenStreetMap). Não faz pedidos: o que falta prepara-se antes (preparar, --todos)."""
     if not venue or not venue.get("fullName"):
         return None
     c = chave(venue)
@@ -270,6 +275,41 @@ def coordenadas(nome, nome_cidade, pais):
 # ------------------------------------------------------------ OpenStreetMap
 
 _de_parte = {}   # servidor do Overpass -> quando falhou
+_ignorar_pausa = [False]   # só o --testar tenta com o Overpass em pausa
+
+
+class OverpassEmPausa(Exception):
+    """O Overpass está em pausa (pausar_overpass): nenhum descarregamento do OSM tenta até lá."""
+
+
+def overpass_em_pausa():
+    """Até quando (epoch) o Overpass está em pausa, ou None."""
+    try:
+        ate = json.loads(PAUSA_OVERPASS.read_text(encoding="utf-8")).get("ate") or 0
+    except (OSError, ValueError):
+        return None
+    return ate if ate > time.time() else None
+
+
+def _hora(t):
+    return time.strftime("%H:%M de %d/%m", time.localtime(t))
+
+
+def pausar_overpass(motivo, mostrar=print):
+    """Põe o Overpass em pausa PAUSA_OVERPASS_S (só o --testar tenta antes). Devolve o texto para o registo."""
+    ate = time.time() + PAUSA_OVERPASS_S
+    PAUSA_OVERPASS.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PAUSA_OVERPASS.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"ate": ate, "ate_em": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(ate)),
+                               "motivo": motivo}, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(PAUSA_OVERPASS)
+    texto = f"Overpass em pausa até {_hora(ate)} ({motivo}); só o --testar tenta antes"
+    mostrar(texto)
+    return texto
+
+
+def levantar_pausa():
+    PAUSA_OVERPASS.unlink(missing_ok=True)
 
 
 def _esperar_vez(url):
@@ -294,6 +334,9 @@ def _overpass(consulta):
     """Pergunta aos servidores do Overpass, por ordem. Um que falhou (sem ligação, tempo esgotado, 5xx) fica de
     parte OVERPASS_DE_PARTE_S, para não se esperar por ele em cada estádio. Se nenhum responder, sobe o erro (de
     preferência o TimeoutError, que leva buscar_osm a tentar com um raio menor); o estádio repete-se mais tarde."""
+    pausa = overpass_em_pausa()
+    if pausa and not _ignorar_pausa[0]:
+        raise OverpassEmPausa(f"Overpass em pausa até {_hora(pausa)}")
     dados = urllib.parse.urlencode({"data": consulta}).encode()
     erros = []
     for url in OVERPASS:
@@ -671,34 +714,11 @@ def resolver(e, com_osm):
                 novo.update(lon=campo["c"][0], lat=campo["c"][1])
             guardado = _gravar_entrada(c, novo)
         return guardado
-    except LimiteDiario:
-        raise   # não é um erro do estádio: fica como estava, para amanhã
+    except (LimiteDiario, OverpassEmPausa):
+        raise   # não é um erro do estádio: fica como estava, para mais tarde
     except Exception as ex:
         print(f"Aviso: estádio {e['nome']}: {ex!r}")
         return _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora, "erro": str(ex)[:200]})
-
-
-# Fila de fundo: um pedido de cada vez, para não abusar da Wikidata e do Overpass. Primeiro as coordenadas de
-# todos (Wikidata, rápido: chegam para o mapa), só depois o OSM, um de cada vez (Overpass, ~1 minuto cada)
-_fila, _na_fila = queue.PriorityQueue(), set()
-_ordem = iter(range(10 ** 12))   # desempate na fila (por ordem de chegada)
-_trabalhador = []
-
-
-def _trabalhar():
-    time.sleep(1)   # deixa chegar os outros jogos do mesmo pedido, para as coordenadas irem antes do primeiro OSM
-    while True:
-        fase, _, e, com_osm = _fila.get()
-        try:
-            if fase == 0 and com_osm:
-                # só as coordenadas; o OSM volta à fila, atrás das coordenadas dos outros
-                if resolver(e, False).get("lat") is not None:
-                    _fila.put((1, next(_ordem), e, True))
-                    continue
-            resolver(e, com_osm)
-        except Exception:
-            pass
-        _na_fila.discard(e["id"])
 
 
 def falta(e, com_osm):
@@ -713,38 +733,80 @@ def falta(e, com_osm):
     return com_osm and not e.get("osm") and (guardado.get("fonte") != "cidade" or guardado.get("afinar", True))
 
 
-def pedir_em_fundo(e, com_osm):
-    """Põe o estádio na fila de fundo (se ainda faltar alguma coisa e não estiver já lá)."""
-    if not e or e["id"] in _na_fila or not falta(e, com_osm):
-        return
-    if not _trabalhador:
-        _trabalhador.append(threading.Thread(target=_trabalhar, daemon=True, name="estadios"))
-        _trabalhador[0].start()
-    _na_fila.add(e["id"])
-    _fila.put((0 if ler().get(e["id"], {}).get("lat") is None else 1, next(_ordem), e, com_osm))
+def _resolvido(e, com_osm):
+    g = ler().get(e["id"], {})
+    return g.get("lat") is not None and (not com_osm or ficheiro_osm(e["id"]).exists() and not g.get("refazer")
+                                         or g.get("fonte") == "cidade")
 
 
-def preparar(venues, mostrar=print):
-    """Resolve já (na thread de quem chama) os estádios que faltam. venues = [(venue da ESPN, desporto)].
-    Devolve (quantos já estavam, quantos se resolveram, quantos falharam)."""
-    ja, novos, falhas = 0, 0, 0
-    vistos = set()
+def em_falta(venues):
+    """Só lê o cache (sem pedidos): [(info, futebol)] dos estádios destes venues (sem repetir) e, desses, os que
+    precisam de alguma coisa: sem coordenadas, de futebol sem o ficheiro do OSM, ou marcados com refazer."""
+    lista, vistos = [], set()
     for v, desporto in venues:
         e = info(v, desporto)
-        if not e or e["id"] in vistos:
-            continue
-        vistos.add(e["id"])
-        com_osm = desporto == "football"
-        if not falta(e, com_osm):
-            ja += 1
-            continue
-        mostrar(f"Estádio: {e['nome']} ({e.get('cidade') or '?'})")
-        r = resolver(e, com_osm)
-        if r.get("lat") is not None and (not com_osm or ficheiro_osm(e["id"]).exists() or r.get("fonte") == "cidade"):
-            novos += 1
-        else:
-            falhas += 1
-    return ja, novos, falhas
+        if e and e["id"] not in vistos:
+            vistos.add(e["id"])
+            lista.append((e, desporto == "football"))
+    return lista, [(e, f) for e, f in lista if not _resolvido(e, f)]
+
+
+def gravar_em_falta(lista, dias):
+    """Para a página /definicoes: os estádios dos próximos jogos ainda sem coordenadas e os de futebol sem ruas."""
+    tudo = ler()
+    sem_coord = sorted(f"{e['nome']} ({e.get('cidade') or '?'})" for e, _f in lista if tudo.get(e["id"], {}).get("lat") is None)
+    sem_ruas = sorted(f"{e['nome']} ({e.get('cidade') or '?'})" for e, f in lista
+                      if f and tudo.get(e["id"], {}).get("lat") is not None and not ficheiro_osm(e["id"]).exists())
+    tmp = EM_FALTA.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"em": time.strftime("%Y-%m-%dT%H:%M:%S"), "dias": dias, "estadios": len(lista),
+                               "sem_coordenadas": sem_coord, "sem_ruas": sem_ruas}, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(EM_FALTA)
+
+
+def preparar(a_fazer, mostrar=print, ate=None):
+    """Resolve já (na thread de quem chama) os estádios que faltam. a_fazer = [(info, futebol)] (o 2.º de
+    em_falta()), o mais urgente primeiro. Primeiro as coordenadas (Wikidata) de todos; depois o OSM dos de futebol,
+    com as regras do --todos: PAUSA_TODOS entre pedidos, OSM_POR_DIA, a vaga no /api/status (_overpass), a pausa
+    do Overpass e, ao fim de OVERPASS_SEGUIDOS estádios seguidos com erro de rede, para e põe o Overpass em pausa
+    (pausar_overpass). ate: hora (time.time()) a partir da qual não se começa mais nenhum.
+    Devolve (quantos se resolveram, quantos ficaram por fazer, porque parou o OSM ou None)."""
+    global PAUSA
+    a_tempo = lambda: ate is None or time.time() < ate
+    # 1.º as coordenadas (Wikidata, rápido): chegam para o ponto no mapa
+    for e, _f in a_fazer:
+        if not a_tempo():
+            break
+        if ler().get(e["id"], {}).get("lat") is None and not falhou_ha_pouco(ler().get(e["id"], {})):
+            mostrar(f"Estádio: {e['nome']} ({e.get('cidade') or '?'})")
+            resolver(e, False)
+    # 2.º o OSM (Overpass, ~1 minuto cada), com calma; só se houver algum de futebol com coordenadas a precisar
+    osm = [e for e, f in a_fazer if f and ler().get(e["id"], {}).get("lat") is not None and not _resolvido(e, True)
+           and falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)]
+    parou = None
+    pausa = overpass_em_pausa()
+    if osm and pausa:
+        parou = f"Overpass em pausa até {_hora(pausa)}"
+    PAUSA = max(PAUSA, PAUSA_TODOS)
+    seguidos = 0
+    for e in osm:
+        if parou:
+            break
+        if not a_tempo():
+            parou = "tempo esgotado: os que faltam ficam para a próxima atualização"
+            break
+        mostrar(f"OpenStreetMap: {e['nome']}")
+        try:
+            r = resolver(e, True)
+        except (LimiteDiario, OverpassEmPausa) as ex:
+            parou = str(ex)
+            break
+        seguidos = 0 if _resolvido(e, True) or not r.get("erro") else seguidos + 1
+        if seguidos >= OVERPASS_SEGUIDOS:
+            parou = pausar_overpass(f"sem resposta em {seguidos} estádios seguidos", mostrar)
+    if parou:
+        mostrar(f"OpenStreetMap parado: {parou}")
+    novos = sum(1 for e, f in a_fazer if _resolvido(e, f))
+    return novos, len(a_fazer) - novos, parou
 
 
 # ------------------------------------------------------------ todos de uma vez (--todos)
@@ -856,7 +918,13 @@ def estado_todos(linhas=12):
     if estado.get("estado") == "a correr" and not vivo:
         estado["estado"] = "parado"   # o processo morreu a meio (ex.: o PC desligou): continua com --todos
     so_cidade = sorted(f"{v.get('nome')} ({v.get('cidade') or '?'})" for v in ler().values() if v.get("fonte") == "cidade")
-    return {**estado, "a_correr": vivo, "registo": fim, "so_cidade": so_cidade}
+    pausa = overpass_em_pausa()
+    try:
+        falta_ = json.loads(EM_FALTA.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        falta_ = None
+    return {**estado, "a_correr": vivo, "registo": fim, "so_cidade": so_cidade, "em_falta": falta_,
+            "overpass_pausa": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(pausa)) if pausa else None}
 
 
 def todos():
@@ -934,8 +1002,12 @@ def _fases(gravar_progresso, mostrar, t0):
 
     # Fase B: o OSM, o do jogo mais próximo primeiro (a lista já vem por data)
     PAUSA = max(PAUSA, PAUSA_TODOS)
-    limite = False
-    for ronda in range(RONDAS):
+    limite = pausado = False
+    pausa = overpass_em_pausa()
+    if pausa and not _ignorar_pausa[0]:
+        mostrar(f"Overpass em pausa até {_hora(pausa)}: não faço a fase B (só o --testar tenta antes)")
+        pausado = True
+    for ronda in range(0 if pausado else RONDAS):
         a_fazer = [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)
                    and ler().get(e["id"], {}).get("lat") is not None]
         if not a_fazer:
@@ -958,14 +1030,20 @@ def _fases(gravar_progresso, mostrar, t0):
                 mostrar(f"Limite diário: {ex}; paro a fase B, o resto fica para amanhã")
                 limite = True
                 break
+            except OverpassEmPausa as ex:
+                mostrar(f"{ex}: paro a fase B")
+                pausado = True
+                break
             ok = ficheiro_osm(e["id"]).exists()
             mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
             seguidos = 0 if ok or not r.get("erro") else seguidos + 1
             if seguidos >= OVERPASS_SEGUIDOS:
                 # o Overpass não responde (em baixo, ou a recusar o nosso IP): continuar só gastava pedidos e tempo
                 mostrar(f"Overpass sem resposta em {seguidos} estádios seguidos: paro a fase B (ver /api/status do Overpass)")
+                pausar_overpass(f"sem resposta em {seguidos} estádios seguidos", mostrar)
+                pausado = True
                 break
-        if seguidos >= OVERPASS_SEGUIDOS or limite:
+        if pausado or limite:
             break
         time.sleep(1)
         # os que deram erro voltam a ser tentados; os outros (não encontrados, só a cidade) ficam
@@ -981,7 +1059,10 @@ def _fases(gravar_progresso, mostrar, t0):
     erro = f"{com_erro} estádios com erro de rede (Overpass); a tarefa agendada repete" if com_erro else None
     if limite:   # os que ficaram por fazer também não ficam esquecidos
         erro = f"limite de {OSM_POR_DIA} descarregamentos do OSM por dia atingido; o resto fica para amanhã"
-    gravar_progresso(estado="incompleto" if com_erro or limite else "ok", fase="fim", passo=fim, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"),
+    pausa = overpass_em_pausa()
+    if pausado and pausa:
+        erro = f"Overpass em pausa até {_hora(pausa)}; o resto fica para depois"
+    gravar_progresso(estado="incompleto" if com_erro or limite or pausado else "ok", fase="fim", passo=fim, terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"),
                      feitos=osm, total=len(futebol), erro=erro)
     mostrar("Feito: " + fim + (f" ({erro})" if erro else ""))
     duplicados([e for _q, e in futebol], mostrar)
@@ -989,8 +1070,9 @@ def _fases(gravar_progresso, mostrar, t0):
 
 def testar(nome, seco=False):
     """Um só estádio de futebol já em cache (pelo nome ou pela chave), com as regras do --todos (User-Agent, raios,
-    vaga no /api/status, PAUSA_TODOS, OSM_POR_DIA). Se o OSM vier, segue com um --todos (os que faltam, como um
-    --retomar); se não, para e diz que o bloqueio continua. Tudo no registo e no progresso (a página /definicoes).
+    vaga no /api/status, PAUSA_TODOS, OSM_POR_DIA). É o único que tenta com o Overpass em pausa; se o OSM vier, a
+    pausa levanta-se e segue com um --todos (os que faltam, como um --retomar); se não, para e diz que o bloqueio
+    continua. Tudo no registo e no progresso (a página /definicoes).
     seco: só mostra o que faria, sem pedidos nem gravar nada."""
     global PAUSA
 
@@ -1021,13 +1103,22 @@ def testar(nome, seco=False):
     tmp.replace(PROGRESSO)
     mostrar(f"Teste: OpenStreetMap só de {e['nome']} ({c})")
     PAUSA = max(PAUSA, PAUSA_TODOS)
+    pausa = overpass_em_pausa()
+    if pausa:
+        mostrar(f"Teste: o Overpass está em pausa até {_hora(pausa)}; o teste tenta na mesma")
     _gravar_entrada(c, {"refazer": True, "falhou": None, "erro": None})   # descarrega mesmo que já houvesse
+    _ignorar_pausa[0] = True
     try:
         r = resolver(e, True)
     except LimiteDiario as ex:
         r = {"erro": str(ex)}
+    finally:
+        _ignorar_pausa[0] = False
     ok = ficheiro_osm(c).exists() and not r.get("refazer")
     if ok:
+        if pausa:
+            levantar_pausa()
+            mostrar("Teste: pausa do Overpass levantada")
         mostrar(f"Teste: {e['nome']} ok ({time.time() - t0:.0f} s); o Overpass responde. Segue o resto (como o --retomar)")
         return True
     fim = f"Teste: {e['nome']} falhou ({r.get('erro') or 'sem OSM'}): o bloqueio do Overpass continua; paro aqui"

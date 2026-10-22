@@ -1,14 +1,20 @@
-"""Prepara o mapa do Ao vivo: os estádios dos jogos dos próximos 7 dias que ainda não estão em cache.
+"""Prepara o mapa do Ao vivo: os estádios dos jogos dos próximos 30 dias que ainda faltam (o passo "Estádios").
 
 Uso:
-    python tools/atualizar_estadios.py           # os jogos de hoje até daqui a 7 dias
+    python tools/atualizar_estadios.py           # os jogos de hoje até daqui a 30 dias
     python tools/atualizar_estadios.py --ontem   # também os de ontem (são os que o ?simular=1 mostra)
+    python tools/atualizar_estadios.py --seco    # só diz o que falta, sem descarregar nada
 
-Para cada competição ligada (data/competicoes.json) e para a NBA, lê o scoreboard da ESPN dos próximos dias e
-passa os estádios ao tools/estadios.py: coordenadas (Wikidata) e, no futebol, o OpenStreetMap à volta
-(Overpass). Um pedido de cada vez, com pausa; o Overpass demora ~1 minuto por estádio, por isso cada
-atualização para de começar estádios novos ao fim de MAX_S segundos (os que ficarem, faz-se na seguinte ou,
-num jogo a decorrer, em fundo pelo Ao vivo). Não mexe no live.json.
+1. A lista: os estádios dos jogos dos próximos DIAS dias de cada competição ligada (data/competicoes.json) e da
+   NBA, dos calendários da ESPN (o jogo mais próximo primeiro).
+2. Compara-a com data/estadios.json e data/estadios_osm/ (estadios.em_falta): falta um estádio sem coordenadas, um
+   de futebol sem o ficheiro do OSM, ou um marcado com refazer.
+3. Só se faltar algum se descarrega (estadios.preparar): as coordenadas (Wikidata) e, no futebol, o OpenStreetMap
+   (Overpass), com as regras do --todos: no máximo OSM_POR_DIA por dia, a vaga no /api/status, para ao fim de 3
+   estádios seguidos com erro de rede e o Overpass fica 24 h em pausa. Para de começar estádios ao fim de MAX_S.
+4. Sem nada em falta não se liga à Wikidata nem ao Overpass (nem ao /api/status): "Estádios: 0 em falta, sem
+   ligação ao OSM".
+O que fica a faltar vai para data/estadios_em_falta.json (a página /definicoes mostra-o). Não mexe no live.json.
 Só usa a biblioteca standard do Python.
 """
 
@@ -22,7 +28,7 @@ import competicoes   # noqa: E402
 import estadios      # noqa: E402
 
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
-DIAS = 7
+DIAS = 30
 MAX_S = 7 * 60   # o atualizar_tudo.py desiste de um passo ao fim de 10 minutos
 
 
@@ -59,25 +65,23 @@ def main():
             todos += venues(caminho, de, ate, filtro)
         except Exception as e:
             erros.append(f"{nome} ({e})")
-    # Os jogos mais próximos primeiro, e cada estádio uma só vez
-    vistos, lista = set(), []
-    for _quando, v, desporto in sorted(todos, key=lambda x: x[0]):
-        c = estadios.chave(v)
-        if c not in vistos:
-            vistos.add(c)
-            lista.append((v, desporto))
-    t0 = time.time()
-    ja = novos = falhas = 0
-    for v in lista:
-        if time.time() - t0 > MAX_S:
-            print("Tempo esgotado: os estádios que faltam ficam para a próxima atualização.")
-            break
-        a, b, c = estadios.preparar([v])
-        ja, novos, falhas = ja + a, novos + b, falhas + c
+    lista, a_fazer = estadios.em_falta([(v, desporto) for _quando, v, desporto in sorted(todos, key=lambda x: x[0])])
+    if not a_fazer:
+        estadios.gravar_em_falta(lista, DIAS)
+        registar_fonte("Estádios (Wikidata, OpenStreetMap)", itens=0, esperado=False, aviso="; ".join(erros) or None)
+        print(f"Estádios: {len(lista)} dos próximos {DIAS} dias, 0 em falta, sem ligação ao OSM.")
+        return
+    print(f"Estádios: {len(lista)} dos próximos {DIAS} dias, {len(a_fazer)} em falta: "
+          + ", ".join(e["nome"] for e, _f in a_fazer[:10]) + (" ..." if len(a_fazer) > 10 else ""), flush=True)
+    if "--seco" in sys.argv:
+        estadios.gravar_em_falta(lista, DIAS)
+        return
+    novos, faltam, parou = estadios.preparar(a_fazer, mostrar=lambda t: print(t, flush=True), ate=time.time() + MAX_S)
+    estadios.gravar_em_falta(lista, DIAS)
     registar_fonte("Estádios (Wikidata, OpenStreetMap)", itens=novos, esperado=False,
-                   aviso=f"{falhas} estádios sem coordenadas" if falhas else ("; ".join(erros) or None))
-    print(f"Estádios: {ja} já em cache, {novos} novos, {falhas} sem dados.")
-
+                   aviso="; ".join(([f"{faltam} estádios por fazer"] if faltam else []) + ([parou] if parou else []) + erros) or None)
+    print(f"Estádios: {len(lista) - len(a_fazer)} já em cache, {novos} novos, {faltam} por fazer"
+          + (f" ({parou})" if parou else "") + ".")
 
 if __name__ == "__main__":
     main()

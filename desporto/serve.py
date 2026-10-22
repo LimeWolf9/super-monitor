@@ -7,7 +7,8 @@ Definições do futebol (que competições seguir): http://<pc>:8000/definicoes,
 data/competicoes.json por GET/POST /api/competicoes (ver tools/competicoes.py).
 
 Ao vivo: GET /api/aovivo[?seguir=id1,id2][&simular=1&desde=<s>] dá os jogos a decorrer agora (tools/aovivo.py, 30 s
-de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json. GET /api/aovivo/cara?pid=&nome=&sigla=
+de cache); o ecrã ?cat=aovivo pergunta a cada 30 s. Não grava no live.json e nunca descarrega estádios (só lê
+data/estadios.json e data/estadios_osm/, preparados antes pelo passo "Estádios" e pelo tools/estadios.py --todos). GET /api/aovivo/cara?pid=&nome=&sigla=
 dá a cara de quem marcou. Os mapas de base estão em web/mapas/; o OSM à volta dos estádios em data/estadios_osm/.
 Estádios (na página /definicoes): GET /api/estadios dá o progresso do "tools/estadios.py --todos" e o fim do registo;
 POST /api/estadios/continuar arranca-o num processo à parte (409 se já estiver a correr).
@@ -139,8 +140,10 @@ class Handler(SimpleHTTPRequestHandler):
             seguir = [i for i in ",".join(q.get("seguir", [])).split(",") if i][:30]
             try:
                 desde = float((q.get("desde") or ["0"])[0] or 0)
+                lista = lambda k: [x for x in ",".join(q.get(k, [])).split(",") if x]
                 return self.responder_json(aovivo.ao_vivo(seguir, simulado=q.get("simular") == ["1"], desde=desde,
-                                                          golo=(q.get("golo") or [None])[0]))
+                                                          golo=(q.get("golo") or [None])[0],
+                                                          sem_ruas=lista("semruas"), sem_estadio=lista("semestadio")))
             except Exception as e:   # o Ao vivo não pode deitar o servidor abaixo
                 return self.responder_json({"erro": str(e), "jogos": [], "proximo": None, "teams": {}}, 502)
         if caminho == "/api/aovivo/cara":

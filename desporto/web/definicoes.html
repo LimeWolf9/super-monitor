@@ -176,6 +176,17 @@ mostrarFontes();
 // Estádios do mapa: o estado do --todos, a cada 10 s
 const FASE = { lista: 'a juntar os jogos da época', A: 'fase A: coordenadas', B: 'fase B: ruas (OpenStreetMap)', fim: 'feito' };
 const duracao = (s) => s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.round(s % 3600 / 60)).padStart(2, '0')} min` : `${Math.max(1, Math.round(s / 60))} min`;
+// Os estádios dos próximos jogos a que falta alguma coisa (data/estadios_em_falta.json, do passo "Estádios"):
+// no Ao vivo não aparece nenhum aviso; é aqui que se vê porque um jogo não tem zoom ou não está no mapa
+function emFalta(f) {
+  if (!f) return '';
+  const quando = new Date(f.em).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' });
+  const lista = (titulo, l) => l && l.length ? `<span class="nota mal">${titulo} (${l.length}): ${esc(l.join(', '))}</span>` : '';
+  const nada = !(f.sem_ruas || []).length && !(f.sem_coordenadas || []).length;
+  return `<span class="nota">Jogos dos próximos ${f.dias} dias: ${f.estadios} estádios${nada ? ', nada em falta' : ''} · visto às ${esc(quando)}</span>
+      ${lista('Sem estádio (sem coordenadas: o jogo fica só no cartão)', f.sem_coordenadas)}
+      ${lista('Sem ruas (sem o zoom nos golos)', f.sem_ruas)}`;
+}
 async function mostrarEstadios() {
   const caixa = document.getElementById('estadios');
   try {
@@ -191,7 +202,9 @@ async function mostrarEstadios() {
     caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${falta ? ` · ${falta}` : ''}</span></div>
       ${e.total ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}
       ${e.passo ? `<span class="nota">${esc(e.passo)}</span>` : ''}
+      ${e.overpass_pausa ? `<span class="nota mal">⏸ Overpass em pausa até ${esc(new Date(e.overpass_pausa).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' }))} (3 falhas seguidas; só o --testar tenta antes)</span>` : ''}
       ${e.so_cidade && e.so_cidade.length ? `<span class="nota mal">⚠ só cidade (corrigir em tools/estadios_correcoes.json): ${esc(e.so_cidade.join(', '))}</span>` : ''}
+      ${emFalta(e.em_falta)}
       ${e.registo && e.registo.length ? `<pre>${esc(e.registo.slice(-5).join('\n'))}</pre>` : ''}
       <button id="continuar" ${e.a_correr ? 'disabled' : ''}>${e.a_correr ? 'A descarregar…' : 'Continuar download'}</button>`;
     caixa.querySelector('#continuar').addEventListener('click', async (ev) => {

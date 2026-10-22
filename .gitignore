@@ -16,6 +16,9 @@ desporto/data/estadios.json
 desporto/data/estadios_osm/
 desporto/data/estadios_todos.json
 desporto/data/estadios_todos.log
+desporto/data/estadios_osm_dia.json
+desporto/data/estadios_em_falta.json
+desporto/data/estadios_overpass_pausa.json
 desporto/web/img/jogadores/
 desporto/web/img/equipas/
 desporto/web/img/ligas/

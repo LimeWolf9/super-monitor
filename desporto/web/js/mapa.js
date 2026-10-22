@@ -24,10 +24,10 @@ export const REGIOES = {
 };
 const DESCER_MS = 3800, SUBIR_MS = 2400;
 const LARGURA_FINAL = 1.1;    // km: o estádio e as ruas à volta
-const SEM_OSM_FINAL = 22;     // km: sem o OpenStreetMap do estádio, a descida para na cidade
 const AREA = { x0: 150, x1: 930, y0: 230, y1: 1060 };   // onde ficam os pontos na vista geral (px)
 
-// Continente de um jogo (pelas coordenadas do estádio; sem elas, pelo desporto/competição), ou null
+// Continente de um jogo (pelas coordenadas do estádio; sem elas, pelo desporto/competição), ou null. O Ao vivo só
+// pergunta pelos que têm coordenadas (temLugar).
 export function continente(j) {
   const e = j.estadio;
   if (e && e.lat != null) {
@@ -332,15 +332,17 @@ export function criarMapa(host, { dados }) {
   }
 
   // Um acontecimento: voa até ao estádio, mostra o destaque (html, ou uma promessa dele: a cara pode estar a
-  // chegar) e o nome do estádio durante "segurar" ms, e volta.
+  // chegar) e o nome do estádio durante "segurar" ms, e volta. Sem o OSM do estádio não há voo: devolve false (e o
+  // aovivo.js mostra só o destaque).
   async function acontecimento(j, { destaque, classe = '', segurar = 5000 }) {
     await pronto;
     const m = marcas.get(j.id);
     if (!vivo || !m) return false;
+    const alvo = await prepararEstadio(j);
+    if (!alvo || !vivo) return false;
     voo = j;
     el.classList.add('esconde');
-    const alvo = await prepararEstadio(j);
-    const F = alvo ? { cx: alvo[0], cy: alvo[1] - 0.21, w: LARGURA_FINAL } : { cx: m.x, cy: m.y - SEM_OSM_FINAL * 0.19, w: SEM_OSM_FINAL };
+    const F = { cx: alvo[0], cy: alvo[1] - 0.21, w: LARGURA_FINAL };
     const inicio = { ...G };
     await voar(inicio, F, DESCER_MS);
     const caixa = $('.av-destaque'), nome = $('.av-nome-estadio');

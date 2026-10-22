@@ -20,5 +20,9 @@
  "4957": {"nome": "SMH Group Stadium", "clube": "Chesterfield", "lat": 53.253558, "lon": -1.425819,
           "nota": "Nominatim: OSM leisure=stadium way 133493605, Chesterfield (a Wikidata Q619112 cai no parque de estacionamento, a 90 m)"},
  "8930": {"nome": "Manadon Sports Hub", "clube": "Plymouth Parkway", "lat": 50.407809, "lon": -4.14741,
-          "nota": "Nominatim: OSM leisure=pitch \"Bolitho Park\", St Peters Road, Manadon, Plymouth (Wikidata Q108131173 dá a sede, a 60 m)"}
+          "nota": "Nominatim: OSM leisure=pitch \"Bolitho Park\", St Peters Road, Manadon, Plymouth (Wikidata Q108131173 dá a sede, a 60 m)"},
+ "2271": {"nome": "Parc des Princes", "clube": "Paris Saint-Germain", "lat": 48.84149653579533, "lon": 2.2530428869805137,
+          "nota": "coordenadas verificadas à mão (Google Maps), Paris 16e; a 210 m do Jean-Bouin"},
+ "6856": {"nome": "Stade Jean Bouin", "clube": "Paris FC", "lat": 48.843348070356946, "lon": 2.2528515048615683,
+          "nota": "coordenadas verificadas à mão (Google Maps), Paris 16e; o relvado é o de dentro do seu contorno, não o do Parc des Princes"}
 }

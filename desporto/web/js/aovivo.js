@@ -7,12 +7,16 @@
 //                  Com mais jogos, as páginas trocam sozinhas a cada 10 s (◀▶ também trocam). ↩ volta à lista.
 // Acontecimentos: a cada resposta comparam-se os acontecimentos de cada jogo de futebol seguido com os da anterior
 // (golos, penáltis, autogolos, penáltis falhados, vermelhos). Os novos entram numa fila, pela ordem em que chegam,
-// sem preferência por equipa. Cada um: com mapa, o voo até ao estádio e o destaque (mapa.acontecimento); sem mapa,
-// só o destaque. O cartão do jogo brilha entretanto. Com mais de 3 à espera, cada um fica menos tempo.
+// sem preferência por equipa. Cada um: com mapa e o OSM do estádio, o voo até ao estádio e o destaque
+// (mapa.acontecimento); sem mapa ou sem o OSM, só o destaque, sem zoom. O cartão do jogo brilha entretanto.
+// Estádios: só os que já estão preparados (o Ao vivo nunca descarrega nada). Um jogo sem coordenadas fica só no
+// cartão e não conta para o continente do mapa; sem nenhum com coordenadas, só cartões. O que falta vê-se na
+// página /definicoes, não aqui. Com mais de 3 à espera, cada um fica menos tempo.
 // Pergunta ao servidor a cada 30 s, só enquanto está aberto (o hub fecha o iframe ao sair). Não mexe no live.json.
 // ?simular=1: os jogos de ontem a fingir que estão a decorrer (ver tools/aovivo.py), perguntando a cada 10 s.
 //   Só com ele: &seguir=futebol6,nba (os primeiros 6 de futebol e todos da NBA; ou ids), &vista=seguir (abre logo o
-//   acompanhamento) e &golo=<sigla> (a equipa do golo inventado aos 10 s).
+//   acompanhamento), &golo=<sigla> (a equipa do golo inventado aos 10 s) e &semruas= / &semestadio=<siglas> (esses
+//   jogos como se o estádio não tivesse o OSM / as coordenadas).
 import { esc, badge, teamName } from './util.js';
 import { titulo, subtitulo } from './cenas/base.js';
 import { evento } from './cenas/futebol.js';
@@ -167,11 +171,11 @@ export function iniciarAoVivo({ host, getData }) {
     </article>`;
   }
 
-  // O continente do mapa, se todos os jogos seguidos estiverem no mesmo (e pelo menos um tiver coordenadas); senão null
+  // O continente do mapa, se todos os jogos seguidos com coordenadas estiverem no mesmo; senão null (só cartões).
+  // Os sem coordenadas ficam só nos cartões e não contam.
   function regiaoDoMapa(lista) {
-    const regioes = new Set(lista.map(continente).filter(Boolean));
-    if (regioes.size !== 1 || lista.some((j) => temLugar(j) && !continente(j))) return null;
-    return lista.some(temLugar) ? [...regioes][0] : null;
+    const regioes = new Set(lista.filter(temLugar).map(continente));
+    return regioes.size === 1 && !regioes.has(null) ? [...regioes][0] : null;
   }
 
   function subSeguir(lista) {
@@ -250,11 +254,10 @@ export function iniciarAoVivo({ host, getData }) {
     const i = lista.findIndex((x) => x.id === id);
     if (i >= 0) pagina = Math.floor(i / POR_PAGINA);
     if (vista === 'seguir') desenharSeguir();
-    if (vista === 'seguir' && ui && ui.mapa && ui.mapa.tem(id)) {
-      await ui.mapa.acontecimento(j, { destaque: html, classe: vermelho, segurar });
-      return;
-    }
-    // sem mapa (ou este jogo não está nele): só o destaque, sem o zoom
+    // o voo até às ruas só com o OSM do estádio (mapa.acontecimento devolve false sem ele)
+    if (vista === 'seguir' && ui && ui.mapa && ui.mapa.tem(id) && j.estadio && j.estadio.osm
+        && await ui.mapa.acontecimento(j, { destaque: html, classe: vermelho, segurar })) return;
+    // sem mapa, sem o OSM do estádio (ou este jogo não está no mapa): só o destaque, sem o zoom
     caixaDestaque.innerHTML = `<div class="av-destaque${vermelho}">${await html}</div>`;
     caixaDestaque.hidden = false;
     requestAnimationFrame(() => caixaDestaque.firstElementChild?.classList.add('on'));
@@ -293,7 +296,7 @@ export function iniciarAoVivo({ host, getData }) {
       if (SIMULAR) {
         q.set('simular', '1');
         q.set('desde', String(Math.round((Date.now() - T0) / 1000)));
-        if (PARAMS.get('golo')) q.set('golo', PARAMS.get('golo'));
+        for (const k of ['golo', 'semruas', 'semestadio']) if (PARAMS.get(k)) q.set(k, PARAMS.get(k));
       }
       const r = await fetch(`/api/aovivo?${q}`, { cache: 'no-store' });
       resposta = await r.json();

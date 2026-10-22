@@ -11,8 +11,9 @@ quando se atualiza à mão; isto vai buscar à hora e não escreve no live.json.
 - F1: ainda não (ver FONTES: é aí que entra uma função nova, ex.: f1_ao_vivo()).
 
 Cada jogo traz o estádio ("estadio": nome, cidade, coordenadas, se já há o OpenStreetMap à volta), para o mapa do
-acompanhamento (ver tools/estadios.py). O que ainda não está em cache pede-se em fundo, um de cada vez: as
-coordenadas de todos os jogos mostrados e, nos de futebol a decorrer, o OpenStreetMap à volta do estádio.
+acompanhamento (ver tools/estadios.py). Só se lê o que já está em cache (data/estadios.json, data/estadios_osm/):
+o Ao vivo nunca pede nem descarrega um estádio. Os estádios preparam-se antes (o passo "Estádios" da atualização,
+estadios.py --todos). Sem coordenadas, o jogo fica só no cartão; sem o OSM, fica no mapa mas sem o zoom das ruas.
 A cara de quem marcou: cara() (GET /api/aovivo/cara), da cache das fotos, do facepack ou da ESPN.
 
 Cada pedido fica em cache CACHE_S segundos (a página pergunta a cada 30 s). As falhas ficam em data/fontes.json
@@ -23,6 +24,8 @@ Para testar sem jogos a decorrer:  /api/aovivo?simular=1&desde=<s> (ou --simular
 NBA) a fingir que estão a decorrer. desde = segundos desde que a página abriu: o relógio começa no minuto 55 e anda
 um minuto de jogo a cada 2 s, com os golos a aparecer no minuto em que foram. Aos 10 s entra um golo inventado num
 jogo seguido (&golo=<sigla> escolhe a equipa; por omissão, a casa do primeiro jogo seguido com o OSM do estádio).
+&semruas=<siglas> e &semestadio=<siglas> (separadas por vírgulas): os jogos dessas equipas como se o estádio ainda
+não tivesse o OSM / as coordenadas (para ver o Ao vivo sem o zoom e só com o cartão, sem tocar no cache).
 """
 
 import copy
@@ -239,7 +242,7 @@ def simular(jogos, desde, seguir=(), golo=None):
     return jogos
 
 
-def ao_vivo(seguir=(), simulado=False, desde=0, golo=None):
+def ao_vivo(seguir=(), simulado=False, desde=0, golo=None, sem_ruas=(), sem_estadio=()):
     """O que a página do Ao vivo mostra: os jogos a decorrer (e os seguidos, mesmo que já tenham acabado)."""
     agora = datetime.now().astimezone()
     if simulado:
@@ -292,13 +295,17 @@ def ao_vivo(seguir=(), simulado=False, desde=0, golo=None):
 
     seguir = set(seguir)
     if simulado:
+        for j in jogos:   # teste: estádios como se ainda não estivessem preparados (só nesta resposta)
+            e, siglas = j.get("estadio"), {j["home"], j["away"]}
+            if e and siglas & set(sem_estadio):
+                e.update(lat=None, lon=None, osm=False)
+            elif e and siglas & set(sem_ruas):
+                e["osm"] = False
         jogos = simular(jogos, desde, seguir, golo)
     meus = {(dados.get("myTeam") or {}).get("code"), (dados.get("myTeam") or {}).get("selecao") or "PRT"}
     mostrar = [j for j in jogos if j["estado"] == "in" or j["id"] in seguir]
     for j in mostrar:
         j["meu"] = j["home"] in meus or j["away"] in meus
-        # O que falta do estádio pede-se em fundo; o OSM (para o zoom dos golos) só nos jogos de futebol a decorrer
-        estadios.pedir_em_fundo(j.get("estadio"), j["sport"] == "football" and j["estado"] == "in")
     # Sem jogos a decorrer: o próximo de hoje (dos scoreboards) ou, se não houver, o do live.json
     por_jogar = sorted((j for j in jogos if j["estado"] == "pre"), key=lambda j: j["iso"] or "")
     proximo = None if any(j["estado"] == "in" for j in jogos) else (por_jogar[0] if por_jogar else proximo_do_live(dados, agora))
