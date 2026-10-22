@@ -138,12 +138,32 @@ function desenharDados() {
       a.className = "def";
       a.textContent = "⚙ Definições";
       a.href = `${u.definicoes.replace("{host}", location.hostname)}?voltar=${encodeURIComponent(location.href)}`;
+      // O servidor da página só corre com uma app aberta: o hub liga-o (se preciso) e só depois se abre a página
+      a.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (a.classList.contains("a-abrir")) return;
+        a.classList.add("a-abrir");
+        a.textContent = "A abrir…";
+        let erro = "Sem ligação ao hub";
+        try {
+          const r = await (await fetch("/api/definicoes", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                           body: JSON.stringify({ app: u.id }) })).json();
+          if (r.ok) return void (location.href = a.href);
+          erro = r.erro || "Não consegui abrir as definições";
+        } catch {}
+        a.classList.remove("a-abrir");
+        a.textContent = "⚙ Definições";
+        s.textContent = erro;
+        s.classList.add("falhou");
+      });
       b.before(a);
     }
     return el;
   }));
 }
 setInterval(() => estado && desenharDados(), 60000);
+// De volta ao comando (ou aberto de novo): o servidor ligado só para as definições já não é preciso
+window.addEventListener("pageshow", () => fetch("/api/definicoes/fechar", { method: "POST" }).catch(() => {}));
 
 const fonte = new EventSource("/api/eventos");
 fonte.onopen = () => document.body.classList.remove("offline");

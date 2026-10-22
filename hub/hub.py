@@ -165,6 +165,8 @@ class Hub:
         self.ativa = None           # id da app aberta (ou a carregar)
         self.mensagem = ""          # texto do loading / do erro
         self.processo = None        # processo arrancado por nós (para o parar ao sair)
+        self.processo_def = None    # servidor arrancado só para abrir a página de definições (ver definicoes())
+        self.def_limite = None      # Timer que o desliga se ninguém voltar ao comando
         self.geracao = 0            # muda a cada abrir/fechar: um arranque antigo não estraga um novo
         self.ouvintes = []          # filas dos clientes ligados a /api/eventos
         self.links_comando = []     # escritos no rodapé do ecrã, para abrires no telemóvel
@@ -407,6 +409,62 @@ class Hub:
             self.emitir({"tipo": "aviso", "texto": texto})
             self.emitir_estado()
 
+    # ------------------------------------------------------------ página de definições (ex.: do Desporto)
+    def definicoes(self, ident):
+        """Garante que o servidor da página de definições responde; liga-o se preciso. (ok, erro)
+
+        Corre fora do lock (pode esperar uns segundos). O servidor fica ligado enquanto a página está
+        aberta; o comando pede fechar_definicoes() quando voltas a ele.
+        """
+        entrada = self.atualizaveis.get(ident) or self.raiz_por_id(ident)
+        if not entrada or not entrada.get("definicoes"):
+            return False, "Sem definições"
+        saude = entrada.get("saude")
+        if not saude or responde(saude):
+            return True, None
+        if not entrada.get("arrancar"):
+            return False, f"{entrada['nome']} não está a correr"
+        with self.lock:
+            if not (self.processo_def and self.processo_def.poll() is None):
+                cmd, pasta = preparar_cmd(entrada["arrancar"])
+                opcoes = {"cwd": str(pasta), "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+                if NO_WINDOWS:
+                    opcoes["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                else:
+                    opcoes["start_new_session"] = True
+                try:
+                    self.processo_def = subprocess.Popen(cmd, **opcoes)
+                except Exception as e:
+                    return False, f"Não consegui arrancar {entrada['nome']}: {e}"
+            proc = self.processo_def
+            if self.def_limite:
+                self.def_limite.cancel()
+            self.def_limite = threading.Timer(30 * 60, self.fechar_definicoes)   # se nunca voltares ao comando
+            self.def_limite.daemon = True
+            self.def_limite.start()
+        limite = time.time() + float(entrada.get("espera_max", 60))
+        while not responde(saude):
+            if proc.poll() is not None:
+                return False, f"{entrada['nome']} fechou-se ao arrancar"
+            if time.time() > limite:
+                self.fechar_definicoes()
+                return False, f"{entrada['nome']} não respondeu a tempo"
+            time.sleep(0.5)
+        return True, None
+
+    def fechar_definicoes(self):
+        """Desliga o servidor ligado só para as definições (o de uma app aberta fica)."""
+        with self.lock:
+            if self.def_limite:
+                self.def_limite.cancel()
+                self.def_limite = None
+            if self.processo_def:
+                self._matar(self.processo_def)
+                self.processo_def = None
+
+    def raiz_por_id(self, ident):
+        return next((a for a in self.raiz if a.get("id") == ident), None)
+
     def abrir(self, app_id, desbloqueada=False):
         app = self.app(app_id)
         if not app or app.get("em_breve"):
@@ -492,6 +550,13 @@ class Hub:
                 return self._falhou(geracao, f"{app['nome']}: {e}")
 
         saude = app.get("saude")
+        with self.lock:
+            if self.processo_def and self.processo_def.poll() is None and geracao == self.geracao:
+                # o servidor já estava ligado para as definições: passa a ser o desta app (fecha com ela)
+                self.processo, self.processo_def = self.processo_def, None
+                if self.def_limite:
+                    self.def_limite.cancel()
+                    self.def_limite = None
         if saude and not responde(saude) and app.get("arrancar"):
             cmd, pasta = preparar_cmd(app["arrancar"])
             try:
@@ -650,13 +715,20 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
-        if urlsplit(self.path).path != "/api/comando":
+        caminho = urlsplit(self.path).path
+        if caminho not in ("/api/comando", "/api/definicoes", "/api/definicoes/fechar"):
             return self.send_error(404)
         try:
             tamanho = int(self.headers.get("Content-Length") or 0)
             pedido = json.loads(self.rfile.read(tamanho) or b"{}")
         except ValueError:
             return self.send_error(400)
+        if caminho == "/api/definicoes":            # ⚙ Definições no comando: liga o servidor se preciso e espera
+            ok, erro = HUB.definicoes(str(pedido.get("app", "")))
+            return self.json({"ok": ok, "erro": erro}, 200 if ok else 503)
+        if caminho == "/api/definicoes/fechar":     # o comando voltou a abrir: já não é preciso
+            HUB.fechar_definicoes()
+            return self.json({"ok": True})
         ok = HUB.comando(str(pedido.get("acao", "")), pedido.get("app"), pedido.get("valor"))
         self.json({"ok": ok}, 200 if ok else 400)
 
@@ -738,6 +810,7 @@ def main():
         pass
     finally:
         HUB.parar_processo()
+        HUB.fechar_definicoes()
         print("\nHub parado.")
 
 
