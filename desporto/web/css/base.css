@@ -739,6 +739,14 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
 .av-c .av-acont { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); margin-top: 6px; }
 .av-c .av-evs { font: 500 21px/1.35 var(--font); color: var(--muted); gap: 0; }
 .av-c .av-evs .ev-i { gap: 6px; }
+/* Muitos acontecimentos (encaixarEventos no aovivo.js): letra mais pequena e, se não chegar, duas colunas nesse lado */
+.av-c .av-acont.pequena .av-evs { font-size: 17px; line-height: 1.2; }
+.av-c .av-acont .av-evs.duas { display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--linhas), auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 10px; align-content: start; font-size: 15px; }
+.av-c .av-evs.duas:first-child { justify-items: end; }
+.av-c .av-evs.duas .ev-i { gap: 4px; }
+.av-c .av-evs.duas .ball { display: none; }   /* a bola não cabe; os vermelhos e as etiquetas P/AG ficam */
+.av-c .av-evs.duas .tag { font-size: 12px; padding: 0 3px; letter-spacing: 0; }
 .sem-mapa .av-c { padding: 24px 28px; border-radius: 36px; }
 .sem-mapa .av-c .cab { font-size: 24px; }
 .sem-mapa .av-c .cab .av-min { font-size: 32px; }
@@ -749,6 +757,8 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
 .sem-mapa .av-c.nba .av-res { font-size: 70px; }
 .sem-mapa .av-c.nba .eq .badge { width: 90px; height: 90px; }
 .sem-mapa .av-c .av-evs { font-size: 27px; }
+.sem-mapa .av-c .av-acont.pequena .av-evs { font-size: 22px; }
+.sem-mapa .av-c .av-acont .av-evs.duas { font-size: 19px; }
 
 /* ---------- F1 ao vivo (?cat=aovivo&simular=f1, js/f1aovivo.js): cabeçalho, mapa da pista, torre e rodapé ---------- */
 .scene-f1av { gap: 16px; padding-bottom: 46px; }

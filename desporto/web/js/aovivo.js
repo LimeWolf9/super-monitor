@@ -63,6 +63,15 @@ const tipo = (e) => e.t || 'golo';
 const chaveEv = (e) => `${tipo(e)}|${e.s}|${e.m}|${e.pid || e.p}`;
 const conta = (e) => ['golo', 'pen', 'og'].includes(tipo(e));
 
+// A ESPN às vezes junta o golo aos acontecimentos antes de mudar o resultado (fica ~1 min atrás): o resultado de
+// cada lado nunca fica abaixo dos golos que já lá estão. Se o golo for anulado, sai dos acontecimentos e vale o da ESPN.
+function acertarResultado(j) {
+  if (j.sport !== 'football' || j.hs == null) return;
+  const golos = (s) => (j.ev || []).filter((e) => conta(e) && (tipo(e) === 'og') !== (e.s === s)).length;
+  j.hs = Math.max(j.hs, golos('h'));
+  j.as = Math.max(j.as, golos('a'));
+}
+
 // O resultado logo depois deste acontecimento (os golos até ele, inclusive)
 function placarAte(j, ev) {
   const ord = [...(j.ev || [])].sort((a, b) => minutoNum(a.m) - minutoNum(b.m));
@@ -270,6 +279,23 @@ export function iniciarAoVivo({ host, getData }) {
     const sub = el.querySelector('.scene-title small');
     if (sub) sub.textContent = subSeguir(lista);
     ui.grelha.innerHTML = lista.slice(pag * POR_PAGINA, (pag + 1) * POR_PAGINA).map((j) => cartao(dd, j)).join('');
+    encaixarEventos(ui.grelha);
+  }
+
+  // Os acontecimentos têm de caber no cartão (com mapa só há lugar para 3 linhas): se não cabem, letra mais pequena;
+  // se ainda assim não, o lado que não cabe passa a duas colunas (de cima para baixo, por ordem do minuto).
+  function encaixarEventos(grelha) {
+    const altura = (l) => (l.children.length ? l.lastElementChild.offsetTop + l.lastElementChild.offsetHeight - l.firstElementChild.offsetTop : 0);
+    for (const a of grelha.querySelectorAll('.av-acont')) {
+      const lados = [...a.querySelectorAll('.av-evs')];
+      const naoCabe = (l) => altura(l) > a.clientHeight + 1;
+      if (!a.clientHeight || !lados.some(naoCabe)) continue;
+      a.classList.add('pequena');
+      for (const l of lados.filter(naoCabe)) {
+        l.classList.add('duas');
+        l.style.setProperty('--linhas', Math.ceil(l.children.length / 2));
+      }
+    }
   }
 
   const desenhar = () => (vista === 'lista' ? desenharLista() : desenharSeguir());
@@ -356,6 +382,7 @@ export function iniciarAoVivo({ host, getData }) {
       }
       const r = await fetch(`/api/aovivo?${q}`, { cache: 'no-store' });
       resposta = await r.json();
+      (resposta.jogos || []).forEach(acertarResultado);
     } catch (e) {
       resposta = { ...resposta, erro: `Sem ligação ao servidor (${e.message})` };
     }
