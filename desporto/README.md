@@ -38,8 +38,8 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
   Portugal vêm marcados. ▲▼ foco, OK marca/desmarca, ▶ (ou "Acompanhar") abre o acompanhamento (ver "Mapa do Ao
   vivo" abaixo): o mapa dos estádios em cima e os cartões por baixo, 2 por linha e até 6 por página (com mais jogos as
   páginas trocam sozinhas a cada 10 s; ◀▶ também trocam), com os golos, penáltis e vermelhos; um jogo que acabe fica
-  com "Terminado". ↩ volta à lista, e na lista ao menu do hub. Sem jogos: "Sem jogos ao vivo" e o próximo jogo. A F1
-  ainda não (o sítio para a acrescentar é `FONTES` em `ao_vivo()`).
+  com "Terminado". ↩ volta à lista, e na lista ao menu do hub. Sem jogos: "Sem jogos ao vivo" e o próximo jogo (ou a
+  próxima sessão da F1, se vier antes). Durante as sessões da F1 a sessão também está na lista (ver "F1 ao vivo").
   Para testar sem jogos a decorrer: `?cat=aovivo&simular=1` (os jogos de ontem, futebol e NBA, a fingir que estão a
   decorrer: começam no minuto 55 e andam 1 minuto a cada 2 s; aos 10 s entra um golo inventado num jogo seguido).
   Só com o `simular=1`: `&seguir=futebol6,nba2` (segue os primeiros N de cada desporto, ou ids), `&vista=seguir` (abre
@@ -289,6 +289,33 @@ ainda não tem coordenadas fica fora do mapa, mas com o cartão.
 **Créditos**: mapas de base do [Natural Earth](https://www.naturalearthdata.com/) (domínio público). Ruas e estádios
 © [contribuidores do OpenStreetMap](https://www.openstreetmap.org/copyright) (licença ODbL; o mapa mostra
 "© OpenStreetMap" enquanto está perto). Coordenadas dos estádios da [Wikidata](https://www.wikidata.org/) (CC0).
+
+## F1 ao vivo
+
+Durante as sessões do fim de semana (treinos, qualificações, sprint e corrida, com as horas do `live.json`), o Ao
+vivo mostra a sessão como um item da lista, com a bandeira do país, e vem marcada. No acompanhamento é a primeira
+página: o ecrã da F1 inteiro (`web/js/f1aovivo.js`), 20 s antes de passar aos cartões dos jogos (se for a única
+coisa seguida, fica nela); o atalho `ir_f1` (tecla 2) volta a ela. O ecrã escolhe-se pelo tipo da sessão: corrida
+(volta, intervalos, paragens, lutas a menos de 1 s, ultrapassagens no top 5, o campeonato se acabasse agora),
+qualificação (Q1/Q2/Q3 com a linha de eliminação, a distância para ela, o delta da volta lançada, pneus novos) ou
+treinos (pelo melhor tempo, sem eliminação). O mapa mostra a pista e os carros, e por cima os avisos de 7 s.
+
+- **Fonte:** o live timing da F1 (`livetiming.formula1.com`), o mesmo feed não oficial que a app usa, só para uso
+  pessoal; quem o usa tem de respeitar os termos da Formula 1 e da F1 TV. O cliente (`tools/f1_direto.py`) só está
+  ligado enquanto o Ao vivo ou o ecrã da F1 perguntam (desliga-se 90 s depois do último pedido) e religa sozinho se
+  a ligação cair. Cada sessão fica gravada em `data/f1_gravacoes/` (fora do git) para se poder rever.
+- **Token da F1 TV (opcional):** sem ele vem tudo menos as posições dos carros (o mapa mostra só a pista, com a nota
+  "sem F1 TV: sem posições"). Com uma conta F1 TV, o valor do cookie `login-session` do formula1.com num ficheiro
+  `data/f1tv_token.txt` (local e no `.gitignore`; nunca é escrito noutro sítio) junta as posições. A página
+  `/definicoes` mostra a fonte "F1 ao vivo (live timing)" com ✓ ou o aviso de que falta o token.
+- **Traçado do mapa:** o de uma volta limpa (o carro sempre em pista, sem saltos nas posições) guardado por circuito em
+  `data/f1_gravacoes/pistas/`; num circuito novo, o desenho do OpenStreetMap (ver "Pista da F1") até haver uma volta limpa.
+- **Bandeiras:** de [flagcdn.com](https://flagcdn.com) (domínio público), descarregadas uma vez para `web/img/bandeiras/`.
+- **Testar entre corridas** (só para quem desenvolve; nunca aparece sem estes parâmetros):
+  `?cat=aovivo&simular=f1&arquivo=<pasta>` mostra uma sessão de `data/f1_gravacoes/arquivo/` (descarregada com
+  `tools/f1_arquivo.py`, que precisa do token) com `&inicio=<min>`, `&volta=<n>`, `&parte=Q2`, `&vel=<x>`;
+  e `F1_DIRETO_REPLAY=<pasta>[,<vel>[,<min>]]` no ambiente do `serve.py` faz o cliente em direto receber essa sessão
+  do arquivo em vez do feed (o Ao vivo mostra-a como se estivesse a decorrer).
 
 ## Pista da F1
 

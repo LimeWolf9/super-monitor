@@ -86,6 +86,8 @@ no monitor que estiver na vertical.
 ## O que não está no repositório
 
 - **Dados pessoais:** nada das despesas reais, e o PIN do hub.
+- **Conta da F1 TV e gravações:** o token opcional da F1 TV (`desporto/data/f1tv_token.txt`) e as sessões
+  gravadas do live timing (`desporto/data/f1_gravacoes/`) ficam só no PC (ver "F1 ao vivo" no `desporto/README.md`).
 - **Imagens de terceiros:** emblemas dos clubes, logótipos das competições, fotos de pilotos
   e caras de jogadores são marcas ou imagens dos respetivos donos. Os atualizadores
   descarregam-nos no PC de cada um (`desporto/tools/baixar_emblemas.py`,
@@ -95,7 +97,6 @@ no monitor que estiver na vertical.
 
 - Correr tudo num mini PC (Linux + Docker) ligado ao monitor, com as apps a arrancar em containers.
 - Home Assistant a mandar os mesmos comandos que o telemóvel (ligar o monitor, abrir uma app).
-- A F1 ao vivo (o Ao vivo já tem o sítio para ela).
 
 ## Licença
 
