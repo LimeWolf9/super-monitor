@@ -118,7 +118,8 @@ function desenharDados() {
     const s = el.querySelector(".s");
     const b = el.querySelector("button");
     if (u.estado === "a_correr") {
-      s.textContent = `${u.passo || "A atualizar…"}${u.total ? ` · ${u.feitos || 0}/${u.total}` : ""}`
+      // u.agenda: atualização automática (o nome da tarefa, ex.: "Notícias")
+      s.textContent = `${u.agenda ? `Automática (${u.agenda}): ` : ""}${u.passo || "A atualizar…"}${u.total ? ` · ${u.feitos || 0}/${u.total}` : ""}`
         + (u.estimativa_s ? ` · faltam ~${Math.max(1, Math.round((u.estimativa_s - (u.decorrido_s || 0)) / 60))} min` : "");
       const barra = document.createElement("div");
       barra.className = "barra";

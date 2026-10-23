@@ -23,6 +23,15 @@
       ],
       "progresso": "data/atualizacao.json"
     },
+    "agenda": {
+      "pasta": "../desporto",
+      "cmd": [
+        "python",
+        "tools/agenda.py",
+        "--proximas"
+      ],
+      "registo": "data/agenda_registo.json"
+    },
     "ficheiros": {
       "/dados/desporto.json": "../desporto/data/live.json",
       "/dados/desporto-mock.json": "../desporto/data/mock.json"

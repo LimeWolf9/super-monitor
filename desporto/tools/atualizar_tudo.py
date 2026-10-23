@@ -57,6 +57,14 @@ PASSOS = [("atualizar_f1.py", "Fórmula 1"), ("atualizar_futebol.py", "Futebol")
           ("atualizar_estadios.py", "Estádios")]   # o mapa do Ao vivo (não mexe no live.json; é o mais demorado)
 CURTOS = {f[len("atualizar_"):-len(".py")]: f for f, _ in PASSOS}   # "noticias" -> "atualizar_noticias.py" (--passos)
 POR_COMPETICAO = ("atualizar_futebol.py", "atualizar_onze.py")      # os que aceitam --competicoes
+# Partes que se atualizam sozinhas (a secção "Atualizar só uma parte" da /definicoes e a agenda): (id, nome, passos). Depois do futebol corre o 11 da jornada (sai
+# dos jogos da última jornada) e depois de cada parte com dados os destaques (0,1 s), para não mostrarem dados velhos.
+PARTES = [("futebol", "Futebol", ["futebol", "onze", "destaques"]),
+          ("taca_liga", "Taça da Liga", ["taca_liga", "destaques"]),
+          ("f1", "Fórmula 1", ["f1", "destaques"]), ("nba", "NBA", ["nba", "destaques"]),
+          ("noticias", "Notícias", ["noticias", "destaques"]), ("elo", "ClubElo", ["elo", "destaques"]),
+          ("fotos", "Fotos", ["fotos", "destaques"]), ("curiosidades", "Curiosidades", ["curiosidades"]),
+          ("estadios", "Estádios", ["estadios"])]
 
 
 def ler_json(caminho, omissao):

@@ -120,7 +120,7 @@ A classificação e os próximos jogos estão em ecrãs separados (`*-tabela` e 
 
 Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogador em destaque e curiosidades.
 
-**Os dados só se atualizam quando se pede** (o `serve.py` já não atualiza sozinho):
+**Os dados só se atualizam quando se pede** (o `serve.py` não atualiza sozinho), ou pela **atualização automática** do MonitorHub, se estiver ligada (ver abaixo):
 
 - Botão **Atualizar** do comando do MonitorHub (ação `atualizar`; no teclado, tecla **U**): começa logo a atualização. Se já estiver a atualizar, o hub mostra "Já está a atualizar".
 - Durante a atualização aparece uma barra em baixo: "A atualizar: Futebol (2/8) · 0:18 de ~0:38". A estimativa vem do que cada passo demorou da última vez (`data/duracoes.json`). No fim aparece "Atualizado às 10:52" durante uns segundos (ou que parte falhou, que fica com os dados anteriores), e o ecrã recarrega os dados sozinho.
@@ -138,6 +138,19 @@ Tudo vem de fontes reais e gratuitas, sem chave: Fórmula 1, futebol, NBA, jogad
   `estado` ("a_correr" / "ok" / "falhou" / "nunca"), `passo`, `feitos`, `total`, `decorrido_s`, `estimativa_s`, `inicio_em`, `terminado_em`, `erro`, `passos` (detalhe).
 - **Que fonte falhou**: cada atualizador regista em `data/fontes.json` como correu cada fonte que usa (`registar_fonte` em `tools/comum.py`, escrita atómica): por fonte ("ESPN Liga Portugal", "Jolpica F1", "RSS A Bola", "ClubElo API"...) `estado` ("ok" / "aviso" se respondeu sem dados onde se esperavam / "falhou"), `ok`, `ultima_ok`, `ultima_tentativa`, `itens`, `erro` e `passo` (o atualizador). Aparece no fim de `/definicoes` (secção "Fontes"), e o `erro` do `atualizacao.json` diz as fontes que falharam (é o que o menu do MonitorHub mostra).
 - `data/atualizacao.lock` impede duas atualizações ao mesmo tempo (uma tranca com mais de 20 min sem sinal de vida é ignorada). Se o dashboard estiver aberto, mostra a barra de progresso de uma atualização feita assim.
+
+**Atualização automática** (desligada por defeito): liga-se em `/definicoes`, secção "Atualização automática" (grava em `data/agenda_config.json`, fora do git). Quem corre é o **MonitorHub** (tem de estar a correr: é o processo que está sempre ligado); o `tools/agenda.py` diz o que está na hora e o hub corre `tools/atualizar_tudo.py` com os `--passos`/`--competicoes` de cada tarefa, uma de cada vez, com o progresso no comando como uma atualização normal (mas sem aviso no ecrã da parede). As regras, na hora deste PC:
+
+- Entre a **01:00 e as 07:00** não corre nada. Às **07:00** atualiza tudo (o que acabou de noite fica para aqui).
+- **Notícias** de 30 em 30 min, das 08:00 às 00:30. **NBA** às 18:00.
+- **Futebol**, por competição (as ligadas, com a Taça da Liga): **2h05 depois do início** de cada jogo, só essa competição (`--passos futebol,onze,destaques --competicoes pt`; a Taça da Liga com o passo `taca_liga`). Jogos da mesma competição que acabam até 30 min uns dos outros vão juntos. Se nos dados novos o jogo ainda não acabou (prolongamento, penáltis, atrasos), tenta outra vez 20 min depois, no máximo 3 vezes.
+- **F1**: 1 h e 3 h depois do fim de cada sessão (o `live.json` só tem o início: treinos, qualificações e sprint contam 1 h, a corrida 2 h). As sessões ficam lembradas em `data/agenda_memoria.json`, porque o `live.json` passa para o GP seguinte mal a corrida começa.
+- Depois de cada parte correm os **destaques** (as mesmas partes do "Atualizar só uma parte": `PARTES` em `tools/atualizar_tudo.py`).
+- Se já estava a correr uma atualização (saída 2), tenta 5 min depois. Se uma parte falha 3 vezes seguidas, espera 30 min, depois 1 h, depois 2 h.
+- Ao ligar não corre o que ficou para trás: só conta o que estava marcado depois disso. De cada tarefa que se repete só fica a mais recente que falta.
+- Cada execução fica em `data/agenda_registo.json` (as últimas 200: hora, o quê, resultado, erro, segundos); a página mostra as próximas 5 (uma por parte) e as últimas 10.
+- Ver sem esperar: `python tools/agenda.py --proximas` (JSON com tudo o que vem nos próximos 2 dias; `--agora 2026-10-24T22:00` faz de conta que é essa hora), `--estado` (o que a página mostra), `--ligar` / `--desligar`. Para testar o hub, o `agenda_config.json` aceita `"testes": [{"em": "2026-10-23T09:15", "passos": "noticias"}]` (uma tarefa de uma vez a essa hora; só corre se estiver ligada).
+- Por baixo: `GET /api/agenda` e `POST /api/agenda` com `{"ligada": true}` no `serve.py`; no hub, a entrada `"agenda"` do `hub/apps.json` (formato no `hub/PROTOCOLO.md`).
 
 Também se podem correr à mão (todos aceitam `--mostrar`, que só mostra e não grava):
 

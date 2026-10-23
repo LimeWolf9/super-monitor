@@ -10,6 +10,7 @@ Páginas:
 
 Cada app está em apps.json. Uma app com "arrancar" só corre enquanto está escolhida:
 o hub arranca-a ao abrir e para-a ao sair (só se foi ele a arrancá-la).
+Uma entrada com "agenda" atualiza-se sozinha: o hub pergunta-lhe a cada minuto o que está na hora (ver PROTOCOLO.md).
 
 Só usa a biblioteca standard do Python, por isso não há nada para instalar.
 """
@@ -59,6 +60,8 @@ EXT_PASTAS = ("js", "css", "png", "svg", "webp", "jpg", "woff2")
 # A cada 5 códigos errados seguidos, o bloqueio cresce: 1 min, 5, 15 e depois sempre 60.
 # Só volta a 1 min depois de um código certo.
 BLOQUEIOS_PIN = (60, 5 * 60, 15 * 60, 60 * 60)
+AGENDA_CADA = 60          # segundos entre perguntas à agenda de uma app (e logo a seguir a cada tarefa)
+AGENDA_REGISTO_MAX = 200  # linhas que ficam no registo da agenda
 
 
 def ler_json(caminho, omissao):
@@ -140,7 +143,7 @@ class Hub:
             if item.get("escondida"):
                 continue
             if item.get("apps"):
-                comum = {k: v for k, v in item.items() if k not in CAMPOS_MENU + ("apps", "escondida", "atualizar")}
+                comum = {k: v for k, v in item.items() if k not in CAMPOS_MENU + ("apps", "escondida", "atualizar", "agenda")}
                 filhos = [{**comum, **f, "_grupo": item["id"]} for f in item["apps"] if not f.get("escondida")]
                 self.raiz.append({**item, "apps": filhos})
                 self.folhas.update({f["id"]: f for f in filhos})
@@ -179,6 +182,8 @@ class Hub:
             if p.get("estado") == "a_correr":         # de uma vez anterior que não chegou ao fim: não bloqueia
                 p = {}
             self.atualizacoes[i] = p
+        # Entradas com "agenda" (e "atualizar"): o hub corre a atualização sozinho, às horas que a app diz
+        self.agendas = {i: a for i, a in self.atualizaveis.items() if a.get("agenda")}
 
     # ------------------------------------------------------------ eventos para os ecrãs
     def estado(self):
@@ -361,17 +366,20 @@ class Hub:
         return {k: dados[k] for k in ("estado", "passo", "feitos", "total", "decorrido_s", "estimativa_s",
                                       "terminado_em", "erro") if k in dados}
 
-    def _correr_atualizacao(self, ident, entrada):
+    def _correr_atualizacao(self, ident, entrada, extra=(), agenda=None):
+        """Corre o comando "atualizar" (mais os argumentos extra de uma tarefa da agenda). Devolve (resultado, erro),
+        com resultado "ok", "falhou" ou "ocupado" (já havia uma a correr: acompanha-a até ao fim)."""
         cmd, pasta = preparar_cmd(entrada["atualizar"])
         try:
-            proc = subprocess.Popen(cmd, cwd=str(pasta), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            proc = subprocess.Popen(cmd + list(extra), cwd=str(pasta), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                     env={**os.environ, "PYTHONIOENCODING": "utf-8"},
                                     creationflags=subprocess.CREATE_NO_WINDOW if NO_WINDOWS else 0)
         except Exception as e:
-            return self._fim_atualizacao(ident, entrada, "falhou", str(e))
+            self._fim_atualizacao(ident, entrada, "falhou", str(e), agenda)
+            return "falhou", str(e)
         inicio = time.time()
         while proc.poll() is None:
-            self._acompanhar(ident, entrada, inicio)
+            self._acompanhar(ident, entrada, inicio, agenda)
             time.sleep(1)
         erro = (proc.stderr.read() or b"").decode("utf-8", "replace").strip().splitlines()
         codigo = proc.returncode
@@ -379,35 +387,128 @@ class Hub:
             # Já havia uma a correr (ex.: começada dentro do dashboard): acompanha-a pelo ficheiro
             limite = time.time() + 1800
             while time.time() < limite:
-                p = self._acompanhar(ident, entrada, inicio)
+                p = self._acompanhar(ident, entrada, inicio, agenda)
                 if not p or p.get("estado") != "a_correr":
                     break
                 time.sleep(1)
             final = self._ler_progresso(entrada) or {}
-            return self._fim_atualizacao(ident, entrada, "ok" if final.get("estado") == "ok" else "falhou",
-                                         final.get("erro"))
-        self._fim_atualizacao(ident, entrada, "ok" if codigo == 0 else "falhou", erro[-1] if erro and codigo else None)
+            self._fim_atualizacao(ident, entrada, "ok" if final.get("estado") == "ok" else "falhou",
+                                  final.get("erro"), agenda)
+            return "ocupado", None
+        resultado, texto = ("ok" if codigo == 0 else "falhou"), (erro[-1] if erro and codigo else None)
+        self._fim_atualizacao(ident, entrada, resultado, texto, agenda)
+        return resultado, texto
 
-    def _acompanhar(self, ident, entrada, inicio):
+    def _acompanhar(self, ident, entrada, inicio, agenda=None):
         p = self._ler_progresso(entrada)
         with self.lock:
             novo = {**(p or {}), "estado": "a_correr", "inicio": inicio}
+            if agenda:
+                novo["agenda"] = agenda               # o nome da tarefa automática (ex.: "Notícias")
             novo.setdefault("decorrido_s", round(time.time() - inicio))
             if novo != self.atualizacoes.get(ident):
                 self.atualizacoes[ident] = novo
                 self.emitir_estado()
         return p
 
-    def _fim_atualizacao(self, ident, entrada, resultado, erro=None):
+    def _fim_atualizacao(self, ident, entrada, resultado, erro=None, agenda=None):
         with self.lock:
             final = {**(self._ler_progresso(entrada) or {}), "estado": resultado}
             final.setdefault("terminado_em", datetime.now().isoformat(timespec="seconds"))
             if erro:
                 final["erro"] = erro
             self.atualizacoes[ident] = final
-            texto = f"{entrada['nome']} atualizado" if resultado == "ok" else f"{entrada['nome']}: a atualização falhou"
-            self.emitir({"tipo": "aviso", "texto": texto})
+            # As da agenda não mostram aviso no ecrã (as notícias de 30 em 30 min encheriam a parede de avisos)
+            if not agenda:
+                texto = f"{entrada['nome']} atualizado" if resultado == "ok" else f"{entrada['nome']}: a atualização falhou"
+                self.emitir({"tipo": "aviso", "texto": texto})
             self.emitir_estado()
+
+    # ------------------------------------------------------------ agenda: atualizar sozinho às horas que a app diz
+    def arrancar_agendas(self):
+        for ident, entrada in self.agendas.items():
+            threading.Thread(target=self._agenda, args=(ident, entrada), daemon=True, name=f"agenda-{ident}").start()
+
+    def _agenda(self, ident, entrada):
+        """A cada minuto (e logo depois de cada tarefa) pergunta à app o que está na hora e corre a primeira.
+
+        O comando da "agenda" imprime {"ligada": bool, "tarefas": [{"id", "chave", "nome", "args", "na_hora"}, ...]}
+        (formato no PROTOCOLO.md). As regras (horas, novas tentativas, pausas depois de falhas) são da app;
+        o hub só corre as tarefas e escreve o registo, que a app lê para decidir o que vem a seguir.
+        """
+        corridas = {}                                 # id -> quando correu (proteção: nunca a mesma 2x em 4 min)
+        while True:
+            correu = False
+            try:
+                agenda = self._ler_agenda(entrada["agenda"])
+                if agenda and agenda.get("ligada"):
+                    agora = time.time()
+                    na_hora = [t for t in agenda.get("tarefas") or []
+                               if isinstance(t, dict) and t.get("na_hora") and agora - corridas.get(t.get("id"), 0) > 240]
+                    with self.lock:
+                        livre = self.atualizacoes.get(ident, {}).get("estado") != "a_correr"
+                    if na_hora and livre:             # a correr uma pedida no comando: tenta no próximo minuto
+                        corridas[na_hora[0].get("id")] = agora
+                        self._tarefa_agenda(ident, entrada, na_hora[0])
+                        correu = True
+            except Exception as e:                    # a agenda nunca pode parar o hub
+                print(f"Agenda de {ident}: {e}", flush=True)
+            time.sleep(1 if correu else AGENDA_CADA)
+
+    @staticmethod
+    def _ler_agenda(cfg):
+        cmd, pasta = preparar_cmd(cfg)
+        try:
+            r = subprocess.run(cmd, cwd=str(pasta), capture_output=True, text=True, encoding="utf-8", errors="replace",
+                               timeout=60, env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                               creationflags=subprocess.CREATE_NO_WINDOW if NO_WINDOWS else 0)
+            if r.returncode == 0:
+                return json.loads(r.stdout)
+            linhas = (r.stderr or "").strip().splitlines()
+            print(f"Agenda: {linhas[-1] if linhas else f'saiu com {r.returncode}'}", flush=True)
+        except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+            print(f"Agenda: {e}", flush=True)
+        return None
+
+    def _tarefa_agenda(self, ident, entrada, t):
+        nome = str(t.get("nome") or t.get("id"))
+        args = [str(a) for a in t.get("args") or []]
+        with self.lock:
+            self.atualizacoes[ident] = {"estado": "a_correr", "passo": "A começar…", "inicio": time.time(), "agenda": nome}
+            self.emitir_estado()
+        inicio = time.time()
+        print(f"Agenda: {nome} ({' '.join(args) or 'tudo'})", flush=True)
+        resultado, erro = self._correr_atualizacao(ident, entrada, args, agenda=nome)
+        self._registar_agenda(entrada["agenda"], {
+            "em": datetime.now().astimezone().isoformat(timespec="seconds"), "id": t.get("id"), "chave": t.get("chave"),
+            "nome": nome, "resultado": resultado, "erro": erro, "segundos": round(time.time() - inicio)})
+
+    @staticmethod
+    def _registar_agenda(cfg, linha):
+        """Acrescenta uma linha ao registo da agenda (fica com as últimas AGENDA_REGISTO_MAX), de forma atómica."""
+        if not cfg.get("registo"):
+            return
+        _, pasta = preparar_cmd({**cfg, "cmd": ["-"]})
+        caminho = pasta / cfg["registo"]
+        try:
+            registo = json.loads(caminho.read_text(encoding="utf-8"))
+            registo = registo if isinstance(registo, list) else []
+        except (OSError, ValueError):
+            registo = []
+        tmp = caminho.with_name(caminho.name + ".tmp")
+        try:
+            tmp.write_text(json.dumps((registo + [linha])[-AGENDA_REGISTO_MAX:], ensure_ascii=False, indent=1),
+                           encoding="utf-8")
+            for tentativa in range(20):
+                try:
+                    tmp.replace(caminho)
+                    break
+                except PermissionError:               # Windows: alguém está a ler o ficheiro nesse instante
+                    if tentativa == 19:
+                        raise
+                    time.sleep(0.05)
+        except OSError as e:
+            print(f"Agenda: não consegui escrever o registo ({e})", flush=True)
 
     # ------------------------------------------------------------ página de definições (ex.: do Desporto)
     def definicoes(self, ident):
@@ -803,7 +904,10 @@ def main():
     HUB.links_comando = [f"http://{ip}:{args.port}/comando" for ip in ips_da_rede()] if args.host != "127.0.0.1" else []
     for link in HUB.links_comando:
         print(f"Comando no telemóvel (mesmo Wi-Fi): {link}")
+    if HUB.agendas:
+        print(f"Atualização automática (se estiver ligada): {', '.join(a['nome'] for a in HUB.agendas.values())}")
     print("Ctrl+C para parar.", flush=True)
+    HUB.arrancar_agendas()
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:

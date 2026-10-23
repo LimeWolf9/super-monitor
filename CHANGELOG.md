@@ -11,6 +11,13 @@
   corpo continua a atualizar tudo (a tecla U e o botão do hub não mudam).
 - O canto "Dados de hoje 09:12" mostra a hora de cada competição, por isso não mente depois de uma atualização parcial.
 
+### Atualização automática (desligada por omissão)
+- O MonitorHub atualiza sozinho, se a ligares em `/definicoes` ("Atualização automática"): às 07:00 tudo, notícias
+  de 30 em 30 min, cada competição de futebol 2h05 depois do início dos jogos (e mais até 3 vezes se o jogo ainda
+  não acabou), a F1 1 h e 3 h depois de cada sessão e a NBA às 18:00. Entre a 01:00 e as 07:00 não corre nada.
+- As regras estão em `desporto/tools/agenda.py`; o hub só corre o que está na hora (entrada `"agenda"` no
+  `apps.json`, ver `hub/PROTOCOLO.md`) e regista cada execução, que a página mostra.
+
 ### Dados sempre frescos no ecrã
 - Uma cena em pausa (ou fixa) redesenha-se quando chegam dados novos; se nada mudou, o ecrã não mexe.
 - O Início do hub vê a cada minuto se houve uma atualização e redesenha logo; o tempo a cada 15 min (era 30).

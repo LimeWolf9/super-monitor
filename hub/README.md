@@ -111,6 +111,12 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
 - `atualizar` diz como atualizar os dados sem abrir a app (o Desporto tem). Aparece no
   comando em "Atualizar dados", com o progresso ("Atualizado há 2 h") e, se falhar,
   as fontes que falharam. Formato no **PROTOCOLO.md**.
+- `agenda` (com `atualizar`) faz o hub atualizar sozinho, às horas que a app decide (o Desporto tem; liga-se e
+  desliga-se em `/definicoes` do Desporto e vem desligada). A cada minuto o hub corre o `cmd` da agenda, que diz
+  que tarefas estão na hora, e corre cada uma com o comando `atualizar` mais os argumentos dela, uma de cada vez
+  (aparece no comando como "Automática (Notícias): …", sem aviso no ecrã). Cada execução fica escrita no
+  `registo`. As regras (horas, novas tentativas, pausas) são da app: o hub não sabe nada de desporto.
+  Formato no **PROTOCOLO.md**.
 - `definicoes` põe um botão "⚙ Definições" ao lado do Atualizar (ex.: `"http://{host}:8000/definicoes"`).
   Se o servidor da app estiver desligado, o hub liga-o (pelo `arrancar`), espera pela `saude` e só então
   abre a página; volta a desligá-lo quando regressas ao comando (ou ao fim de 30 min), a não ser que

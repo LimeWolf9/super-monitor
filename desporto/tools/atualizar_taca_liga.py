@@ -97,7 +97,8 @@ def quando(m):
 def jogo(m, eq, agora):
     casa, fora = eq.sigla(m["homeTeam"]), eq.sigla(m["awayTeam"])
     local = quando(m).astimezone()
-    base = {"home": casa, "away": fora, "id": f"lp{m.get('fixtureCode')}"}
+    # "iso" em todos (como no futebol da ESPN): a agenda (tools/agenda.py) precisa da hora mesmo a decorrer ou acabado
+    base = {"home": casa, "away": fora, "id": f"lp{m.get('fixtureCode')}", "iso": local.isoformat(timespec="minutes")}
     if m.get("postponedFixture") or m.get("canceledFixture") or m.get("notPlayedFixture"):
         return {**base, "status": "adiado", "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}"}
     if m.get("fixtureStateTypeId") == TERMINADO:
@@ -109,8 +110,7 @@ def jogo(m, eq, agora):
     if m.get("fixtureStateTypeId") and quando(m) <= agora:   # a decorrer
         return {**base, "hs": m.get("liveHomeTeamGoals", 0), "as": m.get("liveAwayTeamGoals", 0), "ev": [],
                 "live": True, "clock": m.get("time") or ""}
-    return {**base, "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}",
-            "iso": local.isoformat(timespec="minutes")}
+    return {**base, "when": f"{DIAS[local.weekday()]} {local:%H:%M}", "date": f"{local:%d/%m}"}
 
 
 def montar(dados, agora, baixar):

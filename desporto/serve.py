@@ -21,6 +21,8 @@ POST /api/estadios/continuar arranca-o num processo à parte (409 se já estiver
 Os dados só se atualizam quando se pede (no dashboard: o botão "atualizar" do comando, ou a tecla U). O pedido chega por POST /api/atualizar; GET /api/atualizar/estado diz em que passo vai.
 Só uma parte: POST /api/atualizar com {"passos": ["noticias", ...], "competicoes": ["pt"]} (os nomes do --passos e do
 --competicoes); GET /api/atualizar/partes dá as partes e a hora de cada uma (a secção "Atualizar só uma parte" da /definicoes).
+Atualização automática (tools/agenda.py; quem a corre é o MonitorHub): GET /api/agenda dá o interruptor, as próximas e o
+fim do registo; POST /api/agenda com {"ligada": true|false} liga ou desliga (data/agenda_config.json).
 É o mesmo código de "python tools/atualizar_tudo.py" (que atualiza sem o servidor, ex.: pelo MonitorHub): os
 atualizadores correm em série; o progresso fica em data/atualizacao.json e uma tranca impede duas ao mesmo tempo.
 
@@ -50,6 +52,7 @@ import aovivo           # noqa: E402  (os jogos a decorrer: GET /api/aovivo, par
 import estadios         # noqa: E402  (o --todos dos estádios do mapa: GET /api/estadios)
 import f1_aovivo        # noqa: E402  (F1 ao vivo: o redutor, o ecrã e a simulação a partir do arquivo)
 import f1_direto        # noqa: E402  (F1 ao vivo em direto: GET /api/f1/aovivo sem ?simular=)
+import agenda           # noqa: E402  (a atualização automática: GET/POST /api/agenda)
 
 def comecar_atualizacao(passos=None, competicoes=None):
     """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub).
@@ -95,14 +98,8 @@ def definicoes():
     return {"grupos": [{"nome": g, "itens": itens} for g, itens in grupos.items()]}
 
 
-# "Atualizar só uma parte" (página /definicoes): (id, nome, passos). Depois do futebol corre o 11 da jornada (sai
-# dos jogos da última jornada) e depois de cada parte com dados os destaques (0,1 s), para não mostrarem dados velhos.
-PARTES = [("futebol", "Futebol", ["futebol", "onze", "destaques"]),
-          ("taca_liga", "Taça da Liga", ["taca_liga", "destaques"]),
-          ("f1", "Fórmula 1", ["f1", "destaques"]), ("nba", "NBA", ["nba", "destaques"]),
-          ("noticias", "Notícias", ["noticias", "destaques"]), ("elo", "ClubElo", ["elo", "destaques"]),
-          ("fotos", "Fotos", ["fotos", "destaques"]), ("curiosidades", "Curiosidades", ["curiosidades"]),
-          ("estadios", "Estádios", ["estadios"])]
+# "Atualizar só uma parte" (página /definicoes): as partes estão em atualizar_tudo.PARTES (a agenda usa as mesmas)
+PARTES = atualizar_tudo.PARTES
 PIOR = {"ok": 0, "aviso": 1, "falhou": 2}
 
 
@@ -204,6 +201,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.responder_json(partes())
         if caminho == "/api/estadios":
             return self.responder_json(estadios.estado_todos())
+        if caminho == "/api/agenda":
+            return self.responder_json(agenda.estado())
         if caminho == "/api/aovivo":
             # ?seguir=id1,id2: os jogos seguidos vêm sempre, mesmo acabados; ?simular=1: os de ontem a fingir
             q = parse_qs(urlsplit(self.path).query)
@@ -249,6 +248,15 @@ class Handler(SimpleHTTPRequestHandler):
             except (ValueError, AttributeError) as e:
                 return self.responder_json({"erro": str(e)}, 400)
             return self.responder_json({"ligadas": competicoes.gravar(escolha)})
+        if caminho == "/api/agenda":
+            try:
+                ligada = json.loads(corpo or b"{}").get("ligada")
+                if not isinstance(ligada, bool):
+                    raise ValueError("falta 'ligada' (true ou false)")
+            except (ValueError, AttributeError) as e:
+                return self.responder_json({"erro": str(e)}, 400)
+            agenda.gravar_config(ligada)
+            return self.responder_json(agenda.estado())
         if caminho == "/api/estadios/continuar":
             comecou = continuar_estadios()
             return self.responder_json({"comecou": comecou, **estadios.estado_todos()}, 202 if comecou else 409)
@@ -266,7 +274,7 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, formato, *args):
         # str(): nos erros (send_error) o 1.º argumento é um HTTPStatus, não o pedido
         pedido = str(args[0]) if args else ""
-        if "/api/atualizar/estado" not in pedido and "/api/estadios " not in pedido and "/api/f1/aovivo" not in pedido:   # perguntam a cada poucos segundos
+        if "/api/atualizar/estado" not in pedido and "/api/estadios " not in pedido and "/api/f1/aovivo" not in pedido and "/api/agenda " not in pedido:   # perguntam a cada poucos segundos
             super().log_message(formato, *args)
 
     def end_headers(self):

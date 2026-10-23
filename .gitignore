@@ -19,6 +19,10 @@ desporto/data/estadios_todos.log
 desporto/data/estadios_todos.lock
 desporto/data/estadios_osm_dia.json
 desporto/data/estadios_em_falta.json
+# Atualização automática: o interruptor, o registo do que correu e as sessões da F1 lembradas (tools/agenda.py)
+desporto/data/agenda_config.json
+desporto/data/agenda_registo.json
+desporto/data/agenda_memoria.json
 desporto/data/estadios_overpass_pausa.json
 desporto/web/img/jogadores/
 desporto/web/img/equipas/

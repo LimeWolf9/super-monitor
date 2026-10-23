@@ -57,6 +57,16 @@
     #partes .uma .nome { flex-basis: 100%; }
     #partes-estado { padding: 12px 16px; border-top: 1px solid var(--linha); display: flex; flex-direction: column; gap: 8px; }
     #partes-estado:empty { display: none; }
+    /* Atualização automática: GET/POST /api/agenda (tools/agenda.py; o MonitorHub corre as tarefas) */
+    #agenda .linha { display: flex; gap: 12px; padding: 10px 16px; align-items: baseline; }
+    #agenda .linha + .linha { border-top: 1px solid var(--linha); }
+    #agenda .linha .nome { flex: 1; }
+    #agenda .linha .hora { flex: none; color: var(--apagado); font-size: 14px; font-variant-numeric: tabular-nums; }
+    #agenda .interruptor { min-height: 60px; align-items: center; }
+    #agenda .interruptor button { flex: none; width: auto; padding: 0 18px; min-height: 44px; font-size: 16px; }
+    #agenda .interruptor button.desligada { background: var(--linha); }
+    #agenda .titulo { padding: 10px 16px 4px; font-size: 14px; color: var(--apagado); border-top: 1px solid var(--linha); }
+    #agenda .ok { color: var(--ok); } #agenda .mal { color: #ff6b6b; } #agenda .aviso { color: #ffc24f; }
     /* Estádios do mapa: o "tools/estadios.py --todos" (GET /api/estadios, POST /api/estadios/continuar) */
     #estadios { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
     #estadios .linha { display: flex; gap: 12px; align-items: baseline; }
@@ -75,6 +85,9 @@
   <h2>Atualizar só uma parte</h2>
   <p class="intro">Mais rápido do que atualizar tudo: só essa parte muda, o resto fica como está. Depois do futebol corre também o 11 da jornada, e depois de cada parte os destaques.</p>
   <section id="partes">A carregar…</section>
+  <h2>Atualização automática</h2>
+  <p class="intro">Quem atualiza é o MonitorHub (tem de estar a correr). Às 07:00 tudo, notícias de 30 em 30 min, cada competição de futebol 2h05 depois do início dos jogos, a F1 depois de cada sessão e a NBA às 18:00. Entre a 01:00 e as 07:00 não corre nada.</p>
+  <section id="agenda">A carregar…</section>
   <h2>Fontes</h2>
   <p class="intro">Como correu cada fonte na última vez que se tentou: ✓ trouxe dados, ⚠ respondeu sem dados, ✗ falhou (fica com os dados anteriores).</p>
   <section id="fontes">A carregar…</section>
@@ -278,6 +291,42 @@ async function seguirAtualizacao() {
 lerPartes().then(seguirAtualizacao);
 // O botão de baixo ("Gravar e atualizar já") também corre uma: segue-a aqui
 document.getElementById('atualizar').addEventListener('click', () => setTimeout(seguirAtualizacao, 800));
+</script>
+<script>
+// Atualização automática: o interruptor, as próximas (uma por parte) e as últimas do registo, a cada 30 s.
+// Grava em data/agenda_config.json; o MonitorHub vê a mudança no minuto seguinte.
+const caixaAgenda = document.getElementById('agenda');
+const RESULTADO = { ok: ['ok', '✓'], falhou: ['mal', '✗'], ocupado: ['aviso', '⏳'] };
+function horaAgenda(iso) {
+  const d = new Date(iso), hoje = new Date();
+  const dias = Math.round((new Date(d.toDateString()) - new Date(hoje.toDateString())) / 864e5);
+  const h = d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  return dias === 0 ? h : dias === 1 ? `amanhã ${h}` : dias === -1 ? `ontem ${h}`
+    : `${d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} ${h}`;
+}
+async function mostrarAgenda(pedido) {
+  try {
+    const r = await fetch('/api/agenda', pedido ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pedido) } : { cache: 'no-store' });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
+    const a = await r.json();
+    const proximas = a.proximas.length ? a.proximas.map((t) => `<div class="linha"><span class="nome">${esc(t.nome)}${t.nota ? `<span class="nota">${esc(t.nota)}</span>` : ''}</span>
+        <span class="hora">${t.na_hora ? 'agora' : `às ${esc(horaAgenda(t.quando))}`}</span></div>`).join('')
+      : '<div class="linha"><span class="nome nota">Nada marcado nos próximos 2 dias.</span></div>';
+    const registo = a.registo.length ? a.registo.map((x) => {
+      const [cls, sim] = RESULTADO[x.resultado] || ['', '?'];
+      return `<div class="linha"><span class="nome"><span><span class="${cls}">${sim}</span> ${esc(x.nome || x.id)}</span>${x.erro ? `<span class="nota mal">${esc(x.erro)}</span>` : ''}${x.resultado === 'ocupado' ? '<span class="nota">já estava a correr outra: tenta daqui a 5 min</span>' : ''}</span>
+        <span class="hora">${esc(horaAgenda(x.em))}${x.segundos != null ? ` · ${seg(x.segundos)}` : ''}</span></div>`;
+    }).join('') : '<div class="linha"><span class="nome nota">Ainda não correu nenhuma.</span></div>';
+    caixaAgenda.innerHTML = `<div class="linha interruptor"><span class="nome">${a.ligada ? '<span class="ok">● Ligada</span>' : 'Desligada'}
+        <span class="nota">${a.ligada ? 'o MonitorHub atualiza sozinho' : 'os dados só se atualizam quando se pede'}</span></span>
+        <button type="button" class="${a.ligada ? 'desligada' : ''}">${a.ligada ? 'Desligar' : 'Ligar'}</button></div>
+      <div class="titulo">${a.ligada ? 'Próximas' : 'Próximas (se estivesse ligada)'}</div>${proximas}
+      <div class="titulo">Últimas</div>${registo}`;
+    caixaAgenda.querySelector('button').addEventListener('click', (ev) => { ev.currentTarget.disabled = true; mostrarAgenda({ ligada: !a.ligada }); });
+  } catch (e) { caixaAgenda.textContent = `Não consegui ler a atualização automática (${e.message}).`; }
+}
+mostrarAgenda();
+setInterval(() => mostrarAgenda(), 30000);
 </script>
 <script>
 // Estádios do mapa: o estado do --todos, a cada 10 s

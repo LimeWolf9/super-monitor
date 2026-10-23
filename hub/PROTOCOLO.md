@@ -97,3 +97,46 @@ campos são opcionais; o hub usa estes:
   "erro": "texto"                // se falhou, porquê (curto: aparece no comando, em "Atualizar dados", ex.: "Falharam: RSS Marca")
 }
 ```
+
+## Atualizar sozinho (agenda)
+
+Uma entrada com `atualizar` pode ter também:
+
+```json
+"agenda": {
+  "pasta": "../desporto",
+  "cmd": ["python", "tools/agenda.py", "--proximas"],
+  "registo": "data/agenda_registo.json"
+}
+```
+
+O hub corre o `cmd` a cada minuto (e logo a seguir a cada tarefa). O comando imprime um JSON:
+
+```json
+{
+  "ligada": true,                // false = o hub não corre nada (a app guarda o interruptor onde quiser)
+  "tarefas": [                   // por ordem; o hub corre a primeira com "na_hora"
+    {
+      "id": "noticias@2026-10-23T10:30",   // único por execução (o hub nunca repete o mesmo id em 4 min)
+      "chave": "noticias",                 // a parte (para as regras da app: falhas seguidas, etc.)
+      "nome": "Notícias",                  // aparece no comando ("Automática (Notícias): …") e no registo
+      "quando": "2026-10-23T10:30:00+01:00",
+      "args": ["--passos", "noticias,destaques"],   // vão a seguir ao cmd do "atualizar"
+      "na_hora": true
+    }
+  ]
+}
+```
+
+Quando a agenda está ligada e o hub não está já a atualizar essa entrada, corre o `cmd` do `atualizar` com os
+`args` da primeira tarefa `na_hora` (progresso como numa atualização normal, mas sem aviso no ecrã) e acrescenta
+uma linha ao `registo` (as últimas 200, escrita atómica):
+
+```json
+{"em": "2026-10-23T10:30:41+01:00", "id": "noticias@2026-10-23T10:30", "chave": "noticias", "nome": "Notícias",
+ "resultado": "ok", "erro": null, "segundos": 11}
+```
+
+`resultado`: `"ok"` (saída 0), `"falhou"` (saída 1; `erro` é a última linha do stderr) ou `"ocupado"` (saída 2:
+já havia uma atualização a correr; o hub acompanha-a até ao fim). As regras ficam todas na app, que lê o registo
+para decidir: o que já correu, novas tentativas, pausas depois de falhas, horas em que não se corre.
