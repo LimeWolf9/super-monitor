@@ -19,6 +19,10 @@
   pedem, por estarem todos os servidores de parte, não contam) (no --todos ou na
   atualização), nenhum descarregamento do OSM volta a tentar durante PAUSA_OVERPASS_S (24 h), a não ser o --testar
   (data/estadios_overpass_pausa.json; aparece no registo e na página /definicoes).
+- Só se descarregam (coordenadas e OSM) os estádios que contam: com pelo menos um jogo numa liga ligada, numa
+  competição da UEFA, de seleções ou na NBA. Os que só aparecem nas taças de cada país (competicoes.TACAS_NACIONAIS:
+  Taça de Portugal, Taça do Rei, FA Cup...) não, em nenhum dos caminhos (atualização, --todos, --retomar,
+  --testar); a página /definicoes lista-os à parte ("Só taças"). O que já estava descarregado fica.
 
 Quem chama (os estádios preparam-se antes; o Ao vivo nunca pede nem descarrega nada):
 - aovivo.py: só info(venue), que lê o cache (data/estadios.json e data/estadios_osm/).
@@ -28,6 +32,7 @@ Quem chama (os estádios preparam-se antes; o Ao vivo nunca pede nem descarrega 
 
 Uso à mão:  python tools/estadios.py "Estádio do Dragão" Porto Portugal   (procura e mostra, sem gravar)
             python tools/estadios.py --todos   (prepara de uma vez todos os estádios da época: ver todos())
+            python tools/estadios.py --todos --seco   (só a lista da época e o que falta, sem Wikidata nem Overpass)
             pythonw tools/estadios.py --retomar   (o mesmo, só se não acabou nem está a correr: a tarefa agendada)
             python tools/estadios.py --refazer 10409   (o OSM desse estádio volta a descarregar-se no próximo --retomar)
             pythonw tools/estadios.py --testar Riazor   (só o OSM desse estádio; se vier, segue como o --retomar)
@@ -61,6 +66,7 @@ OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private
 OVERPASS_LEITURA_S = 200     # s à espera da resposta (a consulta pede [timeout:180] ao servidor)
 OVERPASS_DE_PARTE_S = 10 * 60   # um servidor que falhou (sem ligação, tempo esgotado, 5xx) fica de parte 10 minutos
 OVERPASS_VEZ_MAX_S = 180     # o /api/status diz quando há vaga para o nosso IP: espera-se até isto, senão fica de parte
+OVERPASS_STATUS_S = 60       # s à espera do /api/status (com o servidor ocupado chega a demorar ~30 s a responder)
 OVERPASS_SEGUIDOS = 3        # --todos: tantos estádios seguidos com erro de rede no Overpass e a fase B para
 PAUSA = 2.0                  # segundos entre pedidos (Wikidata e Overpass)
 REPETIR_S = 86400            # um estádio que não se encontrou só se procura outra vez no dia seguinte
@@ -320,19 +326,25 @@ def levantar_pausa():
 
 def _esperar_vez(url):
     """Pergunta ao /api/status do servidor se o nosso IP tem vaga ("2 slots available now." ou "Slot available after:
-    ..., in 37 seconds."). Espera pela vaga se for pouco; se for muito, ou se o status não responder em 20 s (o
+    ..., in 37 seconds."). Espera pela vaga se for pouco; se for muito, ou se o status não responder em
+    OVERPASS_STATUS_S (o
     servidor está em baixo ou a recusar o nosso IP), sobe um erro e o servidor fica de parte sem se gastarem os
-    200 s da consulta. Um servidor sem /api/status (responde, mas noutro formato) segue em frente."""
+    200 s da consulta. Um servidor sem /api/status (responde, mas noutro formato) segue em frente.
+    Estes erros são ConnectionError, não TimeoutError: a consulta nem saiu, e o raio menor do buscar_osm é só para
+    quando é a consulta que esgota o tempo (com o servidor cheio, o status também fica sem resposta)."""
     pedido = urllib.request.Request(url.replace("/interpreter", "/status"), headers={"User-Agent": UA})
-    with urllib.request.urlopen(pedido, timeout=20) as r:
-        estado = r.read().decode("utf-8", "replace")
+    try:
+        with urllib.request.urlopen(pedido, timeout=OVERPASS_STATUS_S) as r:
+            estado = r.read().decode("utf-8", "replace")
+    except TimeoutError:
+        raise ConnectionError(f"o /api/status não respondeu em {OVERPASS_STATUS_S} s (servidor cheio?)") from None
     if "available now" in estado or "Rate limit: 0" in estado:
         return
     esperas = [int(x) for x in re.findall(r"in (\d+) seconds", estado)]
     if not esperas:
         return
     if min(esperas) > OVERPASS_VEZ_MAX_S:
-        raise TimeoutError(f"sem vaga no Overpass antes de {min(esperas)} s")
+        raise ConnectionError(f"sem vaga no Overpass antes de {min(esperas)} s")
     time.sleep(min(esperas) + 2)
 
 
@@ -366,6 +378,8 @@ def _overpass(consulta):
         except urllib.error.HTTPError as e:
             if e.code not in (429, 502, 503, 504):
                 raise   # a consulta está mal: outro servidor diria o mesmo
+            if e.fp and b"at capacity" in e.read():   # o overpass-api.de cheio: "All query workers are busy"
+                e.msg = "servidor cheio (at capacity)"
             erros.append(e)
         except OSError as e:   # URLError, TimeoutError, ConnectionResetError...
             erros.append(e)
@@ -700,12 +714,13 @@ def falhou_ha_pouco(guardado):
     return bool(guardado.get("falhou")) and time.time() - guardado["falhou"] < espera
 
 
-def resolver(e, com_osm):
-    """e = info() de um estádio. Procura o que falta e grava em data/estadios.json. Devolve a entrada gravada."""
+def resolver(e, com_osm, insistir=False):
+    """e = info() de um estádio. Procura o que falta e grava em data/estadios.json. Devolve a entrada gravada.
+    insistir: um erro de rede de há pouco não impede (o que não se encontrou continua só para o dia seguinte)."""
     c = e["id"]
     guardado = ler().get(c, {})
     agora = time.time()
-    if falhou_ha_pouco(guardado):
+    if falhou_ha_pouco(guardado) and not (insistir and guardado.get("erro")):
         return guardado
     try:
         if guardado.get("lat") is None:
@@ -746,16 +761,34 @@ def resolver(e, com_osm):
         return _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora, "erro": str(ex)[:200]})
 
 
-def falta(e, com_osm):
-    """Ainda falta alguma coisa a este estádio (e não falhou há pouco)?"""
+def falta(e, com_osm, insistir=False):
+    """Ainda falta alguma coisa a este estádio (e não falhou há pouco; com insistir, um erro de rede de há pouco
+    conta como a fazer)?"""
     guardado = ler().get(e["id"], {})
-    if falhou_ha_pouco(guardado):
+    if falhou_ha_pouco(guardado) and not (insistir and guardado.get("erro")):
         return False
     if guardado.get("lat") is None:
         return True
     if com_osm and guardado.get("refazer"):
         return True
     return com_osm and not e.get("osm") and (guardado.get("fonte") != "cidade" or guardado.get("afinar", True))
+
+
+def _limpar_erros_velhos():
+    """Tira o erro (e o falhou) que ficou de um pedido antigo nos estádios que já têm o ficheiro do OSM: os que não
+    estão para refazer, e os "(sem pedido)" (nem se chegou a pedir). Devolve quantos."""
+    with _tranca:
+        tudo = ler()
+        limpos = [c for c, g in tudo.items() if g.get("erro") and ficheiro_osm(c).exists()
+                  and (not g.get("refazer") or "(sem pedido)" in g["erro"])]
+        if not limpos:
+            return 0
+        for c in limpos:
+            tudo[c] = {**tudo[c], "erro": None, "falhou": None}
+        tmp = CACHE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(tudo, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+        tmp.replace(CACHE)
+        return len(limpos)
 
 
 def _resolvido(e, com_osm):
@@ -765,27 +798,54 @@ def _resolvido(e, com_osm):
 
 
 def em_falta(venues):
-    """Só lê o cache (sem pedidos): [(info, futebol)] dos estádios destes venues (sem repetir) e, desses, os que
-    precisam de alguma coisa: sem coordenadas, de futebol sem o ficheiro do OSM, ou marcados com refazer."""
-    lista, vistos = [], set()
-    for v, desporto in venues:
+    """Só lê o cache (sem pedidos): [(info, futebol)] dos estádios destes venues = [(venue, desporto, só taça?)]
+    (sem repetir) e, desses, os que precisam de alguma coisa: sem coordenadas, de futebol sem o ficheiro do OSM, ou
+    marcados com refazer. info["so_taca"]: todos os jogos do estádio são de taças de um país; esses nunca estão
+    no 2.º (não se descarregam)."""
+    lista, por_id = [], {}
+    for v, desporto, taca in venues:
         e = info(v, desporto)
-        if e and e["id"] not in vistos:
-            vistos.add(e["id"])
-            lista.append((e, desporto == "football"))
-    return lista, [(e, f) for e, f in lista if not _resolvido(e, f)]
+        if not e:
+            continue
+        if e["id"] in por_id:
+            por_id[e["id"]]["so_taca"] = por_id[e["id"]]["so_taca"] and taca
+            continue
+        por_id[e["id"]] = e = {**e, "so_taca": taca}
+        lista.append((e, desporto == "football"))
+    return lista, [(e, f) for e, f in lista if not e["so_taca"] and not _resolvido(e, f)]
 
 
 def gravar_em_falta(lista, dias):
-    """Para a página /definicoes: os estádios dos próximos jogos ainda sem coordenadas e os de futebol sem ruas."""
+    """Para a página /definicoes: os estádios dos próximos jogos ainda sem coordenadas e os de futebol sem ruas;
+    os só de taças à parte (não se descarregam)."""
     tudo = ler()
-    sem_coord = sorted(f"{e['nome']} ({e.get('cidade') or '?'})" for e, _f in lista if tudo.get(e["id"], {}).get("lat") is None)
-    sem_ruas = sorted(f"{e['nome']} ({e.get('cidade') or '?'})" for e, f in lista
-                      if f and tudo.get(e["id"], {}).get("lat") is not None and not ficheiro_osm(e["id"]).exists())
+    nome = lambda e: f"{e['nome']} ({e.get('cidade') or '?'})"
+    sem_coord = lambda taca: sorted(nome(e) for e, _f in lista if e["so_taca"] == taca and tudo.get(e["id"], {}).get("lat") is None)
+    sem_ruas = lambda taca: sorted(nome(e) for e, f in lista if f and e["so_taca"] == taca
+                                   and tudo.get(e["id"], {}).get("lat") is not None and not ficheiro_osm(e["id"]).exists())
+    contam = [e["id"] for e, _f in lista if not e["so_taca"]]
+    tacas = [e["id"] for e, _f in lista if e["so_taca"]]
     tmp = EM_FALTA.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"em": time.strftime("%Y-%m-%dT%H:%M:%S"), "dias": dias, "estadios": len(lista),
-                               "sem_coordenadas": sem_coord, "sem_ruas": sem_ruas}, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.write_text(json.dumps({"em": time.strftime("%Y-%m-%dT%H:%M:%S"), "dias": dias, "estadios": len(contam),
+                               "sem_coordenadas": sem_coord(False), "sem_ruas": sem_ruas(False),
+                               "so_tacas": {"estadios": len(tacas), "sem_coordenadas": sem_coord(True), "sem_ruas": sem_ruas(True)},
+                               "ids": {"contam": contam, "so_tacas": tacas}}, ensure_ascii=False, indent=1), encoding="utf-8")
     tmp.replace(EM_FALTA)
+
+
+def contam():
+    """(chaves dos estádios que contam, chaves dos só de taças), pelas últimas listas (a do passo "Estádios",
+    data/estadios_em_falta.json, e a do --todos, data/estadios_todos.json): um estádio que conta numa delas conta.
+    Só os que contam se descarregam: o --retomar só espera por eles e o --testar recusa os outros."""
+    sim, tacas = set(), set()
+    for f in (EM_FALTA, PROGRESSO):
+        try:
+            ids = json.loads(f.read_text(encoding="utf-8")).get("ids") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        sim |= set(ids.get("contam") or [])
+        tacas |= set(ids.get("so_tacas") or [])
+    return sim, tacas - sim
 
 
 def preparar(a_fazer, mostrar=print, ate=None):
@@ -848,37 +908,39 @@ RONDAS = 4                   # voltas aos que deram erro de rede (cada uma ao fi
 
 
 def _todos_venues(mostrar):
-    """[(data do 1.º jogo, venue, desporto)] de todos os jogos marcados nas competições ligadas e na NBA, dos
-    próximos MESES meses (os scoreboards da ESPN de cada mês). As ligas dão os estádios de todas as equipas; as
-    taças e as seleções, os dos jogos já marcados. Cada estádio uma só vez, pelo jogo mais próximo."""
+    """[(data do 1.º jogo, venue, desporto, só taça?)] de todos os jogos marcados nas competições ligadas e na NBA,
+    dos próximos MESES meses (os scoreboards da ESPN de cada mês). As ligas dão os estádios de todas as equipas; as
+    taças e as seleções, os dos jogos já marcados. Cada estádio uma só vez, pelo jogo mais próximo; só taça = todos
+    os jogos dele são de taças de um país (esses não se descarregam)."""
     from datetime import datetime, timedelta
     import atualizar_estadios
-    import competicoes
     hoje = datetime.now()
     ate = hoje + timedelta(days=31 * MESES)
-    fontes = [(f"soccer/{liga}", nome, filtro) for _c, nome, liga, _t, filtro in competicoes.a_buscar()]
-    fontes.append(("basketball/nba", "NBA", None))
     todos = []
-    for caminho, nome, filtro in fontes:
+    for caminho, nome, filtro, taca in atualizar_estadios.fontes():
         # venues() pede os meses das duas pontas; aqui pede-se mês a mês
         mes, n = hoje, 0
         while mes <= ate:
             fim = min(ate, (mes.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1))
             try:
                 lista = atualizar_estadios.venues(caminho, mes, fim, filtro)
-                todos += lista
+                todos += [(quando, v, desporto, taca) for quando, v, desporto in lista]
                 n += len(lista)
             except Exception as e:
                 mostrar(f"Aviso: {nome} {mes:%Y-%m}: {e}")
             mes = fim + timedelta(days=1)
         mostrar(f"{nome}: {n} jogos")
-    vistos, lista = set(), []
-    for quando, v, desporto in sorted(todos, key=lambda x: x[0]):
+    por_chave, lista = {}, []
+    for quando, v, desporto, taca in sorted(todos, key=lambda x: x[0]):
         c = chave(v)
-        if c and c not in vistos:
-            vistos.add(c)
-            lista.append((quando, v, desporto))
-    return lista
+        if not c:
+            continue
+        if c in por_chave:
+            por_chave[c][3] = por_chave[c][3] and taca
+            continue
+        por_chave[c] = [quando, v, desporto, taca]
+        lista.append(por_chave[c])
+    return [tuple(x) for x in lista]
 
 
 def _poligonos_estadio(c):
@@ -934,6 +996,7 @@ def estado_todos(linhas=12):
         estado = json.loads(PROGRESSO.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         estado = {"estado": None}
+    estado.pop("ids", None)   # as chaves (para o contam()): a página não precisa delas
     try:
         with open(REGISTO, "rb") as f:
             f.seek(max(0, f.seek(0, 2) - 8000))
@@ -947,7 +1010,8 @@ def estado_todos(linhas=12):
     pausa = overpass_em_pausa()
     try:
         falta_ = json.loads(EM_FALTA.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        falta_.pop("ids", None)
+    except (OSError, ValueError, AttributeError):
         falta_ = None
     return {**estado, "a_correr": vivo, "registo": fim, "so_cidade": so_cidade, "em_falta": falta_,
             "overpass_pausa": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(pausa)) if pausa else None}
@@ -1001,13 +1065,46 @@ def _todos():
         raise
 
 
+def _lista_todos(mostrar):
+    """(estádios que contam [(data, info, desporto)], chaves dos só de taças) da época, como no --todos."""
+    lista = [(quando, info(v, d), d, taca) for quando, v, d, taca in _todos_venues(mostrar)]
+    return [(q, e, d) for q, e, d, taca in lista if e and not taca], [e["id"] for _q, e, _d, taca in lista if e and taca]
+
+
+def todos_seco():
+    """--todos --seco: só a lista da época e o que falta (pede os calendários à ESPN; não liga à Wikidata nem ao
+    Overpass). Só grava as chaves que contam e as só de taças em data/estadios_todos.json (para o contam()), sem
+    mexer no estado do --todos."""
+    def mostrar(texto):
+        print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
+    estadios_, tacas = _lista_todos(mostrar)
+    if not todos_a_correr():
+        try:
+            estado = json.loads(PROGRESSO.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            estado = {"estado": None}
+        estado.update(so_tacas=len(tacas), ids={"contam": [e["id"] for _q, e, _d in estadios_], "so_tacas": tacas})
+        tmp = PROGRESSO.with_suffix(".tmp")
+        tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(PROGRESSO)
+    futebol = [e for _q, e, d in estadios_ if d == "football"]
+    tudo = ler()
+    sem_coord = [e for _q, e, _d in estadios_ if tudo.get(e["id"], {}).get("lat") is None]
+    sem_osm = [e for e in futebol if not _resolvido(e, True)]
+    mostrar(f"A seco: {len(estadios_)} estádios contam ({len(futebol)} de futebol), mais {len(tacas)} só de taças "
+            "(não se descarregam)")
+    mostrar(f"Fase A faria {len(sem_coord)}: " + (", ".join(e["nome"] for e in sem_coord) or "nenhum"))
+    mostrar(f"Fase B faria {len(sem_osm)}: " + (", ".join(e["nome"] for e in sem_osm) or "nenhum"))
+
+
 def _fases(gravar_progresso, mostrar, t0):
     global PAUSA
-    lista = _todos_venues(mostrar)
-    estadios_ = [(quando, info(v, d), d) for quando, v, d in lista]
-    estadios_ = [(q, e, d) for q, e, d in estadios_ if e]
+    estadios_, tacas = _lista_todos(mostrar)
     futebol = [(q, e) for q, e, d in estadios_ if d == "football"]
-    mostrar(f"{len(estadios_)} estádios ({len(futebol)} de futebol, {len(estadios_) - len(futebol)} da NBA)")
+    so_tacas_ = f"{len(tacas)} só de taças (não se descarregam)"
+    gravar_progresso(so_tacas=len(tacas), ids={"contam": [e["id"] for _q, e, _d in estadios_], "so_tacas": tacas})
+    mostrar(f"{len(estadios_)} estádios ({len(futebol)} de futebol, {len(estadios_) - len(futebol)} da NBA), "
+            f"mais {so_tacas_}")
 
     # Fase A: só as coordenadas
     a_fazer = [e for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is None]
@@ -1033,16 +1130,31 @@ def _fases(gravar_progresso, mostrar, t0):
     if pausa and not _ignorar_pausa[0]:
         mostrar(f"Overpass em pausa até {_hora(pausa)}: não faço a fase B (só o --testar tenta antes)")
         pausado = True
+    limpos = _limpar_erros_velhos()
+    if limpos:
+        mostrar(f"Erros antigos tirados de {limpos} estádios que já têm o OSM")
+
+    def faltam(insistir):
+        return [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True, insistir)
+                and ler().get(e["id"], {}).get("lat") is not None]
+
     for ronda in range(0 if pausado else RONDAS):
-        a_fazer = [e for _q, e in futebol if falta({**e, "osm": ficheiro_osm(e["id"]).exists()}, True)
-                   and ler().get(e["id"], {}).get("lat") is not None]
-        if not a_fazer:
-            break
-        if ronda:   # 15, 30, 60 minutos
+        if ronda:   # 15, 30, 60 minutos; a lista faz-se depois da espera (antes, os que acabaram de falhar não contavam)
+            com_erro = [e for e in faltam(True) if ler().get(e["id"], {}).get("erro")]
+            if not com_erro:
+                break
             espera = REPETIR_ERRO_S * 2 ** (ronda - 1)
-            mostrar(f"Ronda {ronda + 1}: {len(a_fazer)} com erro de rede; a esperar {espera // 60} minutos")
-            gravar_progresso(passo=f"À espera {espera // 60} min para repetir {len(a_fazer)} com erro de rede")
+            mostrar(f"À espera {espera // 60} min para a ronda {ronda + 1} ({len(com_erro)} com erro de rede)")
+            gravar_progresso(passo=f"À espera {espera // 60} min para a ronda {ronda + 1} ({len(com_erro)} com erro de rede)")
             time.sleep(espera + 5)
+        # a 1.ª ronda (o botão "Continuar", o --todos, o --retomar) tenta tudo o que falta, mesmo o que falhou há pouco
+        a_fazer = faltam(ronda == 0)
+        if not a_fazer:
+            recentes = faltam(True)
+            if recentes:
+                mostrar(f"Fase B: nada a fazer agora: os {len(recentes)} que faltam falharam há menos de "
+                        f"{REPETIR_ERRO_S // 60} min")
+            break
         mostrar(f"Fase B: OpenStreetMap de {len(a_fazer)} estádios (~1 minuto cada)")
         t1 = time.time()
         seguidos = 0
@@ -1051,7 +1163,7 @@ def _fases(gravar_progresso, mostrar, t0):
             gravar_progresso(fase="B", passo=f"OpenStreetMap: {e['nome']}", feitos=i - 1, total=len(a_fazer),
                              estimativa_s=round(time.time() - t0 + media * (len(a_fazer) - i + 1)))
             try:
-                r = resolver(e, True)
+                r = resolver(e, True, ronda == 0)
             except LimiteDiario as ex:
                 mostrar(f"Limite diário: {ex}; paro a fase B, o resto fica para amanhã")
                 limite = True
@@ -1060,7 +1172,7 @@ def _fases(gravar_progresso, mostrar, t0):
                 mostrar(f"{ex}: paro a fase B")
                 pausado = True
                 break
-            ok = ficheiro_osm(e["id"]).exists()
+            ok = ficheiro_osm(e["id"]).exists() and not r.get("erro")   # com refazer o ficheiro antigo já existia
             mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
             if not r.get("sem_pedido"):   # sem pedido (servidores de parte) não diz nada sobre o Overpass
                 seguidos = 0 if ok or not r.get("erro") else seguidos + 1
@@ -1072,14 +1184,11 @@ def _fases(gravar_progresso, mostrar, t0):
                 break
         if pausado or limite:
             break
-        time.sleep(1)
-        # os que deram erro voltam a ser tentados; os outros (não encontrados, só a cidade) ficam
-        if not any(ler().get(e["id"], {}).get("erro") for e in a_fazer):
-            break
+        # os que deram erro voltam a ser tentados na ronda seguinte; os outros (não encontrados, só a cidade) ficam
 
     osm = sum(1 for _q, e in futebol if ficheiro_osm(e["id"]).exists())
     com = sum(1 for _q, e, _d in estadios_ if ler().get(e["id"], {}).get("lat") is not None)
-    fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap"
+    fim = f"{com}/{len(estadios_)} com coordenadas, {osm}/{len(futebol)} de futebol com OpenStreetMap; {so_tacas_}"
     # os que ainda têm erro de rede não ficam esquecidos: "incompleto" (e não "ok") faz a tarefa agendada
     # (--retomar, de 30 em 30 minutos) voltar a tentá-los
     com_erro = sum(1 for _q, e in futebol if ler().get(e["id"], {}).get("erro"))
@@ -1113,6 +1222,12 @@ def testar(nome, seco=False):
         return False
     g = tudo[c]
     e = {"id": c, "nome": g.get("nome") or nome, "cidade": g.get("cidade"), "pais": g.get("pais")}
+    sim, tacas = contam()
+    if c not in sim:
+        mostrar(f"Teste: {e['nome']} ({c}) " + ("só aparece em taças de um país" if c in tacas else
+                "não está nos jogos marcados") + ", não se descarrega; nada feito (testa com um estádio de uma liga, "
+                "da UEFA ou de seleções)")
+        return False
     if seco:
         mostrar(f"Teste (a seco): {e['nome']} ({c}) em {g['lat']}, {g['lon']}; raios {RAIO_RUAS}/{RAIO_ESTRADAS}/"
                 f"{RAIO_PREDIOS} m{' (pequeno)' if g.get('pequeno') else ''}; pausa {PAUSA_TODOS:.0f} s; "
@@ -1163,15 +1278,19 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--todos"]:
         todos()
         sys.exit()
+    if sys.argv[1:] == ["--todos", "--seco"]:
+        todos_seco()
+        sys.exit()
     if sys.argv[1:] == ["--retomar"]:
         # pela tarefa agendada do Windows (pythonw, sem consola): só se o --todos não está a correr e não acabou (ou
-        # acabou mas ainda há estádios com erro de rede ou marcados com --refazer)
+        # acabou mas ainda há estádios que contam com erro de rede ou marcados com --refazer)
         try:
             acabou = json.loads(PROGRESSO.read_text(encoding="utf-8")).get("estado") == "ok"
         except (OSError, ValueError):
             acabou = False
-        pendentes = [c for c, v in ler().items() if v.get("refazer") or v.get("erro") and (
-            v.get("lat") is None or not ficheiro_osm(c).exists())]
+        sim = contam()[0]
+        pendentes = [c for c, v in ler().items() if c in sim and (v.get("refazer") or v.get("erro") and (
+            v.get("lat") is None or not ficheiro_osm(c).exists()))]
         acabou = acabou and not pendentes
         if acabou or todos_a_correr():
             sys.exit()

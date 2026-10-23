@@ -339,9 +339,15 @@ function emFalta(f) {
   const quando = new Date(f.em).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' });
   const lista = (titulo, l) => l && l.length ? `<span class="nota mal">${titulo} (${l.length}): ${esc(l.join(', '))}</span>` : '';
   const nada = !(f.sem_ruas || []).length && !(f.sem_coordenadas || []).length;
-  return `<span class="nota">Jogos dos próximos ${f.dias} dias: ${f.estadios} estádios${nada ? ', nada em falta' : ''} · visto às ${esc(quando)}</span>
+  // os estádios que só aparecem em taças de um país não se descarregam: à parte, sem o vermelho de "em falta"
+  const t = f.so_tacas || {};
+  const tacas = (titulo, l) => l && l.length ? `<span class="nota">${titulo} (${l.length}): ${esc(l.join(', '))}</span>` : '';
+  return `<span class="nota">Jogos dos próximos ${f.dias} dias: ${f.estadios} estádios${nada ? ', nada em falta' : ''}${t.estadios ? `, mais ${t.estadios} só de taças` : ''} · visto às ${esc(quando)}</span>
       ${lista('Sem estádio (sem coordenadas: o jogo fica só no cartão)', f.sem_coordenadas)}
-      ${lista('Sem ruas (sem o zoom nos golos)', f.sem_ruas)}`;
+      ${lista('Sem ruas (sem o zoom nos golos)', f.sem_ruas)}
+      ${(t.sem_coordenadas || []).length || (t.sem_ruas || []).length ? `<span class="nota"><b>Só taças (não se descarrega)</b></span>
+      ${tacas('Sem estádio', t.sem_coordenadas)}
+      ${tacas('Sem ruas', t.sem_ruas)}` : ''}`;
 }
 async function mostrarEstadios() {
   const caixa = document.getElementById('estadios');
@@ -355,7 +361,7 @@ async function mostrarEstadios() {
       : e.estado ? `<span class="mal">■ Parado</span>${e.erro ? ` · ${esc(e.erro)}` : ''}` : 'Ainda não correu';
     const pct = e.total ? Math.round(100 * e.feitos / e.total) : 0;
     const falta = e.a_correr && e.estimativa_s ? `falta ~${duracao(Math.max(0, e.estimativa_s - e.decorrido_s))}` : '';
-    caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${falta ? ` · ${falta}` : ''}</span></div>
+    caixa.innerHTML = `<div class="linha"><span>${titulo}</span><span class="nota">${e.total ? `${e.feitos}/${e.total}` : ''}${e.so_tacas ? ` (+${e.so_tacas} só de taças)` : ''}${falta ? ` · ${falta}` : ''}</span></div>
       ${e.total ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}
       ${e.passo ? `<span class="nota">${esc(e.passo)}</span>` : ''}
       ${e.overpass_pausa ? `<span class="nota mal">⏸ Overpass em pausa até ${esc(new Date(e.overpass_pausa).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' }))} (3 falhas seguidas; só o --testar tenta antes)</span>` : ''}

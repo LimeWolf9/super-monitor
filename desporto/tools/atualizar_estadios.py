@@ -8,7 +8,9 @@ Uso:
 1. A lista: os estádios dos jogos dos próximos DIAS dias de cada competição ligada (data/competicoes.json) e da
    NBA, dos calendários da ESPN (o jogo mais próximo primeiro).
 2. Compara-a com data/estadios.json e data/estadios_osm/ (estadios.em_falta): falta um estádio sem coordenadas, um
-   de futebol sem o ficheiro do OSM, ou um marcado com refazer.
+   de futebol sem o ficheiro do OSM, ou um marcado com refazer. Só contam os estádios com pelo menos um jogo numa
+   liga, numa competição da UEFA, de seleções ou na NBA: os que só aparecem nas taças de cada país
+   (competicoes.TACAS_NACIONAIS) não se descarregam (a /definicoes lista-os à parte, "Só taças").
 3. Só se faltar algum se descarrega (estadios.preparar): as coordenadas (Wikidata) e, no futebol, o OpenStreetMap
    (Overpass), com as regras do --todos: no máximo OSM_POR_DIA por dia, a vaga no /api/status, para ao fim de 3
    estádios seguidos com erro de rede e o Overpass fica 24 h em pausa. Para de começar estádios ao fim de MAX_S.
@@ -52,27 +54,36 @@ def venues(caminho, de, ate, filtro=None):
     return lista
 
 
+def fontes():
+    """[(caminho na ESPN, nome, filtro, só taça?)] das competições ligadas e da NBA. Só taça = uma taça de um país
+    (competicoes.TACAS_NACIONAIS): os estádios que só aparecem nelas não se descarregam."""
+    lista = [(f"soccer/{liga}", nome, filtro, c in competicoes.TACAS_NACIONAIS)
+             for c, nome, liga, _t, filtro in competicoes.a_buscar()]
+    return lista + [("basketball/nba", "NBA", None, False)]
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     hoje = datetime.now()
     de = hoje - timedelta(days=1) if "--ontem" in sys.argv else hoje
     ate = hoje + timedelta(days=DIAS)
     todos, erros = [], []
-    fontes = [(f"soccer/{liga}", nome, filtro) for _c, nome, liga, _t, filtro in competicoes.a_buscar()]
-    fontes.append(("basketball/nba", "NBA", None))
-    for caminho, nome, filtro in fontes:
+    for caminho, nome, filtro, taca in fontes():
         try:
-            todos += venues(caminho, de, ate, filtro)
+            todos += [(quando, v, desporto, taca) for quando, v, desporto in venues(caminho, de, ate, filtro)]
         except Exception as e:
             erros.append(f"{nome} ({e})")
-    lista, a_fazer = estadios.em_falta([(v, desporto) for _quando, v, desporto in sorted(todos, key=lambda x: x[0])])
+    lista, a_fazer = estadios.em_falta([(v, desporto, taca) for _quando, v, desporto, taca in sorted(todos, key=lambda x: x[0])])
+    contam = sum(1 for e, _f in lista if not e["so_taca"])
+    tacas = f" (mais {len(lista) - contam} só de taças, que não se descarregam)" if len(lista) > contam else ""
     if not a_fazer:
         estadios.gravar_em_falta(lista, DIAS)
         registar_fonte("Estádios (Wikidata, OpenStreetMap)", itens=0, esperado=False, aviso="; ".join(erros) or None)
-        print(f"Estádios: {len(lista)} dos próximos {DIAS} dias, 0 em falta, sem ligação ao OSM.")
+        print(f"Estádios: {contam} dos próximos {DIAS} dias{tacas}, 0 em falta, sem ligação ao OSM.")
         return
-    print(f"Estádios: {len(lista)} dos próximos {DIAS} dias, {len(a_fazer)} em falta: "
-          + ", ".join(e["nome"] for e, _f in a_fazer[:10]) + (" ..." if len(a_fazer) > 10 else ""), flush=True)
+    print(f"Estádios: {contam} dos próximos {DIAS} dias{tacas}, {len(a_fazer)} em falta: "
+          + ", ".join(e["nome"] for e, _f in (a_fazer if "--seco" in sys.argv else a_fazer[:10]))
+          + (" ..." if len(a_fazer) > 10 and "--seco" not in sys.argv else ""), flush=True)
     if "--seco" in sys.argv:
         estadios.gravar_em_falta(lista, DIAS)
         return
@@ -80,8 +91,8 @@ def main():
     estadios.gravar_em_falta(lista, DIAS)
     registar_fonte("Estádios (Wikidata, OpenStreetMap)", itens=novos, esperado=False,
                    aviso="; ".join(([f"{faltam} estádios por fazer"] if faltam else []) + ([parou] if parou else []) + erros) or None)
-    print(f"Estádios: {len(lista) - len(a_fazer)} já em cache, {novos} novos, {faltam} por fazer"
-          + (f" ({parou})" if parou else "") + ".")
+    print(f"Estádios: {contam - len(a_fazer)}/{contam} já em cache, {novos} novos, {faltam} por fazer"
+          + (f" ({parou})" if parou else "") + f"{tacas}.")
 
 if __name__ == "__main__":
     main()

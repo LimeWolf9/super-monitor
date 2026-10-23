@@ -67,6 +67,9 @@ POR_DEFEITO = {c["chave"]: c["omissao"] for c in COMPETICOES
 # Taças estrangeiras: só a partir dos oitavos (ver fase_conta em atualizar_futebol.py)
 DESDE_OITAVOS = {"fa", "efl", "cdr", "dfb", "cit", "cdf"}
 
+# Taças de cada país (não as da UEFA): um estádio que só aparece nelas não se descarrega (ver tools/estadios.py)
+TACAS_NACIONAIS = {c["chave"] for c in COMPETICOES if c["tipo"] == "taca" and c["grupo"] != "Europa"}
+
 # Seleções escolhidas por equipa: id da seleção na ESPN
 SELECOES = {"por": "482", "bra": "205", "arg": "202"}
 
