@@ -2,6 +2,7 @@
 
 - pedir(): pedido HTTP com User-Agent e descompressão gzip (a ESPN comprime mesmo sem se pedir).
 - ler_dados() / gravar(): lê o live.json (ou o mock, na primeira vez) e grava-o de forma atómica.
+- marcas(): as horas a registar numa parte que vem por competições (futebol, 11 da jornada), também só de algumas.
 - baixar_emblema(): descarrega o emblema de uma equipa nova para web/img/equipas/.
 - registar_fonte() / fonte(): guardam em data/fontes.json como correu cada fonte (para as Definições e o hub).
 Só usa a biblioteca standard do Python.
@@ -22,7 +23,8 @@ MOCK = RAIZ / "data" / "mock.json"
 LIVE = RAIZ / "data" / "live.json"
 EMBLEMAS = RAIZ / "web" / "img" / "equipas"
 FONTES = RAIZ / "data" / "fontes.json"
-USER_AGENT = "dashboard-desportivo/1.0 (uso pessoal)"
+# Quem pede e como contactar (a Wikipédia, a Wikidata, o OpenStreetMap e a Jolpica pedem isto): o link do projeto, nada privado
+USER_AGENT = "SuperMonitor/2.0 (+https://github.com/LimeWolf9/super-monitor)"
 PAUSA = 0.5   # segundos entre pedidos, para não abusar das APIs
 
 # Quando todas estas partes tiverem vindo de fontes reais, sai o aviso de "DADOS FICTÍCIOS".
@@ -52,15 +54,28 @@ def ler_dados():
     return json.loads(base.read_text(encoding="utf-8"))
 
 
-def gravar(dados, parte):
-    """Regista a hora da atualização e grava de uma vez (live.tmp -> live.json)."""
+def gravar(dados, *partes):
+    """Regista a hora da atualização de cada parte em _atualizado e grava de uma vez (live.tmp -> live.json)."""
     atualizado = dados.setdefault("_atualizado", {})
-    atualizado[parte] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    agora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for parte in partes:
+        atualizado[parte] = agora
     if all(p in atualizado for p in PARTES):
         dados.pop("_aviso", None)
     tmp = LIVE.with_suffix(".tmp")
     tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(LIVE)   # troca de uma vez, para o dashboard nunca ler um ficheiro a meio
+
+
+def marcas(dados, parte, chaves, parcial):
+    """Partes a passar a gravar() numa parte que vem por competições.
+
+    Cada competição atualizada fica com a sua hora ("futebol:pt": é a que o canto do ecrã mostra nas cenas dela).
+    A hora da parte toda ("futebol") só muda numa atualização completa (ou se ainda não houver nenhuma): depois de
+    atualizar só a Liga Portugal, as outras ligas não podem dizer que os dados são de agora.
+    """
+    feitas = [f"{parte}:{c}" for c in chaves]
+    return feitas if parcial and parte in dados.get("_atualizado", {}) else [parte, *feitas]
 
 
 def tem_emblema(code):

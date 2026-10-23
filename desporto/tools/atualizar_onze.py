@@ -3,6 +3,7 @@
 Uso:
     python tools/atualizar_onze.py            # atualiza data/live.json
     python tools/atualizar_onze.py --mostrar  # só mostra o que gravaria
+    python tools/atualizar_onze.py --competicoes pt   # só estas; as outras ficam com o 11 que tinham
 
 Não há uma fonte aberta e sem chave com o 11 oficial da jornada, por isso é calculado pelo dashboard (e a cena
 diz isso): para cada jogo da última jornada, a ESPN dá o onze de cada equipa, a posição de cada jogador e as
@@ -18,7 +19,7 @@ Uma competição sem dados fica sem "onze" e o ecrã sai da rotação. Só usa a
 import argparse
 import json
 
-from comum import RAIZ, gravar, ler_dados, pedir_json, registar_fonte
+from comum import RAIZ, gravar, ler_dados, marcas, pedir_json, registar_fonte
 
 LIGAS = ["pt", "en", "es", "de", "fr", "it", "ucl"]   # as que mostram resultados (a Liga Europa e a Conferência não)
 from atualizar_futebol import EQUIPAS, LIGAS as LIGAS_ESPN   # noqa: E402
@@ -131,13 +132,16 @@ def onze_da_liga(chave, L, codigos, cache):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mostrar", action="store_true", help="só mostra o resultado, não grava")
+    ap.add_argument("--competicoes", help="só estas competições, separadas por vírgulas (as que não têm 11 ignoram-se)")
     args = ap.parse_args()
+    parcial = bool(args.competicoes)
+    ligas = [c for c in LIGAS if c in [x.strip() for x in args.competicoes.split(",")]] if parcial else LIGAS
 
     dados = ler_dados()
     cache = ler_cache()
     # id ESPN da equipa -> sigla: o mapa EQUIPAS do atualizador do futebol
     feitos, falhas = [], []
-    for chave in LIGAS:
+    for chave in ligas:
         L = (dados.get("football") or {}).get(chave)
         if not L:
             continue
@@ -160,7 +164,7 @@ def main():
         print(json.dumps({k: dados["football"][k].get("onze") for k in LIGAS if k in dados["football"]},
                          ensure_ascii=False, indent=2))
         return
-    gravar(dados, "onze")
+    gravar(dados, *marcas(dados, "onze", feitos, parcial))
     print(f"11 da jornada: {', '.join(feitos) or 'nenhum'}.")
 
 

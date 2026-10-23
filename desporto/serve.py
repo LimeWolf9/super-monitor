@@ -19,6 +19,8 @@ Estádios (na página /definicoes): GET /api/estadios dá o progresso do "tools/
 POST /api/estadios/continuar arranca-o num processo à parte (409 se já estiver a correr).
 
 Os dados só se atualizam quando se pede (no dashboard: o botão "atualizar" do comando, ou a tecla U). O pedido chega por POST /api/atualizar; GET /api/atualizar/estado diz em que passo vai.
+Só uma parte: POST /api/atualizar com {"passos": ["noticias", ...], "competicoes": ["pt"]} (os nomes do --passos e do
+--competicoes); GET /api/atualizar/partes dá as partes e a hora de cada uma (a secção "Atualizar só uma parte" da /definicoes).
 É o mesmo código de "python tools/atualizar_tudo.py" (que atualiza sem o servidor, ex.: pelo MonitorHub): os
 atualizadores correm em série; o progresso fica em data/atualizacao.json e uma tranca impede duas ao mesmo tempo.
 
@@ -49,11 +51,14 @@ import estadios         # noqa: E402  (o --todos dos estádios do mapa: GET /api
 import f1_aovivo        # noqa: E402  (F1 ao vivo: o redutor, o ecrã e a simulação a partir do arquivo)
 import f1_direto        # noqa: E402  (F1 ao vivo em direto: GET /api/f1/aovivo sem ?simular=)
 
-def comecar_atualizacao():
-    """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub)."""
+def comecar_atualizacao(passos=None, competicoes=None):
+    """Arranca uma atualização numa thread. False se já houver uma a correr (aqui ou pelo comando/hub).
+
+    passos/competicoes: como o --passos/--competicoes do atualizar_tudo.py (None = tudo, como sempre)."""
     if atualizar_tudo.a_correr():
         return False
-    threading.Thread(target=atualizar_tudo.atualizar, daemon=True, name="atualizar").start()
+    threading.Thread(target=atualizar_tudo.atualizar, kwargs={"passos": passos, "competicoes": competicoes},
+                     daemon=True, name="atualizar").start()
     for _ in range(20):   # espera que a tranca exista, para o estado devolvido já dizer "a correr"
         if atualizar_tudo.a_correr():
             break
@@ -88,6 +93,62 @@ def definicoes():
             "chave": c["chave"], "nome": c["nome"], "nota": c["nota"],
             "disponivel": c["chave"] in competicoes.POR_DEFEITO, "ligada": escolha.get(c["chave"], False)})
     return {"grupos": [{"nome": g, "itens": itens} for g, itens in grupos.items()]}
+
+
+# "Atualizar só uma parte" (página /definicoes): (id, nome, passos). Depois do futebol corre o 11 da jornada (sai
+# dos jogos da última jornada) e depois de cada parte com dados os destaques (0,1 s), para não mostrarem dados velhos.
+PARTES = [("futebol", "Futebol", ["futebol", "onze", "destaques"]),
+          ("taca_liga", "Taça da Liga", ["taca_liga", "destaques"]),
+          ("f1", "Fórmula 1", ["f1", "destaques"]), ("nba", "NBA", ["nba", "destaques"]),
+          ("noticias", "Notícias", ["noticias", "destaques"]), ("elo", "ClubElo", ["elo", "destaques"]),
+          ("fotos", "Fotos", ["fotos", "destaques"]), ("curiosidades", "Curiosidades", ["curiosidades"]),
+          ("estadios", "Estádios", ["estadios"])]
+PIOR = {"ok": 0, "aviso": 1, "falhou": 2}
+
+
+def competicoes_futebol():
+    """[(chave, nome)] das competições que o futebol vai buscar (as ligadas; a Taça da Liga tem a sua parte)."""
+    return [(c[0], c[1]) for c in competicoes.a_buscar()]
+
+
+def partes():
+    """As partes que se podem atualizar sozinhas, com a hora e o estado da última vez (para a página /definicoes)."""
+    fontes = atualizar_tudo.ler_json(atualizar_tudo.FONTES, {})
+    feito = (atualizar_tudo.ler_json(RAIZ / "data" / "live.json", {}).get("_atualizado") or {})
+
+    def ultima(curto):
+        # A última tentativa das fontes deste passo (data/fontes.json); sem fontes, a hora gravada no live.json
+        f = [x for x in fontes.values() if x.get("passo") == atualizar_tudo.CURTOS[curto] and x.get("ultima_tentativa")]
+        if not f:
+            return {"ultima": feito.get(curto), "estado": "ok" if feito.get(curto) else None}
+        quando = max(x["ultima_tentativa"] for x in f)
+        recentes = [x for x in f if x["ultima_tentativa"][:16] >= quando[:16]]   # as do mesmo minuto
+        return {"ultima": quando, "estado": max((x.get("estado") for x in recentes), key=lambda e: PIOR.get(e, 0))}
+
+    tl = competicoes.ler().get("tl")
+    return {"partes": [{"id": i, "nome": n, "passos": p, **ultima(p[0])} for i, n, p in PARTES if i != "taca_liga" or tl],
+            "competicoes": [{"chave": k, "nome": n, "ultima": feito.get(f"futebol:{k}")} for k, n in competicoes_futebol()]}
+
+
+def pedido_parcial(corpo):
+    """(passos, competicoes) do corpo do POST /api/atualizar; (None, None) sem corpo = tudo. ValueError se mal feito."""
+    if not corpo.strip():
+        return None, None
+    try:
+        pedido = json.loads(corpo)
+    except ValueError:
+        raise ValueError("JSON inválido")
+    if not isinstance(pedido, dict):
+        raise ValueError("o corpo tem de ser um objeto")
+    nomes, comps = pedido.get("passos") or [], pedido.get("competicoes") or []
+    if not isinstance(nomes, list) or not isinstance(comps, list) or not all(isinstance(x, str) for x in nomes + comps):
+        raise ValueError("'passos' e 'competicoes' são listas de nomes")
+    passos = atualizar_tudo.escolher_passos(",".join(nomes)) if nomes else None
+    validas = [k for k, _ in competicoes_futebol()]
+    erradas = [c for c in comps if c not in validas]
+    if erradas:
+        raise ValueError(f"Competições que não se buscam: {', '.join(erradas)}. Ligadas: {', '.join(validas)}.")
+    return passos, ",".join(comps) or None
 
 
 def estado_atual():
@@ -139,6 +200,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.responder_json(estado_atual())
         if caminho == "/api/competicoes":
             return self.responder_json(definicoes())
+        if caminho == "/api/atualizar/partes":
+            return self.responder_json(partes())
         if caminho == "/api/estadios":
             return self.responder_json(estadios.estado_todos())
         if caminho == "/api/aovivo":
@@ -191,7 +254,12 @@ class Handler(SimpleHTTPRequestHandler):
             return self.responder_json({"comecou": comecou, **estadios.estado_todos()}, 202 if comecou else 409)
         if caminho != "/api/atualizar":
             return self.send_error(404)
-        comecou = comecar_atualizacao()
+        # Sem corpo, tudo (a tecla U, o comando, o hub); com {"passos": [...], "competicoes": [...]}, só essa parte
+        try:
+            passos, comps = pedido_parcial(corpo)
+        except ValueError as e:
+            return self.responder_json({"erro": str(e)}, 400)
+        comecou = comecar_atualizacao(passos, comps)
         # 409 = já havia uma atualização a correr (o estado diz em que passo vai)
         self.responder_json({"comecou": comecou, **estado_atual()}, 202 if comecou else 409)
 

@@ -556,10 +556,13 @@ await Promise.all([lerDesporto(), lerTempo(), lerComando()]);
 montar();
 setInterval(relogio, 1000);
 setInterval(() => mudarNoticias(1), RODAR_NOTICIAS_MS);
-// O desporto a cada 5 min (o live.json muda quando se atualiza), o tempo a cada 30 min. Sem animação de entrada.
+// O desporto a cada 5 min (o live.json muda quando se atualiza), o tempo a cada 15 min (o Open-Meteo atualiza as condições atuais a cada 15 min). Sem animação de entrada.
 const semEntrada = () => document.querySelectorAll('.entra').forEach((el) => el.classList.remove('entra'));
 setInterval(async () => { await lerDesporto(); montar(); semEntrada(); }, 5 * 60e3);
-setInterval(async () => { await lerTempo(); montar(); semEntrada(); }, 30 * 60e3);
+// E a cada minuto vê se houve uma atualização (a hora em _atualizado mudou): se sim, redesenha logo
+const marcaDados = () => JSON.stringify((D && D._atualizado) || null);
+setInterval(async () => { const antes = marcaDados(); await lerDesporto(); if (marcaDados() !== antes) { montar(); semEntrada(); } }, 60e3);
+setInterval(async () => { await lerTempo(); montar(); semEntrada(); }, 15 * 60e3);
 </script>
 </body>
 </html>

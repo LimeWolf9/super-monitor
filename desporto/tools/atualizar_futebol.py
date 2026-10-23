@@ -3,6 +3,7 @@
 Uso:
     python tools/atualizar_futebol.py            # atualiza data/live.json
     python tools/atualizar_futebol.py --mostrar  # só mostra o que gravaria
+    python tools/atualizar_futebol.py --competicoes pt,en   # só estas (chaves de competicoes.py); as outras ficam
 
 Fonte: a API pública da ESPN (site.api.espn.com), gratuita e sem chave. Não é oficial nem documentada:
 se um dia mudar de formato, o script falha e o live.json fica como estava.
@@ -20,7 +21,9 @@ Taças e seleções (tipo "taca" e "selecoes" em competicoes.py): 3 pedidos por 
 meses), mais a classificação dos grupos nas seleções. A fase vem de cada jogo (season.slug: "3rd-round",
 "round-of-16", "group-stage"...). Ver montar_taca().
 As competições que se buscam são as escolhidas em data/competicoes.json (página /definicoes do serve.py);
-as que se desligaram saem do live.json.
+as que se desligaram saem do live.json (numa atualização completa; com --competicoes só se mexe nas pedidas).
+Cada competição atualizada regista a sua hora em _atualizado ("futebol:pt"), que é a que o canto do ecrã mostra
+nas cenas dela; a hora "futebol" só muda numa atualização completa (ver comum.marcas).
 Só usa a biblioteca standard do Python.
 """
 
@@ -34,7 +37,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from comum import EMBLEMAS, LIVE, RAIZ, baixar_emblema, gravar, ler_dados, pedir, pedir_json, registar_fonte, tem_emblema
+from comum import EMBLEMAS, LIVE, RAIZ, baixar_emblema, gravar, ler_dados, marcas, pedir, pedir_json, registar_fonte, tem_emblema
 import competicoes
 import emblemas_wikidata
 
@@ -725,23 +728,35 @@ def montar(chave, nome, liga, tipo, filtro, antigo, equipas, agora, baixar):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mostrar", action="store_true", help="só mostra o resultado, não grava")
+    ap.add_argument("--competicoes", help="só estas competições, separadas por vírgulas (ex.: pt,en); as outras ficam como estão")
     args = ap.parse_args()
+
+    lista = competicoes.a_buscar()   # as escolhidas em data/competicoes.json, pela ordem da rotação
+    parcial = bool(args.competicoes)
+    if parcial:
+        pedidas = [c.strip() for c in args.competicoes.split(",") if c.strip()]
+        validas = [c[0] for c in lista]
+        erradas = [c for c in pedidas if c not in validas]
+        if erradas:   # desconhecida ou desligada em /definicoes (a Taça da Liga é do atualizar_taca_liga.py)
+            sys.exit(f"Competições que não se buscam: {', '.join(erradas)}. Ligadas: {', '.join(validas)}.")
+        lista = [c for c in lista if c[0] in pedidas]
 
     dados = ler_dados()
     teams = dict(dados["teams"])   # cópia: se falhar a meio, os dados originais ficam intactos
     equipas = Equipas(teams, baixar=not args.mostrar)
     agora = datetime.now(timezone.utc)
     antigo = dados.get("football") or {}
-    lista = competicoes.a_buscar()   # as escolhidas em data/competicoes.json, pela ordem da rotação
     futebol, falhas = {}, []
     # As competições são independentes: correm em paralelo, cada uma com os seus pedidos à ESPN.
     # Uma que falhe fica com os dados anteriores (se os tiver); as desligadas saem do live.json.
     with ThreadPoolExecutor(max_workers=8) as ex:
         futuros = {c[0]: ex.submit(montar, *c, antigo.get(c[0]), equipas, agora, not args.mostrar) for c in lista}
     nomes, tipos = {c[0]: c[1] for c in lista}, {c[0]: c[3] for c in lista}
+    feitas = []   # as que vieram da ESPN agora (ficam com a hora de agora em _atualizado)
     for chave, f in futuros.items():
         try:
             futebol[chave] = f.result()
+            feitas.append(chave)
             L = futebol[chave]
             # Uma liga tem sempre classificação; uma taça ou uma prova de seleções fica vazia entre eliminatórias
             registar_fonte(f"ESPN {nomes[chave]}", itens=sum(len(L.get(k) or []) for k in ("table", "results", "next")),
@@ -751,7 +766,9 @@ def main():
             falhas.append(f"{chave} ({e})")
             if antigo.get(chave):
                 futebol[chave] = antigo[chave]
-    if competicoes.ler().get("tl") and antigo.get("tl"):   # a Taça da Liga é do atualizar_taca_liga.py: fica
+    if parcial:   # só as pedidas mudam; as outras (e a ordem) ficam como estavam
+        futebol = {**antigo, **futebol}
+    elif competicoes.ler().get("tl") and antigo.get("tl"):   # a Taça da Liga é do atualizar_taca_liga.py: fica
         futebol = {**{k: v for k, v in futebol.items()}, "tl": antigo["tl"]}
         ordem = [k for k in futebol if k != "tl"]
         i = ordem.index("tp") + 1 if "tp" in ordem else len(ordem)
@@ -763,13 +780,18 @@ def main():
         print(json.dumps(futebol, ensure_ascii=False, indent=2))
         return
     dados["football"], dados["teams"] = futebol, teams
-    gravar(dados, "futebol")
+    at = dados.setdefault("_atualizado", {})
+    for k in [k for k in at if k.startswith("futebol:") and k[8:] not in futebol]:
+        del at[k]   # de uma competição que saiu
+    gravar(dados, *marcas(dados, "futebol", feitas, parcial))
     if equipas.novas:
         print(f"Equipas acrescentadas a teams: {', '.join(equipas.novas)}")
     if equipas.sem_emblema:   # nas taças há muitos clubes amadores sem emblema na ESPN: ficam com o círculo
         lista = equipas.sem_emblema
         print(f"Sem emblema: {', '.join(lista[:8])}" + (f" e mais {len(lista) - 8}" if len(lista) > 8 else ""))
     for chave, L in futebol.items():
+        if parcial and chave not in feitas:
+            continue
         if L.get("tipo") == "liga":
             print(f"{L['name']}: {L['round']}, {len(L['table'])} equipas, {len(L['results'])} resultados, "
                   f"{len(L['next'])} próximos jogos, {len(L['scorers'])} marcadores")

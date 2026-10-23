@@ -9,6 +9,7 @@ export function createScheduler({ host, bar, scenes, getData, seconds, duracao =
   let segAtual = seconds; // duração da cena visível (a barra de progresso usa a mesma)
   let pass = 0;          // voltas completas ao ciclo (usado na cena "fun")
   let atual = null;      // elemento da cena visível
+  let cenaAtual = null;  // e a cena dele (para a redesenhar com dados novos)
   let timer = null;
   let pausado = false;
 
@@ -30,6 +31,7 @@ export function createScheduler({ host, bar, scenes, getData, seconds, duracao =
       setTimeout(() => velha.remove(), 900);
     }
     atual = el;
+    cenaAtual = cena;
     segAtual = duracao(el, cena) || seconds;
     tickCountdowns();
     aoMudar(el, cena);
@@ -94,11 +96,21 @@ export function createScheduler({ host, bar, scenes, getData, seconds, duracao =
       scenes = novas;
       if (index >= scenes.length) index = -1;
     },
-    // Chamado quando chegam dados novos: só redesenha se a cena estiver fixa.
+    // Chamado quando chegam dados novos. A rodar, a próxima cena já sai com eles; fixa (?scene=) ou em pausa,
+    // redesenha-se já a cena visível (a mesma, pelo id), senão ficava com os dados antigos até se mudar à mão.
     refresh() {
-      if (!fixa) return;
+      if (fixa) {
+        atual.remove(); atual = null;
+        montar(fixa, false);
+        return;
+      }
+      if (!pausado || !atual || !cenaAtual) return;
+      const i = scenes.findIndex((s) => s.id === cenaAtual.id);
+      if (i < 0) return;   // a cena desapareceu com os dados novos: fica a que está até se retomar
+      index = i;
       atual.remove(); atual = null;
-      montar(fixa, false);
+      montar(scenes[i], false);
+      reiniciarBarra();
     },
   };
 }

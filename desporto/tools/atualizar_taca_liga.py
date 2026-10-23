@@ -187,7 +187,7 @@ def main():
         except Exception:
             pass
     dados["football"] = na_ordem(futebol, tl)
-    gravar(dados, "taca_liga")
+    gravar(dados, "taca_liga", "futebol:tl")   # futebol:tl: a hora que o canto do ecrã mostra nas cenas dela
     print(f"Taça da Liga: {tl['fase'] or 'sem resultados'} ({len(tl['results'])} jogos), "
           f"{tl['proxFase'] or 'sem próximos'} ({len(tl['next'])} jogos).")
 

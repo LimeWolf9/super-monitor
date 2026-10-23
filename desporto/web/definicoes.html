@@ -44,6 +44,19 @@
     .fonte.falhou .sim { color: #ff6b6b; }
     .fonte .erro { color: #ff9b9b; font-size: 14px; overflow-wrap: anywhere; }
     .fonte.aviso .erro { color: #ffd88a; }
+    /* Atualizar só uma parte: POST /api/atualizar com {"passos", "competicoes"} (GET /api/atualizar/partes dá as horas) */
+    #partes .parte { display: flex; gap: 12px; padding: 10px 16px; align-items: center; min-height: 60px; }
+    #partes .parte + .parte { border-top: 1px solid var(--linha); }
+    #partes .parte .nome { flex: 1; }
+    #partes .parte button, #partes select { flex: none; min-height: 44px; font-size: 16px; }
+    #partes .parte button { width: auto; padding: 0 16px; }
+    #partes select { min-width: 0; flex: 1; border: 0; border-radius: 12px; padding: 0 12px; background: var(--linha);
+      color: var(--texto); font: 16px system-ui, sans-serif; }
+    #partes .ok { color: var(--ok); } #partes .mal { color: #ff6b6b; } #partes .aviso { color: #ffc24f; }
+    #partes .uma { flex-wrap: wrap; }
+    #partes .uma .nome { flex-basis: 100%; }
+    #partes-estado { padding: 12px 16px; border-top: 1px solid var(--linha); display: flex; flex-direction: column; gap: 8px; }
+    #partes-estado:empty { display: none; }
     /* Estádios do mapa: o "tools/estadios.py --todos" (GET /api/estadios, POST /api/estadios/continuar) */
     #estadios { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
     #estadios .linha { display: flex; gap: 12px; align-items: baseline; }
@@ -59,6 +72,9 @@
   <div class="cabeca"><button id="voltar" type="button">← Voltar</button><h1>Futebol: competições</h1></div>
   <p class="intro">Só entram as escolhidas que jogam nesta semana: na Última jornada as que jogaram nos últimos 7 dias, na Próxima jornada as que jogam nos próximos 7. As mudanças entram na próxima atualização dos dados.</p>
   <div id="lista">A carregar…</div>
+  <h2>Atualizar só uma parte</h2>
+  <p class="intro">Mais rápido do que atualizar tudo: só essa parte muda, o resto fica como está. Depois do futebol corre também o 11 da jornada, e depois de cada parte os destaques.</p>
+  <section id="partes">A carregar…</section>
   <h2>Fontes</h2>
   <p class="intro">Como correu cada fonte na última vez que se tentou: ✓ trouxe dados, ⚠ respondeu sem dados, ✗ falhou (fica com os dados anteriores).</p>
   <section id="fontes">A carregar…</section>
@@ -171,6 +187,97 @@ async function mostrarFontes() {
 }
 mostrarFontes();
 
+</script>
+<script>
+// Atualizar só uma parte: uma linha por parte (hora da última vez + botão) e uma competição do futebol sozinha.
+// Enquanto corre uma atualização (daqui, do botão de baixo, do dashboard ou do hub) os botões ficam desligados.
+const caixaPartes = document.getElementById('partes');
+let partesDados = null, aSeguir = null, pedidoAqui = null;
+const ESTADO_PARTE = { ok: ['ok', '✓'], aviso: ['aviso', '⚠'], falhou: ['mal', '✗'] };
+const seg = (s) => s >= 60 ? `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s` : `${Math.round(s)} s`;
+
+function linhaParte(p) {
+  const [cls, sim] = ESTADO_PARTE[p.estado] || ['', ''];
+  return `<div class="parte"><span class="nome">${esc(p.nome)}<span class="nota">${sim ? `<span class="${cls}">${sim}</span> ` : ''}${esc(quando(p.ultima))}</span></span>
+    <button type="button" data-parte="${esc(p.id)}">Atualizar</button></div>`;
+}
+
+function montarPartes(d) {
+  partesDados = d;
+  const comps = d.competicoes.map((c) => `<option value="${esc(c.chave)}">${esc(c.nome)} · ${esc(quando(c.ultima).replace('dados de ', ''))}</option>`).join('');
+  caixaPartes.innerHTML = d.partes.map(linhaParte).join('') + (comps ? `<div class="parte uma">
+      <span class="nome">Só uma competição<span class="nota">o futebol e o 11 da jornada só dessa</span></span>
+      <select id="umaComp" aria-label="Competição">${comps}</select>
+      <button type="button" data-parte="uma">Atualizar</button></div>` : '') + '<div id="partes-estado"></div>';
+  caixaPartes.querySelectorAll('button[data-parte]').forEach((b) => b.addEventListener('click', () => atualizarParte(b.dataset.parte)));
+}
+
+async function lerPartes() {
+  try {
+    const r = await fetch('/api/atualizar/partes', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const sel = document.getElementById('umaComp')?.value;
+    montarPartes(await r.json());
+    if (sel && document.getElementById('umaComp')) document.getElementById('umaComp').value = sel;
+  } catch (e) { caixaPartes.textContent = `Não consegui ler as partes (${e.message}).`; }
+}
+
+const ligarBotoes = (ligar) => caixaPartes.querySelectorAll('button, select').forEach((b) => { b.disabled = !ligar; });
+const mostrarProgresso = (html) => { const c = document.getElementById('partes-estado'); if (c) c.innerHTML = html; };
+
+async function atualizarParte(id) {
+  let corpo, nome;
+  if (id === 'uma') {
+    const sel = document.getElementById('umaComp');
+    corpo = { passos: ['futebol', 'onze', 'destaques'], competicoes: [sel.value] };
+    nome = sel.options[sel.selectedIndex].text.split(' · ')[0];
+  } else {
+    const p = partesDados.partes.find((x) => x.id === id);
+    corpo = { passos: p.passos };
+    nome = p.nome;
+  }
+  ligarBotoes(false);
+  try {
+    const r = await fetch('/api/atualizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+    if (r.status === 409) mostrarProgresso('<span class="nota mal">Já estava a correr uma atualização: espera que acabe.</span>');
+    else if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
+    else pedidoAqui = nome;
+  } catch (e) { mostrarProgresso(`<span class="nota mal">Não arrancou (${esc(e.message)})</span>`); }
+  seguirAtualizacao();
+}
+
+// Pergunta o estado a cada 1,5 s enquanto houver uma atualização a correr (seja de quem for)
+async function seguirAtualizacao() {
+  clearTimeout(aSeguir);
+  let e;
+  try { e = await (await fetch('/api/atualizar/estado', { cache: 'no-store' })).json(); }
+  catch { aSeguir = setTimeout(seguirAtualizacao, 5000); return; }
+  if (e.estado === 'a_correr') {
+    ligarBotoes(false);
+    const pct = e.estimativa_s ? Math.min(100, Math.round(100 * e.decorrido_s / e.estimativa_s)) : 0;
+    mostrarProgresso(`<div class="linha"><span class="ok">● A atualizar${pedidoAqui ? ` ${esc(pedidoAqui)}` : ''}</span>
+      <span class="nota"> · ${esc(e.passo || '')} (${Math.min(e.feitos + 1, e.total)}/${e.total}) · ${seg(e.decorrido_s)}${e.estimativa_s ? ` de ~${seg(e.estimativa_s)}` : ''}</span></div>
+      ${e.estimativa_s ? `<div class="progresso"><div style="width:${pct}%"></div></div>` : ''}`);
+    aSeguir = setTimeout(seguirAtualizacao, 1500);
+    return;
+  }
+  if (pedidoAqui) {   // acabou a que se pediu aqui: diz como correu e mostra as horas novas
+    mostrarProgresso(e.erro ? `<span class="nota mal">✗ ${esc(pedidoAqui)}: ${esc(e.erro)}</span>`
+      : `<span class="nota ok">✓ ${esc(pedidoAqui)} atualizado em ${seg(e.decorrido_s)}.</span>`);
+    const fim = document.getElementById('partes-estado')?.innerHTML;
+    pedidoAqui = null;
+    await lerPartes();
+    mostrarProgresso(fim);
+    mostrarFontes();
+  } else {
+    await lerPartes();
+  }
+  ligarBotoes(true);
+}
+
+lerPartes().then(seguirAtualizacao);
+// O botão de baixo ("Gravar e atualizar já") também corre uma: segue-a aqui
+document.getElementById('atualizar').addEventListener('click', () => setTimeout(seguirAtualizacao, 800));
 </script>
 <script>
 // Estádios do mapa: o estado do --todos, a cada 10 s

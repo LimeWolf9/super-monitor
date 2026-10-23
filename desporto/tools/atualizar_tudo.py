@@ -4,6 +4,14 @@ Uso:
     python tools/atualizar_tudo.py            # corre os 11 atualizadores, um a um, e mostra o progresso
     python tools/atualizar_tudo.py --json     # uma linha JSON por passo (para o MonitorHub mostrar um loading)
     python tools/atualizar_tudo.py --estado   # só mostra o estado da última atualização (ou da que está a correr)
+    python tools/atualizar_tudo.py --passos noticias,fotos           # só estes passos (pela ordem de sempre)
+    python tools/atualizar_tudo.py --passos futebol,onze --competicoes pt   # só a Liga Portugal (e o 11 dela)
+
+Por partes: --passos com os nomes curtos f1, futebol, taca_liga, onze, elo, nba, noticias, fotos, destaques,
+curiosidades, estadios (separados por vírgulas) corre só esses; o atualizacao.json só mostra esses passos e o
+duracoes.json só muda nesses. --competicoes (chaves de competicoes.py, ex.: pt,en) passa para o futebol e para o
+11 da jornada: só essas competições mudam, as outras ficam como estavam no live.json. Sem opções corre tudo (é o
+que o botão "Atualizar" e o MonitorHub fazem).
 
 É o mesmo código que o serve.py usa quando se carrega em "Atualizar" no dashboard:
 - os passos correm em série (F1, futebol, Taça da Liga, 11 da jornada, ClubElo, NBA, notícias, fotos, destaques, curiosidades, estádios); um que
@@ -47,6 +55,8 @@ PASSOS = [("atualizar_f1.py", "Fórmula 1"), ("atualizar_futebol.py", "Futebol")
           ("atualizar_nba.py", "NBA"), ("atualizar_noticias.py", "Notícias"), ("atualizar_fotos.py", "Fotos"),
           ("atualizar_destaques.py", "Destaques"), ("atualizar_curiosidades.py", "Curiosidades"),
           ("atualizar_estadios.py", "Estádios")]   # o mapa do Ao vivo (não mexe no live.json; é o mais demorado)
+CURTOS = {f[len("atualizar_"):-len(".py")]: f for f, _ in PASSOS}   # "noticias" -> "atualizar_noticias.py" (--passos)
+POR_COMPETICAO = ("atualizar_futebol.py", "atualizar_onze.py")      # os que aceitam --competicoes
 
 
 def ler_json(caminho, omissao):
@@ -59,7 +69,14 @@ def ler_json(caminho, omissao):
 def gravar_json(caminho, dados):
     tmp = caminho.with_suffix(".tmp")
     tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(caminho)
+    for tentativa in range(20):
+        try:
+            tmp.replace(caminho)
+            return
+        except PermissionError:   # Windows: alguém está a ler o ficheiro (o /api/atualizar/estado, a cada 1,5 s)
+            if tentativa == 19:
+                raise
+            time.sleep(0.05)
 
 
 def a_correr():
@@ -121,8 +138,20 @@ def estado():
     return formatar(e, bool(e.get("a_correr")) and a_correr())
 
 
-def atualizar(ao_mudar=lambda e: None):
-    """Corre todos os passos. Devolve o estado final, ou None se já havia uma atualização a correr."""
+def escolher_passos(nomes):
+    """Os passos com estes nomes curtos ("futebol,nba"), pela ordem de PASSOS. ValueError se algum não existir."""
+    pedidos = [n.strip() for n in nomes.split(",") if n.strip()]
+    errados = [n for n in pedidos if n not in CURTOS]
+    if errados or not pedidos:
+        raise ValueError(f"Passos desconhecidos: {', '.join(errados) or '(nenhum)'}. Os que há: {', '.join(CURTOS)}.")
+    return [f for f, _ in PASSOS if f in {CURTOS[n] for n in pedidos}]
+
+
+def atualizar(ao_mudar=lambda e: None, passos=None, competicoes=None):
+    """Corre os passos (por omissão, todos). Devolve o estado final, ou None se já havia uma atualização a correr.
+
+    passos: ficheiros dos passos a correr (ver escolher_passos); competicoes: "pt,en" para o futebol e o 11.
+    """
     if a_correr():
         return None
     try:
@@ -134,7 +163,7 @@ def atualizar(ao_mudar=lambda e: None):
         duracoes = ler_json(DURACOES, {})
         e = {"a_correr": True, "inicio": time.time(), "fim": None, "passos": [
             {"id": f, "nome": nome, "estado": "espera", "seg": None, "msg": "", "estimativa": duracoes.get(f, 30)}
-            for f, nome in PASSOS]}
+            for f, nome in PASSOS if passos is None or f in passos]}
         for passo in e["passos"]:
             passo["estado"] = "a_correr"
             gravar_estado(e)
@@ -142,7 +171,8 @@ def atualizar(ao_mudar=lambda e: None):
             t0 = time.time()
             try:
                 # PYTHONIOENCODING: no Windows, sem isto um "ç" no print faz o atualizador falhar
-                proc = subprocess.Popen([sys.executable, str(PASTA / passo["id"])], cwd=RAIZ, stdout=subprocess.PIPE,
+                extra = ["--competicoes", competicoes] if competicoes and passo["id"] in POR_COMPETICAO else []
+                proc = subprocess.Popen([sys.executable, str(PASTA / passo["id"]), *extra], cwd=RAIZ, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
                                         env={**os.environ, "PYTHONIOENCODING": "utf-8"})
                 while True:
@@ -161,7 +191,7 @@ def atualizar(ao_mudar=lambda e: None):
             except Exception as ex:   # timeout, Python em falta...: segue para o próximo
                 ok, msg = False, str(ex)
             passo.update(estado="ok" if ok else "falhou", seg=round(time.time() - t0, 1), msg=msg[:200])
-            if ok:
+            if ok and not extra:   # só com algumas competições é mais rápido: não serve de estimativa
                 duracoes[passo["id"]] = passo["seg"]
         e.update(a_correr=False, fim=time.time())
         e["falhas"] = fontes_falhadas(e)
@@ -179,7 +209,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--json", action="store_true", help="uma linha JSON por mudança de estado")
     ap.add_argument("--estado", action="store_true", help="só mostra o estado atual e sai")
+    ap.add_argument("--passos", help=f"só estes passos, separados por vírgulas ({','.join(CURTOS)})")
+    ap.add_argument("--competicoes", help="só estas competições no futebol e no 11 da jornada (ex.: pt,en)")
     args = ap.parse_args()
+    try:
+        passos = escolher_passos(args.passos) if args.passos else None
+    except ValueError as e:
+        ap.error(str(e))
 
     if args.estado:
         print(json.dumps(estado(), ensure_ascii=False))
@@ -191,7 +227,7 @@ def main():
         elif e["passo"]:
             print(f"[{e['feitos'] + 1}/{e['total']}] {e['passo']}...", flush=True)
 
-    final = atualizar(mostrar)
+    final = atualizar(mostrar, passos, args.competicoes)
     if final is None:
         if args.json:
             print(json.dumps({"erro": "ja_a_correr", **estado()}, ensure_ascii=False))

@@ -52,7 +52,7 @@ CACHE = RAIZ / "data" / "estadios.json"
 CORRECOES = RAIZ / "tools" / "estadios_correcoes.json"   # {chave: {"nome", "lat", "lon", "nota"}}, à mão
 PASTA_OSM = RAIZ / "data" / "estadios_osm"
 # o Overpass e a Wikidata pedem um User-Agent que diga quem é e como contactar: o link do projeto (nada privado)
-UA = "SuperMonitor/1.0 (+https://github.com/LimeWolf9/super-monitor)"
+UA = "SuperMonitor/2.0 (+https://github.com/LimeWolf9/super-monitor)"   # o mesmo do comum.py
 WIKIDATA = "https://www.wikidata.org/w/api.php"
 # Overpass: o servidor principal e, se não responder, outros servidores públicos (por esta ordem)
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",

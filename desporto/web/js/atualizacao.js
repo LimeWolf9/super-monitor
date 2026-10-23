@@ -1,5 +1,6 @@
 // Atualizar os dados a pedido (o serve.py já não atualiza sozinho, ver README):
-//  - canto: "Dados de hoje 09:12", com a hora da parte do ecrã atual (F1, futebol...);
+//  - canto: "Dados de hoje 09:12", com a hora da parte do ecrã atual (F1, futebol...); nas cenas de uma competição
+//    a hora dela ("futebol:pt" em _atualizado), que pode ter sido atualizada sozinha (atualizar_tudo.py --competicoes);
 //  - atualizar: botão "Atualizar" do comando do hub (ação "atualizar") ou tecla U;
 //  - barra em baixo durante a atualização: "A atualizar: Futebol (3/8) · 1:12 de ~3:00", e no fim
 //    "Atualizado às 09:45" (ou que parte falhou); depois os dados recarregam sozinhos.
@@ -25,12 +26,14 @@ export function iniciarAtualizacao({ getData, recarregar }) {
   let estado = null;        // último /api/atualizar/estado
   let tFim = null;
   let parteAtual = null;    // parte do ecrã visível (para o canto)
+  let ligaAtual = null;     // e a competição dele (ex.: "pt"), se tiver
 
   // ----- canto: hora dos dados do ecrã atual
   function atualizarCanto() {
     const at = (getData() || {})._atualizado;
     if (!at) { canto.textContent = ''; return; }   // mock: não há horas
-    const iso = (parteAtual && at[parteAtual]) || Object.values(at).sort().pop();
+    const iso = (parteAtual && ligaAtual && at[`${parteAtual}:${ligaAtual}`]) || (parteAtual && at[parteAtual]) ||
+      Object.values(at).sort().pop();
     canto.textContent = `Dados de ${quando(iso)}`;
   }
 
@@ -100,7 +103,7 @@ export function iniciarAtualizacao({ getData, recarregar }) {
     get aCorrer() { return !!(estado && estado.estado === 'a_correr'); },
     // Botão "Atualizar" do hub (ou tecla U): começa já, se não houver uma a correr; a barra mostra o progresso
     atualizar() { if (!(estado && estado.estado === 'a_correr')) comecar(); },
-    aoMudarCena(parte) { parteAtual = parte; atualizarCanto(); },
+    aoMudarCena(parte, liga) { parteAtual = parte; ligaAtual = liga || null; atualizarCanto(); },
     atualizarCanto,
   };
 }

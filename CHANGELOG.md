@@ -1,5 +1,24 @@
 # Alterações
 
+## Depois da 2.0 (2026-10-23)
+
+### Atualizar por partes
+- `atualizar_tudo.py --passos noticias,fotos` corre só esses passos; `--competicoes pt` só essas competições no
+  futebol e no 11 da jornada (as outras ficam como estavam).
+- Na página `/definicoes`, a secção "Atualizar só uma parte": um botão por parte (futebol, Taça da Liga, F1, NBA,
+  notícias, ClubElo, fotos, curiosidades, estádios) com a hora da última vez, e uma competição sozinha. Mostra o
+  progresso e, no fim, as fontes que falharam. Pelo `POST /api/atualizar` com `{"passos", "competicoes"}`; sem
+  corpo continua a atualizar tudo (a tecla U e o botão do hub não mudam).
+- O canto "Dados de hoje 09:12" mostra a hora de cada competição, por isso não mente depois de uma atualização parcial.
+
+### Dados sempre frescos no ecrã
+- Uma cena em pausa (ou fixa) redesenha-se quando chegam dados novos; se nada mudou, o ecrã não mexe.
+- O Início do hub vê a cada minuto se houve uma atualização e redesenha logo; o tempo a cada 15 min (era 30).
+
+### Outros
+- O User-Agent dos pedidos leva o link do projeto, como a Wikipédia, a Wikidata e o OpenStreetMap pedem.
+- No Windows, gravar o progresso da atualização já não falha (`WinError 5`) quando alguém o está a ler ao mesmo tempo.
+
 ## 2.0 (2026-10-22)
 
 ### Ao vivo

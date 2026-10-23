@@ -93,7 +93,7 @@ async function arrancar() {
     aoMudar: (el, cena) => {
       if (controlo) controlo.aoMudarCena(el);
       mostrarSecao(cena);
-      if (dadosUI) dadosUI.aoMudarCena(cena.parte);
+      if (dadosUI) dadosUI.aoMudarCena(cena.parte, cena.league);
     },
   });
   // Recarregar depois de uma atualização pedida no menu "Atualizar dados" (atualizacao.js)
@@ -110,9 +110,11 @@ async function arrancar() {
   tickClock();
   setInterval(() => { tickClock(); tickCountdowns(); }, 1000);
 
-  // Periodicamente volta a ler os dados. Se a rede falhar, mantém os antigos.
+  // Periodicamente volta a ler os dados (apanha uma atualização que acabou sem o aviso). Se a rede falhar, mantém os
+  // antigos; se nada mudou (a mesma hora em _atualizado), não mexe no ecrã (uma cena em pausa ficava redesenhada)
   setInterval(async () => {
-    try { await carregarDados(); scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); if (controlo) controlo.anunciar(); }
+    const marca = () => JSON.stringify((dados && dados._atualizado) || null);
+    try { const antes = marca(); await carregarDados(); if (marca() === antes) return; scheduler.setScenes(construirCenas(dados, CATEGORIA)); scheduler.refresh(); if (controlo) controlo.anunciar(); }
     catch (e) { console.warn('Falha a atualizar dados:', e); }
   }, REFRESCAR_DADOS_MS);
 }
