@@ -15,7 +15,8 @@
 - Pedidos com calma: um de cada vez, com pausa entre eles e um User-Agent próprio (com o link do projeto). No
   máximo OSM_POR_DIA descarregamentos do OSM por dia (contados em data/estadios_osm_dia.json). Um estádio que não
   se encontrou só se procura outra vez no dia seguinte; um erro de rede, ao fim de 15 minutos.
-- Overpass em pausa: ao fim de OVERPASS_SEGUIDOS estádios seguidos com erro de rede (no --todos ou na
+- Overpass em pausa: ao fim de OVERPASS_SEGUIDOS estádios seguidos com erro de rede num pedido feito (os que nem
+  pedem, por estarem todos os servidores de parte, não contam) (no --todos ou na
   atualização), nenhum descarregamento do OSM volta a tentar durante PAUSA_OVERPASS_S (24 h), a não ser o --testar
   (data/estadios_overpass_pausa.json; aparece no registo e na página /definicoes).
 
@@ -281,6 +282,12 @@ class OverpassEmPausa(Exception):
     """O Overpass está em pausa (pausar_overpass): nenhum descarregamento do OSM tenta até lá."""
 
 
+class OverpassDeParte(ConnectionError):
+    """Todos os servidores do Overpass falharam há menos de OVERPASS_DE_PARTE_S: não se fez nenhum pedido. O estádio
+    repete-se mais tarde, mas isto não conta para os OVERPASS_SEGUIDOS (nem para a pausa de 24 h): não diz nada de novo
+    sobre o Overpass. Também não gasta um dos OSM_POR_DIA."""
+
+
 def overpass_em_pausa():
     """Até quando (epoch) o Overpass está em pausa, ou None."""
     try:
@@ -329,18 +336,30 @@ def _esperar_vez(url):
     time.sleep(min(esperas) + 2)
 
 
-def _overpass(consulta):
-    """Pergunta aos servidores do Overpass, por ordem. Um que falhou (sem ligação, tempo esgotado, 5xx) fica de
-    parte OVERPASS_DE_PARTE_S, para não se esperar por ele em cada estádio. Se nenhum responder, sobe o erro (de
-    preferência o TimeoutError, que leva buscar_osm a tentar com um raio menor); o estádio repete-se mais tarde."""
+def _livres():
+    """Os servidores do Overpass que não estão de parte (por ordem)."""
+    return [url for url in OVERPASS if time.time() - _de_parte.get(url, 0) >= OVERPASS_DE_PARTE_S]
+
+
+def _pode_pedir():
+    """Sobe OverpassEmPausa ou OverpassDeParte se agora não se pode pedir nada ao Overpass."""
     pausa = overpass_em_pausa()
     if pausa and not _ignorar_pausa[0]:
         raise OverpassEmPausa(f"Overpass em pausa até {_hora(pausa)}")
+    if not _livres():
+        raise OverpassDeParte(f"nenhum servidor do Overpass respondeu nos últimos {OVERPASS_DE_PARTE_S // 60} min "
+                              "(sem pedido)")
+
+
+def _overpass(consulta):
+    """Pergunta aos servidores do Overpass, por ordem. Um que falhou (sem ligação, tempo esgotado, 5xx) fica de
+    parte OVERPASS_DE_PARTE_S, para não se esperar por ele em cada estádio. Se nenhum responder, sobe o erro (de
+    preferência o TimeoutError, que leva buscar_osm a tentar com um raio menor); o estádio repete-se mais tarde.
+    Com todos de parte, não pede nada e sobe OverpassDeParte."""
+    _pode_pedir()
     dados = urllib.parse.urlencode({"data": consulta}).encode()
     erros = []
-    for url in OVERPASS:
-        if time.time() - _de_parte.get(url, 0) < OVERPASS_DE_PARTE_S:
-            continue
+    for url in _livres():
         try:
             _esperar_vez(url)
             return _pedir(url, dados, tentativas=2, timeout=OVERPASS_LEITURA_S)
@@ -352,8 +371,6 @@ def _overpass(consulta):
             erros.append(e)
         _de_parte[url] = time.time()
         print(f"Aviso: Overpass {url} ({erros[-1]}); fica de parte {OVERPASS_DE_PARTE_S // 60} min")
-    if not erros:
-        raise ConnectionError(f"nenhum servidor do Overpass respondeu nos últimos {OVERPASS_DE_PARTE_S // 60} min")
     raise next((e for e in erros if isinstance(e, TimeoutError)), erros[-1])
 
 
@@ -654,15 +671,19 @@ def buscar_osm(c, lat, lon, nome):
     """Descarrega e grava o OSM à volta do estádio. Devolve o campo (centro e eixo do relvado) ou None. Se a consulta
     esgotar o tempo, tenta logo com um raio menor (RAIO_PEQUENO), e esse estádio passa a ir sempre com ele."""
     pequeno = ler().get(c, {}).get("pequeno")
+    _pode_pedir()   # antes de _contar_osm: sem pedido não gasta um dos OSM_POR_DIA
     _contar_osm()
     try:
         d = _overpass(_consulta(lat, lon, pequeno))
-    except TimeoutError:
+    except TimeoutError as ex:
         if pequeno:
             raise
         _gravar_entrada(c, {"pequeno": True})
         print(f"Aviso: {nome}: a consulta esgotou o tempo; outra vez com o raio menor")
-        d = _overpass(_consulta(lat, lon, True))
+        try:
+            d = _overpass(_consulta(lat, lon, True))
+        except OverpassDeParte:
+            raise ex from None   # o que conta é o tempo esgotado do pedido que se fez
     compacto = osm_compacto(d, lat, lon, nome)
     PASTA_OSM.mkdir(parents=True, exist_ok=True)
     destino = ficheiro_osm(c)
@@ -715,6 +736,11 @@ def resolver(e, com_osm):
         return guardado
     except (LimiteDiario, OverpassEmPausa):
         raise   # não é um erro do estádio: fica como estava, para mais tarde
+    except OverpassDeParte as ex:
+        # repete-se mais tarde como um erro de rede, mas sem_pedido: não conta para os OVERPASS_SEGUIDOS
+        print(f"Aviso: estádio {e['nome']}: {ex}")
+        return {**_gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora,
+                                      "erro": str(ex)[:200]}), "sem_pedido": True}
     except Exception as ex:
         print(f"Aviso: estádio {e['nome']}: {ex!r}")
         return _gravar_entrada(c, {"nome": e["nome"], "cidade": e.get("cidade"), "pais": e.get("pais"), "falhou": agora, "erro": str(ex)[:200]})
@@ -799,7 +825,8 @@ def preparar(a_fazer, mostrar=print, ate=None):
         except (LimiteDiario, OverpassEmPausa) as ex:
             parou = str(ex)
             break
-        seguidos = 0 if _resolvido(e, True) or not r.get("erro") else seguidos + 1
+        if not r.get("sem_pedido"):   # sem pedido (servidores de parte) não diz nada sobre o Overpass
+            seguidos = 0 if _resolvido(e, True) or not r.get("erro") else seguidos + 1
         if seguidos >= OVERPASS_SEGUIDOS:
             parou = pausar_overpass(f"sem resposta em {seguidos} estádios seguidos", mostrar)
     if parou:
@@ -1035,7 +1062,8 @@ def _fases(gravar_progresso, mostrar, t0):
                 break
             ok = ficheiro_osm(e["id"]).exists()
             mostrar(f"B {i}/{len(a_fazer)} {e['nome']}: " + ("ok" if ok else f"sem OSM ({r.get('fonte')}) {r.get('erro') or ''}"))
-            seguidos = 0 if ok or not r.get("erro") else seguidos + 1
+            if not r.get("sem_pedido"):   # sem pedido (servidores de parte) não diz nada sobre o Overpass
+                seguidos = 0 if ok or not r.get("erro") else seguidos + 1
             if seguidos >= OVERPASS_SEGUIDOS:
                 # o Overpass não responde (em baixo, ou a recusar o nosso IP): continuar só gastava pedidos e tempo
                 mostrar(f"Overpass sem resposta em {seguidos} estádios seguidos: paro a fase B (ver /api/status do Overpass)")
