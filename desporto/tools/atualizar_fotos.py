@@ -32,7 +32,7 @@ import urllib.parse
 from pathlib import Path
 
 from baixar_emblemas import EPOCA_F1, F1_OFICIAL
-from comum import RAIZ, gravar, ler_dados, pedir, registar_fonte
+from comum import RAIZ, gravar, gravar_json, ler_dados, pedir, registar_fonte, trancado
 
 PASTA = RAIZ / "web" / "img" / "jogadores"
 CACHE = PASTA / "_cache.json"   # jogador -> ficheiro, ou null (falhou; volta a tentar no dia seguinte)
@@ -233,7 +233,8 @@ def main():
         sys.exit(f"Não foi possível atualizar as fotos ({e!r}). O live.json não foi alterado.")
     finally:
         if not args.mostrar:
-            CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+            with trancado(CACHE):   # o servidor (aovivo.cara) pode ter juntado caras entretanto: ficam
+                gravar_json(CACHE, {**ler_cache(), **cache})
 
     if args.mostrar:
         print(f"Com foto em cache: {len(com)}; sem: {', '.join(sem) or 'nenhum'}")

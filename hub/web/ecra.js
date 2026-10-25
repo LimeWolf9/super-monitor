@@ -16,7 +16,7 @@ const NOMES = { cima: "▲", baixo: "▼", esquerda: "◀", direita: "▶", ok: 
 function desenhar() {
   corpo.dataset.modo = estado.modo;
 
-  const app = (estado.atalhos || estado.apps).find(a => a.id === estado.ativa);
+  const app = estado.atalhos.find(a => a.id === estado.ativa);
   document.getElementById("carregar-icone").textContent = app?.icone || "";
   document.getElementById("carregar-nome").textContent = app?.nome || "";
   document.getElementById("carregar-msg").textContent = estado.mensagem || "";

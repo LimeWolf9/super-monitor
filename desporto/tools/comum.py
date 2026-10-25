@@ -1,6 +1,7 @@
 """Peças partilhadas pelos atualizadores (futebol, NBA, destaques, curiosidades).
 
 - pedir(): pedido HTTP com User-Agent e descompressão gzip (a ESPN comprime mesmo sem se pedir).
+- gravar_json(): grava um JSON de uma vez (com novas tentativas no Windows); trancado(): cadeado entre processos.
 - ler_dados() / gravar(): lê o live.json (ou o mock, na primeira vez) e grava-o de forma atómica.
 - marcas(): as horas a registar numa parte que vem por competições (futebol, 11 da jornada), também só de algumas.
 - baixar_emblema(): descarrega o emblema de uma equipa nova para web/img/equipas/.
@@ -15,6 +16,7 @@ import sys
 import threading
 import time
 import urllib.request
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,6 +51,51 @@ def pedir_json(url):
     return d
 
 
+def gravar_json(caminho, dados, **opcoes):
+    """Grava de uma vez (caminho.<pid>.tmp -> caminho): quem lê nunca apanha um ficheiro a meio.
+
+    opcoes vão para o json.dumps (por omissão indent=1). No Windows a troca falha se outro processo estiver a ler o
+    ficheiro nesse instante (ex.: o live.json, que o Ao vivo lê a cada 30 s): tenta outra vez durante ~1 s."""
+    opcoes = {"ensure_ascii": False, "indent": 1, **opcoes}
+    tmp = caminho.with_name(f"{caminho.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(dados, **opcoes), encoding="utf-8")
+    for tentativa in range(20):
+        try:
+            tmp.replace(caminho)
+            return
+        except PermissionError:
+            if tentativa == 19:
+                tmp.unlink(missing_ok=True)
+                raise
+            time.sleep(0.05)
+
+
+@contextmanager
+def trancado(caminho, espera_max=10):
+    """Cadeado entre processos (o threading.Lock só vale dentro de um): enquanto <caminho>.lock existir, os outros
+    esperam. Para ler-mudar-gravar um ficheiro partilhado (ex.: o fontes.json, que o servidor e os atualizadores
+    escrevem ao mesmo tempo). Um .lock com mais de espera_max segundos é de um processo que morreu: passa por cima."""
+    tranca = caminho.with_name(caminho.name + ".lock")
+    limite = time.time() + espera_max
+    while True:
+        try:
+            fd = os.open(tranca, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            break
+        except (FileExistsError, PermissionError):   # Windows: PermissionError se o outro o está a apagar
+            try:
+                velha = time.time() - tranca.stat().st_mtime > espera_max
+            except OSError:
+                velha = False
+            if velha or time.time() > limite:
+                break   # nunca fica preso: na pior das hipóteses é como era antes
+            time.sleep(0.02)
+    try:
+        yield
+    finally:
+        tranca.unlink(missing_ok=True)
+
+
 def ler_dados():
     base = LIVE if LIVE.exists() else MOCK
     return json.loads(base.read_text(encoding="utf-8"))
@@ -62,9 +109,7 @@ def gravar(dados, *partes):
         atualizado[parte] = agora
     if all(p in atualizado for p in PARTES):
         dados.pop("_aviso", None)
-    tmp = LIVE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(LIVE)   # troca de uma vez, para o dashboard nunca ler um ficheiro a meio
+    gravar_json(LIVE, dados, indent=2)
 
 
 def marcas(dados, parte, chaves, parcial):
@@ -126,7 +171,7 @@ def registar_fonte(nome, itens=None, erro=None, esperado=True, aviso=None):
         estado, texto = "aviso", "respondeu sem dados"
     else:
         estado, texto = "ok", None
-    with _tranca_fontes:
+    with _tranca_fontes, trancado(FONTES):   # o servidor (Ao vivo) e os atualizadores escrevem-no ao mesmo tempo
         try:
             fontes = json.loads(FONTES.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -138,9 +183,7 @@ def registar_fonte(nome, itens=None, erro=None, esperado=True, aviso=None):
             "ultima_tentativa": agora, "itens": itens, "erro": texto,
             "passo": Path(sys.argv[0]).name or antes.get("passo"),
         }
-        tmp = FONTES.with_name(f"fontes.{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(fontes, ensure_ascii=False, indent=1), encoding="utf-8")
-        tmp.replace(FONTES)   # de uma vez: quem lê nunca apanha um ficheiro a meio
+        gravar_json(FONTES, fontes)
 
 
 def fonte(nome, funcao, contar=len, esperado=True):

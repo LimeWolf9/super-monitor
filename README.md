@@ -128,3 +128,10 @@ git config core.hooksPath .githooks
 Põe numa `.privado.txt` na raiz (o git ignora-a) as palavras que nunca podem sair do teu PC, uma
 por linha: nomes, números de conta, PIN. Bases de dados, extractos e configurações locais são
 sempre travados, mesmo sem a lista.
+
+Os testes (só biblioteca standard) correm assim:
+
+```bash
+python -m unittest discover -s hub/tests        # o código (PIN) das apps pessoais
+python -m unittest discover -s desporto/tests   # a agenda da atualização automática
+```

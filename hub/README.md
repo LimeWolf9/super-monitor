@@ -121,6 +121,13 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
   Se o servidor da app estiver desligado, o hub liga-o (pelo `arrancar`), espera pela `saude` e só então
   abre a página; volta a desligá-lo quando regressas ao comando (ou ao fim de 30 min), a não ser que
   entretanto tenhas aberto uma app desse grupo, que passa a ser a dona dele.
+- `ocupado` (ex.: `{"pasta": "../desporto", "tranca": "data/estadios_todos.lock", "velha_s": 120}`): um ficheiro
+  que a app toca enquanto faz uma coisa demorada (o Desporto, o download dos estádios). Tocado há menos de
+  `velha_s` segundos, o servidor ligado para as definições não se desliga; o hub volta a ver a cada 5 min.
+
+O hub escreve em `data/hub.log` (fora do git) o que mostra na consola, com a hora: que app abriu, quando
+arrancou e parou cada servidor e porquê (Menu, energia, definições, fim dos 30 min, hub parado). Acima de
+1 MB passa a `hub.log.1` e começa outro. O código das apps com PIN nunca lá aparece.
 - `"pin": "1234"` pede esse código antes de abrir (as Despesas têm). Marca-se no teclado
   que aparece no comando; o código só existe no `apps.json` e nunca vai para o telemóvel
   nem para o ecrã. 5 erros seguidos bloqueiam um minuto; os 5 seguintes, 5 min; depois 15 e a partir

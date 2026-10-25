@@ -52,7 +52,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from comum import RAIZ
+from comum import RAIZ, gravar_json, trancado
 
 CACHE = RAIZ / "data" / "estadios.json"
 CORRECOES = RAIZ / "tools" / "estadios_correcoes.json"   # {chave: {"nome", "lat", "lon", "nota"}}, à mão
@@ -112,12 +112,10 @@ def ler():
 
 
 def _gravar_entrada(chave, valor):
-    with _tranca:
+    with _tranca, trancado(CACHE):   # o --todos e o passo "Estádios" podem gravar ao mesmo tempo
         tudo = ler()
         tudo[chave] = {**tudo.get(chave, {}), **valor}
-        tmp = CACHE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(tudo, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-        tmp.replace(CACHE)
+        gravar_json(CACHE, tudo, sort_keys=True)
         return tudo[chave]
 
 
@@ -311,10 +309,8 @@ def pausar_overpass(motivo, mostrar=print):
     """Põe o Overpass em pausa PAUSA_OVERPASS_S (só o --testar tenta antes). Devolve o texto para o registo."""
     ate = time.time() + PAUSA_OVERPASS_S
     PAUSA_OVERPASS.parent.mkdir(parents=True, exist_ok=True)
-    tmp = PAUSA_OVERPASS.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"ate": ate, "ate_em": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(ate)),
-                               "motivo": motivo}, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(PAUSA_OVERPASS)
+    gravar_json(PAUSA_OVERPASS, {"ate": ate, "ate_em": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(ate)),
+                                 "motivo": motivo}, indent=None)
     texto = f"Overpass em pausa até {_hora(ate)} ({motivo}); só o --testar tenta antes"
     mostrar(texto)
     return texto
@@ -667,7 +663,7 @@ _tranca_contador = threading.Lock()
 def _contar_osm():
     """Conta mais um descarregamento do OSM hoje; se já se chegou a OSM_POR_DIA, sobe LimiteDiario (sem contar)."""
     hoje = time.strftime("%Y-%m-%d")
-    with _tranca_contador:
+    with _tranca_contador, trancado(CONTADOR_OSM):
         try:
             d = json.loads(CONTADOR_OSM.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -676,9 +672,7 @@ def _contar_osm():
         if n >= OSM_POR_DIA:
             raise LimiteDiario(f"limite de {OSM_POR_DIA} descarregamentos do OSM por dia atingido ({hoje})")
         CONTADOR_OSM.parent.mkdir(parents=True, exist_ok=True)
-        tmp = CONTADOR_OSM.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"dia": hoje, "n": n + 1}), encoding="utf-8")
-        tmp.replace(CONTADOR_OSM)
+        gravar_json(CONTADOR_OSM, {"dia": hoje, "n": n + 1}, indent=None)
 
 
 def buscar_osm(c, lat, lon, nome):
@@ -701,9 +695,7 @@ def buscar_osm(c, lat, lon, nome):
     compacto = osm_compacto(d, lat, lon, nome)
     PASTA_OSM.mkdir(parents=True, exist_ok=True)
     destino = ficheiro_osm(c)
-    tmp = destino.with_suffix(".tmp")
-    tmp.write_text(json.dumps(compacto, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(destino)
+    gravar_json(destino, compacto, indent=None, separators=(",", ":"))
     return compacto["campo"]
 
 
@@ -777,7 +769,7 @@ def falta(e, com_osm, insistir=False):
 def _limpar_erros_velhos():
     """Tira o erro (e o falhou) que ficou de um pedido antigo nos estádios que já têm o ficheiro do OSM: os que não
     estão para refazer, e os "(sem pedido)" (nem se chegou a pedir). Devolve quantos."""
-    with _tranca:
+    with _tranca, trancado(CACHE):
         tudo = ler()
         limpos = [c for c, g in tudo.items() if g.get("erro") and ficheiro_osm(c).exists()
                   and (not g.get("refazer") or "(sem pedido)" in g["erro"])]
@@ -785,9 +777,7 @@ def _limpar_erros_velhos():
             return 0
         for c in limpos:
             tudo[c] = {**tudo[c], "erro": None, "falhou": None}
-        tmp = CACHE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(tudo, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-        tmp.replace(CACHE)
+        gravar_json(CACHE, tudo, sort_keys=True)
         return len(limpos)
 
 
@@ -825,12 +815,10 @@ def gravar_em_falta(lista, dias):
                                    and tudo.get(e["id"], {}).get("lat") is not None and not ficheiro_osm(e["id"]).exists())
     contam = [e["id"] for e, _f in lista if not e["so_taca"]]
     tacas = [e["id"] for e, _f in lista if e["so_taca"]]
-    tmp = EM_FALTA.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"em": time.strftime("%Y-%m-%dT%H:%M:%S"), "dias": dias, "estadios": len(contam),
+    gravar_json(EM_FALTA, {"em": time.strftime("%Y-%m-%dT%H:%M:%S"), "dias": dias, "estadios": len(contam),
                                "sem_coordenadas": sem_coord(False), "sem_ruas": sem_ruas(False),
                                "so_tacas": {"estadios": len(tacas), "sem_coordenadas": sem_coord(True), "sem_ruas": sem_ruas(True)},
-                               "ids": {"contam": contam, "so_tacas": tacas}}, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(EM_FALTA)
+                               "ids": {"contam": contam, "so_tacas": tacas}})
 
 
 def contam():
@@ -857,6 +845,10 @@ def preparar(a_fazer, mostrar=print, ate=None):
     Devolve (quantos se resolveram, quantos ficaram por fazer, porque parou o OSM ou None)."""
     global PAUSA
     a_tempo = lambda: ate is None or time.time() < ate
+    if todos_a_correr():   # o --todos já está a tratar deles (coordenadas e OSM): não se pede nada em dobro
+        mostrar("Estádios: o --todos está a correr; fica tudo para ele")
+        novos = sum(1 for e, f in a_fazer if _resolvido(e, f))
+        return novos, len(a_fazer) - novos, "o --todos está a descarregar os estádios"
     # 1.º as coordenadas (Wikidata, rápido): chegam para o ponto no mapa
     for e, _f in a_fazer:
         if not a_tempo():
@@ -1028,7 +1020,17 @@ def todos():
     if todos_a_correr():
         print("Já há um --todos a correr (data/estadios_todos.lock).")
         return
-    TRANCA_TODOS.write_text(str(time.time()), encoding="utf-8")
+    try:   # uma tranca velha (de um --todos que morreu) sai; uma acabada de criar por outro fica
+        if time.time() - TRANCA_TODOS.stat().st_mtime >= TRANCA_VELHA_S:
+            TRANCA_TODOS.unlink(missing_ok=True)
+    except OSError:
+        pass
+    try:
+        with open(TRANCA_TODOS, "x", encoding="utf-8") as f:   # "x": falha se outro --todos a criou entretanto
+            f.write(str(time.time()))
+    except (FileExistsError, PermissionError):   # Windows: PermissionError se o outro o está a apagar
+        print("Já há um --todos a correr (data/estadios_todos.lock).")
+        return
     vivo = threading.Event()
 
     def tocar():   # a tranca é o sinal de que está vivo (a página /definicoes e o botão "Continuar" leem-na)
@@ -1049,9 +1051,7 @@ def _todos():
 
     def gravar_progresso(**mudar):
         estado.update(mudar, decorrido_s=round(time.time() - t0, 1))
-        tmp = PROGRESSO.with_suffix(".tmp")
-        tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
-        tmp.replace(PROGRESSO)
+        gravar_json(PROGRESSO, estado)
 
     def mostrar(texto):
         print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
@@ -1084,9 +1084,7 @@ def todos_seco():
         except (OSError, ValueError):
             estado = {"estado": None}
         estado.update(so_tacas=len(tacas), ids={"contam": [e["id"] for _q, e, _d in estadios_], "so_tacas": tacas})
-        tmp = PROGRESSO.with_suffix(".tmp")
-        tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
-        tmp.replace(PROGRESSO)
+        gravar_json(PROGRESSO, estado)
     futebol = [e for _q, e, d in estadios_ if d == "football"]
     tudo = ler()
     sem_coord = [e for _q, e, _d in estadios_ if tudo.get(e["id"], {}).get("lat") is None]
@@ -1240,9 +1238,7 @@ def testar(nome, seco=False):
     t0 = time.time()
     estado = {"estado": "a correr", "fase": "teste", "passo": f"Teste: OpenStreetMap de {e['nome']}", "feitos": 0, "total": 1,
               "decorrido_s": 0, "estimativa_s": 120, "inicio_em": time.strftime("%Y-%m-%dT%H:%M:%S"), "terminado_em": None, "erro": None}
-    tmp = PROGRESSO.with_suffix(".tmp")
-    tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(PROGRESSO)
+    gravar_json(PROGRESSO, estado)
     mostrar(f"Teste: OpenStreetMap só de {e['nome']} ({c})")
     PAUSA = max(PAUSA, PAUSA_TODOS)
     pausa = overpass_em_pausa()
@@ -1267,8 +1263,7 @@ def testar(nome, seco=False):
     mostrar(fim)
     estado.update(estado="erro", fase="fim", passo=fim, erro=fim[:200], decorrido_s=round(time.time() - t0, 1),
                   terminado_em=time.strftime("%Y-%m-%dT%H:%M:%S"))
-    tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(PROGRESSO)
+    gravar_json(PROGRESSO, estado)
     return False
 
 

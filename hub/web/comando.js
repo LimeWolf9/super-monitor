@@ -36,7 +36,7 @@ document.querySelectorAll("button[data-digito]").forEach((b) => {
 });
 
 function desenhar() {
-  const app = (estado.atalhos || estado.apps).find((a) => a.id === estado.ativa);
+  const app = estado.atalhos.find((a) => a.id === estado.ativa);
   let texto = NOMES_MODO[estado.modo] || "";
   if (estado.modo === "app" && app) texto = `${app.icone || ""} ${app.nome}`;
   if (estado.modo === "a_carregar" && app) texto = `A abrir ${app.nome}…`;
@@ -66,7 +66,7 @@ function botaoApp(a) {
   return b;
 }
 function desenharApps() {
-  const apps = estado.atalhos || estado.apps;
+  const apps = estado.atalhos;
   const blocos = (estado.grupos || []).map((g) => ({ titulo: `${g.icone || ""} ${g.nome}`, apps: apps.filter((a) => a.grupo === g.id) }))
     .concat([{ titulo: "Outras", apps: apps.filter((a) => !a.grupo) }])
     .filter((b) => b.apps.length);

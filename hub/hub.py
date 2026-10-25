@@ -42,6 +42,11 @@ FICHEIRO_APPS = RAIZ / "apps.json"
 FICHEIRO_APPS_LOCAL = RAIZ / "apps.local.json"
 FICHEIRO_CONFIG = RAIZ / "config.json"
 FICHEIRO_CONFIG_LOCAL = RAIZ / "config.local.json"   # fora do git: o que muda neste PC (ex.: a localidade do tempo)
+# Fora do git: o que o hub escreve na consola, com a hora (quem arrancou e parou cada app, e porquê). Nunca o PIN.
+FICHEIRO_REGISTO = RAIZ / "data" / "hub.log"
+REGISTO_MAX = 1_000_000   # bytes; acima disto passa a hub.log.1 (o anterior apaga-se) e começa outro
+DEF_LIMITE_S = 30 * 60    # o servidor ligado só para as definições desliga-se ao fim disto (ver definicoes())
+DEF_OCUPADO_S = 5 * 60    # ... mas se a app estiver ocupada (o "ocupado" do apps.json), volta a ver ao fim disto
 NO_WINDOWS = os.name == "nt"
 
 # Ações que o comando envia. As de navegação vão para a app ativa (no Início, ◀ ▶ mudam as notícias).
@@ -128,6 +133,59 @@ def preparar_cmd(cfg):
     return cmd, pasta
 
 
+def ocupada(entrada):
+    """A app está a meio de uma coisa demorada (ex.: o download dos estádios do Desporto)? Pelo "ocupado" do
+    apps.json: {"pasta", "tranca", "velha_s"}, um ficheiro que a app toca enquanto trabalha. Se foi tocado há menos
+    de velha_s segundos, está ocupada e o servidor ligado só para as definições não se desliga."""
+    cfg = (entrada or {}).get("ocupado")
+    if not cfg:
+        return False
+    tranca = RAIZ / Path(cfg.get("pasta", ".")) / cfg["tranca"]
+    try:
+        return time.time() - tranca.stat().st_mtime < float(cfg.get("velha_s", 120))
+    except OSError:
+        return False
+
+
+class Registo:
+    """Põe a consola do hub também em data/hub.log, cada linha com a hora (ver FICHEIRO_REGISTO)."""
+
+    def __init__(self, consola):
+        self.consola = consola      # None com o pythonw
+        self.lock = threading.Lock()
+        self.no_inicio = True       # a próxima escrita começa uma linha (leva a hora)
+
+    def write(self, texto):
+        if self.consola:
+            try:
+                self.consola.write(texto)
+            except (OSError, ValueError):
+                pass
+        with self.lock:
+            partes = []
+            for parte in texto.splitlines(keepends=True):
+                if self.no_inicio:
+                    partes.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S "))
+                partes.append(parte)
+                self.no_inicio = parte.endswith("\n")
+            try:
+                FICHEIRO_REGISTO.parent.mkdir(exist_ok=True)
+                if FICHEIRO_REGISTO.exists() and FICHEIRO_REGISTO.stat().st_size > REGISTO_MAX:
+                    FICHEIRO_REGISTO.replace(FICHEIRO_REGISTO.with_name(FICHEIRO_REGISTO.name + ".1"))
+                with open(FICHEIRO_REGISTO, "a", encoding="utf-8", errors="replace") as f:
+                    f.write("".join(partes))
+            except OSError:
+                pass                                  # o registo nunca pode parar o hub
+        return len(texto)
+
+    def flush(self):
+        if self.consola:
+            try:
+                self.consola.flush()
+            except (OSError, ValueError):
+                pass
+
+
 class Hub:
     """O estado do ecrã e as apps. Tudo o que muda passa por aqui, debaixo de um lock."""
 
@@ -135,7 +193,7 @@ class Hub:
         self.lock = threading.RLock()
         # config.local.json por cima do config.json, campo a campo (ex.: {"inicio": {"tempo": {...}}})
         self.config = {**ler_json(FICHEIRO_CONFIG, {}), **ler_json(FICHEIRO_CONFIG_LOCAL, {})}
-        # O menu tem dois níveis: uma entrada com "apps" é um grupo (ex.: Desporto -> Futebol, F1...).
+        # Uma entrada com "apps" é um grupo (ex.: Desporto -> Última jornada, Ao vivo...); o comando mostra-as juntas.
         # Os filhos herdam do grupo o que não definirem (ex.: o "arrancar" do servidor do desporto).
         self.raiz = []
         self.folhas = {}            # id -> app que se abre (com "_grupo" se estiver dentro de um)
@@ -158,17 +216,17 @@ class Hub:
         # servem só código e imagens (EXT_PASTAS), nunca dados nem nada fora da pasta.
         self.pastas = {url: (RAIZ / Path(caminho), a["id"]) for a in self.folhas.values()
                        for url, caminho in (a.get("pastas") or {}).items()}
-        self.grupo = None           # id do grupo cujo submenu está no ecrã (None = menu inicial)
         self.modo = "inicio"        # inicio | pin | a_carregar | app | erro | desligado (a parede já não tem menu)
         self.pin = ""               # dígitos já marcados no ecrã do código
         self.tentativas = 0         # códigos errados seguidos
         self.bloqueado_ate = 0.0    # depois de 5 errados, espera (ver BLOQUEIOS_PIN)
         self.bloqueios = 0          # bloqueios desde o último código certo
-        self.foco = 0               # índice da app com foco no menu
         self.ativa = None           # id da app aberta (ou a carregar)
         self.mensagem = ""          # texto do loading / do erro
         self.processo = None        # processo arrancado por nós (para o parar ao sair)
+        self.processo_nome = None   # nome da app do self.processo (para o registo)
         self.processo_def = None    # servidor arrancado só para abrir a página de definições (ver definicoes())
+        self.def_entrada = None     # a entrada dessas definições (o "ocupado" dela)
         self.def_limite = None      # Timer que o desliga se ninguém voltar ao comando
         self.geracao = 0            # muda a cada abrir/fechar: um arranque antigo não estraga um novo
         self.ouvintes = []          # filas dos clientes ligados a /api/eventos
@@ -193,7 +251,6 @@ class Hub:
             return {
                 "tipo": "estado",
                 "modo": self.modo,
-                "foco": self.foco,
                 "ativa": self.ativa,
                 "url": app.get("url") if app and self.modo == "app" else None,
                 "mensagem": self.mensagem,
@@ -202,8 +259,6 @@ class Hub:
                 "pin_tamanho": len(str(app.get("pin", ""))) if app else 0,
                 "bloqueado": max(0, round(self.bloqueado_ate - time.time())),
                 "links_comando": self.links_comando,
-                "grupo": {k: self.grupo_atual().get(k) for k in ("id", "nome", "icone")} if self.grupo else None,
-                "apps": [{**{k: a.get(k) for k in CAMPOS_MENU}, "submenu": bool(a.get("apps"))} for a in self.itens()],
                 # Para os atalhos do comando: tudo o que se pode abrir, já sem grupos
                 "atalhos": [{**{k: a.get(k) for k in CAMPOS_MENU}, "nome": a.get("atalho") or a["nome"], "grupo": a.get("_grupo")}
                             for a in self.folhas.values()],
@@ -226,22 +281,6 @@ class Hub:
 
     def app(self, ident):
         return self.folhas.get(ident)
-
-    def grupo_atual(self):
-        return next((g for g in self.raiz if g["id"] == self.grupo), {})
-
-    def itens(self):
-        """O que o menu mostra agora: o submenu do grupo aberto, ou o menu inicial."""
-        return self.grupo_atual().get("apps", []) if self.grupo else self.raiz
-
-    def focar(self, ident=None):
-        """Põe o foco num item (ou no primeiro que se pode abrir)."""
-        itens = self.itens()
-        ids = [a["id"] for a in itens]
-        if ident in ids:
-            self.foco = ids.index(ident)
-        else:
-            self.foco = next((i for i, a in enumerate(itens) if not a.get("em_breve")), 0)
 
     def de_pasta(self, caminho):
         """(ficheiro, app) de um pedido a uma das "pastas" (só código e imagens, sem sair da pasta), ou None."""
@@ -287,24 +326,21 @@ class Hub:
                 if acao in ACOES_INICIO:
                     self.emitir({"tipo": "comando", "acao": acao})
                 return True
-            if acao == "menu":
-                self.fechar()
-                return True
-            if acao == "sair":
-                self.fechar()
+            if acao in ("menu", "sair"):
+                self.fechar(acao)
                 return True
 
             if acao == "atualizar":
                 # Sem app indicada: a app aberta trata disso se o anunciou; senão o hub corre a atualização
-                # da app (ou do grupo dela) ou, no menu, da entrada com foco / do submenu aberto.
+                # da app escolhida (ou do grupo dela) ou, se só houver uma entrada que se atualiza, dessa.
                 if self.modo == "app" and "atualizar" in self.acoes_app:
                     self.emitir({"tipo": "comando", "acao": acao})
                     return True
-                app = self.app(self.ativa) if self.modo == "app" else (self.itens()[self.foco] if self.itens() else {})
-                for alvo in (app.get("id"), app.get("_grupo"), self.grupo):
-                    if alvo in self.atualizaveis:
-                        return self.atualizar(alvo)
-                return True
+                app = self.app(self.ativa) or {}
+                alvos = [a for a in (app.get("id"), app.get("_grupo")) if a in self.atualizaveis]
+                if not alvos and len(self.atualizaveis) == 1:
+                    alvos = list(self.atualizaveis)
+                return self.atualizar(alvos[0]) if alvos else True
 
             if self.modo == "pin":
                 if acao == "voltar":
@@ -312,12 +348,12 @@ class Hub:
                         self.pin = self.pin[:-1]          # apaga o último dígito
                         self.emitir_estado()
                     else:
-                        self.fechar()
+                        self.fechar("desistiu do código")
                 return True
 
             if self.modo in ("a_carregar", "erro"):
                 if acao in ("voltar", "ok"):
-                    self.fechar()
+                    self.fechar("desistiu do loading" if self.modo == "a_carregar" else "fechou o erro")
                 return True
 
             # modo app: o ecrã da parede passa a ordem à app (e decide o que fazer com "voltar")
@@ -537,31 +573,48 @@ class Hub:
                     self.processo_def = subprocess.Popen(cmd, **opcoes)
                 except Exception as e:
                     return False, f"Não consegui arrancar {entrada['nome']}: {e}"
+                print(f"Definições de {entrada['nome']}: liguei o servidor (PID {self.processo_def.pid})", flush=True)
             proc = self.processo_def
-            if self.def_limite:
-                self.def_limite.cancel()
-            self.def_limite = threading.Timer(30 * 60, self.fechar_definicoes)   # se nunca voltares ao comando
-            self.def_limite.daemon = True
-            self.def_limite.start()
+            self.def_entrada = entrada
+            self._armar_def_limite(DEF_LIMITE_S)      # se nunca voltares ao comando
         limite = time.time() + float(entrada.get("espera_max", 60))
         while not responde(saude):
             if proc.poll() is not None:
                 return False, f"{entrada['nome']} fechou-se ao arrancar"
             if time.time() > limite:
-                self.fechar_definicoes()
+                self.fechar_definicoes("não respondeu a tempo", forcar=True)
                 return False, f"{entrada['nome']} não respondeu a tempo"
             time.sleep(0.5)
         return True, None
 
-    def fechar_definicoes(self):
-        """Desliga o servidor ligado só para as definições (o de uma app aberta fica)."""
+    def _armar_def_limite(self, segundos, motivo="fim dos 30 min"):
+        if self.def_limite:
+            self.def_limite.cancel()
+        self.def_limite = threading.Timer(segundos, self.fechar_definicoes, args=(motivo,))
+        self.def_limite.daemon = True
+        self.def_limite.start()
+
+    def fechar_definicoes(self, motivo="voltaste ao comando", forcar=False):
+        """Desliga o servidor ligado só para as definições (o de uma app aberta fica).
+
+        Se a app estiver ocupada (ex.: o download dos estádios), não o desliga: volta a ver daqui a DEF_OCUPADO_S
+        (forcar=True desliga na mesma, ex.: ao parar o hub)."""
         with self.lock:
             if self.def_limite:
                 self.def_limite.cancel()
                 self.def_limite = None
-            if self.processo_def:
-                self._matar(self.processo_def)
+            if not (self.processo_def and self.processo_def.poll() is None):
                 self.processo_def = None
+                return
+            nome = (self.def_entrada or {}).get("nome", "?")
+            if not forcar and ocupada(self.def_entrada):
+                print(f"Definições de {nome}: não desliguei o servidor ({motivo}), está ocupado; "
+                      f"volto a ver daqui a {DEF_OCUPADO_S // 60} min", flush=True)
+                self._armar_def_limite(DEF_OCUPADO_S, "já não está ocupado")   # o motivo de quando o desligar
+                return
+            print(f"Definições de {nome}: desliguei o servidor (PID {self.processo_def.pid}; {motivo})", flush=True)
+            self._matar(self.processo_def)
+            self.processo_def = None
 
     def raiz_por_id(self, ident):
         return next((a for a in self.raiz if a.get("id") == ident), None)
@@ -570,9 +623,8 @@ class Hub:
         app = self.app(app_id)
         if not app or app.get("em_breve"):
             return False
-        self.parar_processo()
-        self.grupo = app.get("_grupo")
-        self.focar(app_id)
+        print(f"Abrir {app['nome']}" + (" (código certo)" if desbloqueada else ""), flush=True)
+        self.parar_processo(f"abriste {app['nome']}")
         self.acoes_app = []
         if app.get("pin") and not desbloqueada:
             # App pessoal: primeiro o código, marcado no comando. O código nunca sai do hub.
@@ -655,6 +707,8 @@ class Hub:
             if self.processo_def and self.processo_def.poll() is None and geracao == self.geracao:
                 # o servidor já estava ligado para as definições: passa a ser o desta app (fecha com ela)
                 self.processo, self.processo_def = self.processo_def, None
+                self.processo_nome = app["nome"]
+                print(f"{app['nome']}: fica com o servidor ligado para as definições (PID {self.processo.pid})", flush=True)
                 if self.def_limite:
                     self.def_limite.cancel()
                     self.def_limite = None
@@ -671,9 +725,12 @@ class Hub:
                 return self._falhou(geracao, f"Não consegui arrancar {app['nome']}: {e}")
             with self.lock:
                 if geracao != self.geracao:          # entretanto saíste: não deixes o processo órfão
+                    print(f"{app['nome']}: saíste durante o arranque, parei-o (PID {proc.pid})", flush=True)
                     self._matar(proc)
                     return
                 self.processo = proc
+                self.processo_nome = app["nome"]
+                print(f"{app['nome']}: arranquei-o (PID {proc.pid})", flush=True)
 
         limite = time.time() + float(app.get("espera_max", 60))
         while saude and not responde(saude):
@@ -697,32 +754,34 @@ class Hub:
         with self.lock:
             if geracao != self.geracao:
                 return
-            self.parar_processo()
+            print(f"Erro: {texto}", flush=True)
+            self.parar_processo("erro ao abrir")
             self.modo = "erro"
             self.mensagem = texto
             self.emitir_estado()
 
-    def fechar(self):
+    def fechar(self, motivo="menu"):
         """Fecha a app e volta ao Início (com o botão Menu, com ↩, ou ao desistir do código ou do loading)."""
+        if self.modo != "inicio":
+            print(f"Início ({motivo})", flush=True)
         self.acoes_app = []
-        if self.grupo:
-            anterior, self.grupo = self.grupo, None
-            self.focar(anterior)
         self.geracao += 1
         self.pin = ""
-        self.parar_processo()
+        self.parar_processo(motivo)
         self.ativa = None
         self.modo = "inicio"
         self.mensagem = ""
         self.emitir_estado()
 
     def desligar(self):
-        self.fechar()
+        self.fechar("energia")
+        print("Ecrã desligado", flush=True)
         self.modo = "desligado"
         self.emitir_estado()
         self.correr_gancho("ao_desligar_ecra")
 
     def ligar(self):
+        print("Ecrã ligado", flush=True)
         self.correr_gancho("ao_ligar_ecra")
         self.modo = "inicio"
         self.emitir_estado()
@@ -737,8 +796,12 @@ class Hub:
                 print(f"{nome} falhou: {e}", flush=True)
 
     # ------------------------------------------------------------ processos
-    def parar_processo(self):
+    def parar_processo(self, motivo):
         if self.processo:
+            if self.processo.poll() is None:
+                print(f"{self.processo_nome}: parei-o (PID {self.processo.pid}; {motivo})", flush=True)
+            else:
+                print(f"{self.processo_nome}: já tinha parado sozinho (código {self.processo.returncode})", flush=True)
             self._matar(self.processo)
             self.processo = None
 
@@ -828,7 +891,7 @@ class Handler(SimpleHTTPRequestHandler):
             ok, erro = HUB.definicoes(str(pedido.get("app", "")))
             return self.json({"ok": ok, "erro": erro}, 200 if ok else 503)
         if caminho == "/api/definicoes/fechar":     # o comando voltou a abrir: já não é preciso
-            HUB.fechar_definicoes()
+            HUB.fechar_definicoes("voltaste ao comando")
             return self.json({"ok": True})
         ok = HUB.comando(str(pedido.get("acao", "")), pedido.get("app"), pedido.get("valor"))
         self.json({"ok": ok}, 200 if ok else 400)
@@ -891,8 +954,10 @@ def ips_da_rede():
 
 
 def main():
-    sys.stdout.reconfigure(errors="replace")
-    sys.stderr.reconfigure(errors="replace")
+    for consola in (sys.stdout, sys.stderr):
+        if consola:
+            consola.reconfigure(errors="replace")
+    sys.stdout, sys.stderr = Registo(sys.stdout), Registo(sys.stderr)
     parser = argparse.ArgumentParser(description="MonitorHub")
     parser.add_argument("--host", default="0.0.0.0", help="0.0.0.0 = aceita o telemóvel na rede de casa")
     parser.add_argument("--port", type=int, default=8080)
@@ -913,9 +978,9 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        HUB.parar_processo()
-        HUB.fechar_definicoes()
-        print("\nHub parado.")
+        HUB.parar_processo("hub parado")
+        HUB.fechar_definicoes("hub parado", forcar=True)
+        print("\nHub parado.", flush=True)
 
 
 if __name__ == "__main__":

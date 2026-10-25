@@ -22,6 +22,20 @@
 - Uma cena em pausa (ou fixa) redesenha-se quando chegam dados novos; se nada mudou, o ecrã não mexe.
 - O Início do hub vê a cada minuto se houve uma atualização e redesenha logo; o tempo a cada 15 min (era 30).
 
+### Auditoria (2026-10-25)
+- O servidor do desporto só serve `.json` de dentro de `data/` nos `/data/`: o token da F1 TV e o resto da pasta
+  deixam de estar ao alcance da rede de casa.
+- Gravar os dados nunca perde o trabalho de outro processo: `comum.gravar_json` (de uma vez, e no Windows tenta
+  outra vez se alguém estiver a ler) e um cadeado entre processos para o `fontes.json`, os estádios e as caras.
+- O passo "Estádios" não pede nada enquanto o `--todos` corre, e dois `--todos` já não arrancam ao mesmo tempo.
+- O hub perde o estado do menu antigo da parede; "Atualizar" sem app já não depende da ordem do `apps.json`.
+- Primeiros testes: a agenda (`desporto/tests`) e o código das apps pessoais (`hub/tests`).
+
+### Hub
+- Com o download dos estádios a correr (`"ocupado"` no `apps.json`), o servidor ligado para as definições não se
+  desliga; o `--todos` continua mesmo se o hub parar o servidor.
+- O hub escreve o que faz em `hub/data/hub.log` (fora do git), sem nunca o código das apps.
+
 ### Outros
 - O User-Agent dos pedidos leva o link do projeto, como a Wikipédia, a Wikidata e o OpenStreetMap pedem.
 - No Windows, gravar o progresso da atualização já não falha (`WinError 5`) quando alguém o está a ler ao mesmo tempo.

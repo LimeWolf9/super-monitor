@@ -20,6 +20,8 @@ Só usa a biblioteca standard do Python.
 import json
 from pathlib import Path
 
+from comum import gravar_json
+
 FICHEIRO = Path(__file__).resolve().parent.parent / "data" / "competicoes.json"
 
 # (chave, nome, grupo, liga na ESPN, tipo, ligada por defeito, nota para a página de definições)
@@ -101,9 +103,7 @@ def gravar(escolha):
     """Grava só as chaves conhecidas. Devolve a escolha gravada."""
     limpa = {k: bool(escolha.get(k, v)) for k, v in POR_DEFEITO.items()}
     dados = {"_nota": "Escolhido em http://<pc>:8000/definicoes. Entra na próxima atualização.", "ligadas": limpa}
-    tmp = FICHEIRO.with_suffix(".tmp")
-    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(FICHEIRO)
+    gravar_json(FICHEIRO, dados)
     return limpa
 
 

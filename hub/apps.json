@@ -15,6 +15,11 @@
       ]
     },
     "espera_max": 60,
+    "ocupado": {
+      "pasta": "../desporto",
+      "tranca": "data/estadios_todos.lock",
+      "velha_s": 120
+    },
     "atualizar": {
       "pasta": "../desporto",
       "cmd": [

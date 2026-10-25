@@ -69,18 +69,28 @@ def comecar_atualizacao(passos=None, competicoes=None):
     return True
 
 
+# Lança o argv[2:] com a saída no ficheiro argv[1] e sai logo. O --todos fica assim neto do servidor, sem pai vivo:
+# o "taskkill /T" com que o hub para o servidor segue os filhos pelo PID do pai, e já não o encontra.
+_LANCADOR = """import subprocess, sys
+flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform == "win32" else 0
+with open(sys.argv[1], "ab") as registo:
+    subprocess.Popen(sys.argv[2:], stdin=subprocess.DEVNULL, stdout=registo, stderr=subprocess.STDOUT,
+                     creationflags=flags, start_new_session=sys.platform != "win32", close_fds=True)
+"""
+
+
 def continuar_estadios():
-    """Arranca "tools/estadios.py --todos" num processo à parte, que continua mesmo se o servidor parar.
-    False se já houver um a correr (a tranca dele)."""
+    """Arranca "tools/estadios.py --todos" num processo à parte, que continua mesmo se o servidor parar (ou se o
+    hub o parar, ver _LANCADOR). False se já houver um a correr (a tranca dele)."""
     if estadios.todos_a_correr():
         return False
     flags = 0
     if sys.platform == "win32":   # sem janela e fora do grupo do servidor
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    with open(estadios.REGISTO, "ab") as registo:
-        subprocess.Popen([sys.executable, "-u", str(RAIZ / "tools" / "estadios.py"), "--todos"], cwd=RAIZ,
-                         stdin=subprocess.DEVNULL, stdout=registo, stderr=subprocess.STDOUT,
-                         creationflags=flags, close_fds=True)
+    subprocess.run([sys.executable, "-c", _LANCADOR, str(estadios.REGISTO),
+                    sys.executable, "-u", str(RAIZ / "tools" / "estadios.py"), "--todos"], cwd=RAIZ,
+                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   creationflags=flags, timeout=30)
     for _ in range(40):   # espera que a tranca exista, para o estado devolvido já dizer "a correr"
         if estadios.todos_a_correr():
             break
@@ -169,17 +179,21 @@ class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path):
         """Decide que ficheiro do disco corresponde a um URL.
 
-        /data/...  -> pasta data/ (os dados)
+        /data/...  -> pasta data/, só .json (os dados; nunca o token da F1 TV nem as gravações)
         tudo o resto -> pasta web/ (a apresentação)
         """
         limpo = urlsplit(path).path
         if limpo.rstrip("/") == "/definicoes":
             return str(PASTA_WEB / "definicoes.html")
-        base = RAIZ if limpo.startswith("/data/") else PASTA_WEB
+        base = PASTA_WEB
+        if limpo.startswith("/data/"):
+            base, limpo = RAIZ / "data", limpo[len("/data"):]
         relativo = posixpath.normpath(unquote(limpo)).lstrip("/")
         alvo = (base / relativo).resolve()
         # Segurança: nunca servir ficheiros fora da pasta base (ex.: "../..")
         if alvo != base and base not in alvo.parents:
+            return str(base / "__nao_existe__")
+        if base != PASTA_WEB and alvo.suffix != ".json":
             return str(base / "__nao_existe__")
         return str(alvo)
 

@@ -21,7 +21,7 @@ import unicodedata
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from comum import RAIZ, pedir
+from comum import RAIZ, gravar_json, pedir
 
 MAPA = RAIZ / "data" / "emblemas_wikidata.json"
 # A Wikimedia pede um User-Agent com contacto: o do projeto, sem dados pessoais
@@ -64,9 +64,7 @@ def ler_mapa():
 def gravar_mapa():
     with _tranca:
         if _mapa is not None:
-            tmp = MAPA.with_suffix(".tmp")
-            tmp.write_text(json.dumps(_mapa, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-            tmp.replace(MAPA)
+            gravar_json(MAPA, _mapa, sort_keys=True)
 
 
 def _valores(entidade, prop):

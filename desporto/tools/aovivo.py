@@ -39,7 +39,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from comum import ler_dados, pedir_json, registar_fonte
+from comum import gravar_json, ler_dados, pedir_json, registar_fonte, trancado
 
 import atualizar_futebol as fut   # noqa: E402  (siglas, eventos e o mapa das equipas da ESPN)
 import atualizar_nba as nba       # noqa: E402
@@ -398,9 +398,8 @@ def cara(pid, nome, sigla):
             shutil.copyfile(pack / f"face_{fid}.png", fotos.PASTA / f)
         if not f and str(pid or "").isdigit():
             f = fotos.foto_espn(nome, pid)
-        cache = fotos.ler_cache()
-        cache[chave] = {"file": f, "t": time.time()}
-        fotos.CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+        with trancado(fotos.CACHE):   # o atualizar_fotos.py (outro processo) também a grava
+            gravar_json(fotos.CACHE, {**fotos.ler_cache(), chave: {"file": f, "t": time.time()}})
         return f"img/jogadores/{f}" if f else None
 
 

@@ -42,6 +42,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from comum import gravar_json   # noqa: F401  (atómico, com novas tentativas no Windows; a agenda usa-o daqui)
+
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA = RAIZ / "tools"
 ESTADO = RAIZ / "data" / "atualizacao.json"
@@ -72,19 +74,6 @@ def ler_json(caminho, omissao):
         return json.loads(caminho.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return omissao
-
-
-def gravar_json(caminho, dados):
-    tmp = caminho.with_suffix(".tmp")
-    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
-    for tentativa in range(20):
-        try:
-            tmp.replace(caminho)
-            return
-        except PermissionError:   # Windows: alguém está a ler o ficheiro (o /api/atualizar/estado, a cada 1,5 s)
-            if tentativa == 19:
-                raise
-            time.sleep(0.05)
 
 
 def a_correr():
