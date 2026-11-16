@@ -1,6 +1,7 @@
 """MonitorHub: transforma o monitor da parede numa "TV" com apps, comandada pelo telemóvel.
 
 Uso:  python hub.py                 (porto 8080, aceita ligações da rede de casa)
+      python hub.py --porta-comando 80   (e o comando também em http://<nome>.local/, sem porta nem /comando)
       python hub.py --port 9000
       python hub.py --host 127.0.0.1 (só este PC; o telemóvel deixa de chegar cá)
 
@@ -953,6 +954,16 @@ def ips_da_rede():
     return sorted(i for i in ips if not i.startswith("127."))
 
 
+class HandlerComando(Handler):
+    """A porta curta (--porta-comando, ex.: 80): aí o "/" é o comando, para o endereço no telemóvel ser só
+    http://supermonitor.local/ . Tudo o resto (API, eventos, ficheiros) é igual ao da porta normal."""
+
+    def translate_path(self, path):
+        if urlsplit(path).path in ("/", ""):
+            path = "/comando"
+        return super().translate_path(path)
+
+
 def main():
     for consola in (sys.stdout, sys.stderr):
         if consola:
@@ -961,12 +972,24 @@ def main():
     parser = argparse.ArgumentParser(description="MonitorHub")
     parser.add_argument("--host", default="0.0.0.0", help="0.0.0.0 = aceita o telemóvel na rede de casa")
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--porta-comando", type=int, default=None,
+                        help='porta extra só para o comando (ex.: 80, endereço curto sem ":8080/comando")')
     args = parser.parse_args()
 
     servidor = ThreadingHTTPServer((args.host, args.port), Handler)
     servidor.daemon_threads = True
     print(f"MonitorHub a correr. Ecrã: http://127.0.0.1:{args.port}/")
     HUB.links_comando = [f"http://{ip}:{args.port}/comando" for ip in ips_da_rede()] if args.host != "127.0.0.1" else []
+    if args.porta_comando and args.host != "127.0.0.1":
+        try:
+            curto = ThreadingHTTPServer((args.host, args.porta_comando), HandlerComando)
+            curto.daemon_threads = True
+            threading.Thread(target=curto.serve_forever, daemon=True).start()
+            sufixo = "" if args.porta_comando == 80 else f":{args.porta_comando}"
+            nome = socket.gethostname().split(".")[0]
+            HUB.links_comando = [f"http://{nome}.local{sufixo}/"] + [f"http://{ip}{sufixo}/" for ip in ips_da_rede()]
+        except OSError as erro:                      # ex.: a porta 80 sem permissão; o hub continua na porta normal
+            print(f"Sem a porta curta {args.porta_comando} para o comando: {erro}")
     for link in HUB.links_comando:
         print(f"Comando no telemóvel (mesmo Wi-Fi): {link}")
     if HUB.agendas:

@@ -603,6 +603,13 @@ body.aovivo #progress { visibility: hidden; }   /* não há rotação */
 .av-check { width: 48px; height: 48px; border-radius: 14px; border: 4px solid var(--muted); display: grid; place-items: center;
   font: 800 34px var(--font-head); color: #06210f; }
 .av-linha.seguido .av-check { background: var(--accent); border-color: var(--accent); }
+/* O título de cada competição no Ao vivo também se escolhe: OK marca/desmarca os jogos todos dela */
+.av-comp { display: flex; align-items: center; gap: 16px; padding: 10px 22px; border-radius: 24px; border: 3px solid transparent; }
+.av-comp .sub { flex: 1; min-width: 0; padding-left: 0; }
+.av-comp small { font: 600 30px var(--font); color: var(--muted); }
+.av-comp.foco { border-color: #fff; box-shadow: 0 0 0 5px var(--accent); }
+.av-comp.seguido .av-check { background: var(--accent); border-color: var(--accent); }
+.av-comp.parte .av-check { border-color: var(--accent); color: var(--accent); }
 .av-eq { display: flex; align-items: center; gap: 14px; min-width: 0; font-size: 36px; font-weight: 600; }
 .av-eq.casa { justify-content: flex-end; text-align: right; }
 .av-eq .badge { width: 66px; height: 66px; font-size: 20px; border-width: 5px; flex: none; }

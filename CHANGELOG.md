@@ -1,5 +1,32 @@
 # Alterações
 
+## 3.0 (2026-11-16)
+
+Junta o que está em "Depois da 2.0" (atualizar por partes, atualização automática, auditoria) e:
+
+### Mini PC com Linux
+- Pasta `linux/`: `instalar.sh` prepara um Ubuntu Server para a parede de uma vez: o hub como serviço do sistema
+  (arranca com o PC, volta se cair), login automático no ecrã com o Chromium em kiosk, rodado na vertical, dentro
+  do `cage`, hora de Portugal, fonte Noto Sans no lugar da Segoe UI e emojis a cores.
+- O ⏻ do comando desliga o monitor a sério no Linux (`linux/ecra.sh`, ligado pelos ganchos do `config.local.json`).
+- Sai o `desporto/Dashboard.bat` (e o `iniciar_dashboard.ps1`): o dashboard abre-se sempre pelo hub. No Windows o
+  `hub/MonitorHub.bat` continua como estava.
+- Endereço curto do comando: `http://supermonitor.local/` (o `instalar.sh` liga o avahi e o serviço corre o hub com
+  `--porta-comando 80`, onde o `/` já é o comando). Sem esta opção, tudo como antes na porta 8080.
+- O Chromium do ecrã não oferece tradução (política no `instalar.sh` e `translate="no"` nas páginas do hub).
+
+### Início mais simples
+- Menos títulos: saem os de Tempo, Hoje no desporto, FC Porto, Fórmula 1, Seleção e Notícias; a data sem o ano.
+- Com jogo do FC Porto e de Portugal, não há notícias nem extras: o espaço vai para os jogos de hoje (até 12, tirados
+  um a um até caber) e, por baixo, "+ N jogos hoje" com os que ficaram de fora.
+- O último resultado diz "contra" (ex.: "2–1 contra Benfica"); a contagem ("faltam 3 h") só no dia do jogo.
+- F1: bandeira do país do GP e até 3 sessões (a próxima, a qualificação ou sprint e a corrida), em qualquer semana.
+- Rodapé sem o link do comando; a hora dos dados do desporto só aparece quando têm mais de um dia.
+
+### Ao vivo
+- Liga das Nações só com a Liga A (mais as seleções escolhidas), como no resto do dashboard e no Início.
+- O título de cada competição também se escolhe: OK marca (ou desmarca) os jogos todos dela, com "3/5" ao lado.
+
 ## Depois da 2.0 (2026-10-23)
 
 ### Atualizar por partes

@@ -13,11 +13,12 @@ Opções: `--port 9000`, `--no-browser`, `--host 127.0.0.1` (só este PC; por om
 
 ## Ligar e desligar no monitor da parede
 
-Duplo clique em **`Dashboard.bat`**: arranca o servidor e abre o Edge em ecrã inteiro no monitor que estiver na vertical. Para desligar: **Alt+F4** no dashboard; o servidor para sozinho.
+O dashboard aparece na parede pelo MonitorHub (pasta `hub/`): no mini PC com Linux arranca sozinho (ver "Instalar no
+mini PC (Linux)" no README principal) e o hub liga e desliga este servidor quando abres ou sais do Desporto no comando.
 
-- O monitor (LG 34UB67, 2560 × 1080) tem de estar em **Retrato** (Definições > Sistema > Ecrã > Orientação), o que dá exatamente os 1080 × 2560 do dashboard. O pé não roda: precisa de um suporte VESA de parede.
-- O Edge do dashboard usa um perfil próprio (`%LOCALAPPDATA%\dashboard-desportivo\edge`), por isso não mexe nas tuas janelas do Edge.
-- O script está em `tools/iniciar_dashboard.ps1`.
+- O monitor (LG 34UB67, 2560 × 1080) fica rodado na vertical, o que dá exatamente os 1080 × 2560 do dashboard.
+  No Linux a rotação está em `~/.config/supermonitor/kiosk.conf`. O pé não roda: precisa de um suporte VESA de parede.
+- Para ver só o dashboard num PC: `python serve.py` e abrir `http://127.0.0.1:8000/`.
 
 ## Categorias (`?cat=`)
 
@@ -28,7 +29,7 @@ Três categorias, cada uma com todos os desportos (`construirCenas` em `web/js/s
 | `ultima` | Última jornada | Futebol: os resultados da última jornada ou eliminatória de cada competição (a jornada toda: os jogos por jogar ficam no seu lugar, com o dia e a hora), o 11 da jornada, as classificações, os grupos e os marcadores. F1: a última corrida, os pneus, os duelos, a evolução dos pontos e o campeonato. NBA: a noite passada e as classificações. No fim, o jogador em destaque e as curiosidades |
 | `aovivo` | Ao vivo | O "presente", com atualização contínua (ver abaixo): a lista dos jogos a decorrer agora e o acompanhamento dos que escolheres |
 | `proxima` | Próxima jornada | Futebol: tudo o que está por jogar até ao fim da próxima jornada, incluindo o que falta da jornada em curso (esses jogos aparecem nas duas categorias; na Próxima vêm primeiro, com o subtítulo "Jornada 3 · faltam 9 jogos", e depois a jornada seguinte), com a barra das probabilidades e as notícias; o ranking Elo. F1: o próximo GP e o horário do fim de semana. NBA: os jogos desta noite com a hora de Portugal ("NBA · Esta noite") e a corrida ao MVP (e o "Em construção" até a época começar) |
-| (sem parâmetro) | | A Última jornada e depois a Próxima jornada (é o que o `Dashboard.bat` mostra) |
+| (sem parâmetro) | | A Última jornada e depois a Próxima jornada (é o que se vê sem escolher categoria) |
 
 - O futebol são as competições escolhidas em `/definicoes`: na Última jornada as que tiveram jogos nos últimos 7 dias, na Próxima as que têm jogos nos próximos 7.
 - **Ao vivo** (`web/js/aovivo.js` e `tools/aovivo.py`): o passado e o futuro só mudam quando se atualiza; o Ao vivo
@@ -76,7 +77,7 @@ Chaves (para `?scene=`): `tp` Taça de Portugal, `fa`, `efl`, `cdr`, `dfb`, `cit
 
 ## Comando (MonitorHub e teclado)
 
-Dentro do MonitorHub (pasta `hub/` deste repositório), o dashboard obedece ao comando do telemóvel. O hub abre-o num iframe e manda as ordens por `postMessage` (ver o `PROTOCOLO.md` do hub). O protocolo só se liga dentro de um iframe: pelo `Dashboard.bat` tudo funciona como antes. As teclas fazem o mesmo, o que ajuda a testar sem o hub.
+Dentro do MonitorHub (pasta `hub/` deste repositório), o dashboard obedece ao comando do telemóvel. O hub abre-o num iframe e manda as ordens por `postMessage` (ver o `PROTOCOLO.md` do hub). O protocolo só se liga dentro de um iframe: aberto sozinho no browser tudo funciona como antes. As teclas fazem o mesmo, o que ajuda a testar sem o hub.
 
 | Botão | Tecla | O que faz |
 |---|---|---|

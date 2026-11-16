@@ -58,12 +58,12 @@ CANCELADOS = ("STATUS_POSTPONED", "STATUS_CANCELED")   # adiados/cancelados: sae
 _cache, _tranca = {}, threading.Lock()
 
 
-def em_cache(chave, buscar):
-    """O resultado de buscar(), guardado CACHE_S segundos (por chave)."""
+def em_cache(chave, buscar, segundos=CACHE_S):
+    """O resultado de buscar(), guardado CACHE_S segundos (ou os que se pedirem), por chave."""
     agora = time.time()
     with _tranca:
         c = _cache.get(chave)
-        if c and agora - c[0] < CACHE_S:
+        if c and agora - c[0] < segundos:
             return c[1]
     valor = buscar()
     with _tranca:
@@ -116,8 +116,21 @@ def estado_espn(e):
     return "pre", fut.quando(e).astimezone().strftime("%H:%M")
 
 
+def liga_a_de(liga):
+    """Os ids ESPN das seleções da Liga A da Liga das Nações (grupos "Group A1".."A4"), como no atualizar_futebol.py.
+    Guardado 6 h (os grupos não mudam durante uma janela de jogos). Vazio se a ESPN falhar: aí não se filtra."""
+    try:
+        return em_cache(f"ligaA:{liga}", lambda: {e["team"]["id"] for g in fut.grupos_da_classificacao(liga)
+                                                 if (g.get("name") or "").startswith("Group A")
+                                                 for e in (g.get("standings") or {}).get("entries") or []}, 6 * 3600)
+    except Exception:   # noqa: BLE001  (sem a tabela, mostra-se tudo, como antes)
+        return set()
+
+
 def jogos_futebol(chave, nome, liga, filtro, equipas, dia):
     d = em_cache(f"fut:{liga}:{dia}", lambda: pedir_json(f"{ESPN}/soccer/{liga}/scoreboard?dates={dia}"))
+    # Liga das Nações: só a Liga A (mais as seleções escolhidas), como nos jogos do live.json e no Início
+    liga_a = liga_a_de(liga) if filtro and filtro.get("todos") and filtro.get("ligaA") else set()
     jogos = []
     for e in d.get("events", []):
         comp = e["competitions"][0]
@@ -125,6 +138,8 @@ def jogos_futebol(chave, nome, liga, filtro, equipas, dia):
         fora = next(c for c in comp["competitors"] if c["homeAway"] == "away")
         if filtro and not filtro.get("todos") and not ({casa["team"]["id"], fora["team"]["id"]} & set(map(str, filtro.get("equipas") or []))):
             continue   # seleções: só as escolhidas
+        if liga_a and not ({casa["team"]["id"], fora["team"]["id"]} & (liga_a | set(map(str, filtro.get("equipas") or [])))):
+            continue   # Liga das Nações: as ligas B, C e D ficam de fora
         estado, texto = estado_espn(e)
         lado = {casa["team"]["id"]: "h", fora["team"]["id"]: "a"}
         ev = fut.eventos_do_jogo(comp, lado) if estado != "pre" else []

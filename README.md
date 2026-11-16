@@ -95,8 +95,24 @@ python hub.py
 Para dados reais do desporto: `python tools/atualizar_tudo.py` (ou o botão "Atualizar" no comando).
 A app de despesas vive em [despesas-casal](https://github.com/LimeWolf9/despesas-casal); para o hub a encontrar, clona-a ao lado desta pasta (`../despesas-casal`).
 
-No Windows, `hub/MonitorHub.bat` e `desporto/Dashboard.bat` abrem o Edge em ecrã inteiro
-no monitor que estiver na vertical.
+No Windows, `hub/MonitorHub.bat` abre o Edge em ecrã inteiro no monitor que estiver na vertical.
+
+## Instalar no mini PC (Linux)
+
+Para um PC só para a parede (testado a pensar num Lenovo M80q com Ubuntu Server 26.04, sem ambiente gráfico):
+
+```bash
+git clone https://github.com/LimeWolf9/super-monitor.git ~/super-monitor
+bash ~/super-monitor/linux/instalar.sh
+sudo reboot
+```
+
+O `linux/instalar.sh` deixa o hub como serviço (arranca com o PC e volta se cair), faz login automático no ecrã
+e abre o Chromium em ecrã inteiro e rodado na vertical (`linux/kiosk.sh`, dentro do `cage`). O botão ⏻ do comando
+põe o monitor a dormir a sério (`linux/ecra.sh`). Afinações (rodar 90 ou 270, qual saída) em
+`~/.config/supermonitor/kiosk.conf`. Ver o hub: `journalctl -u supermonitor-hub -f`.
+
+Os dados que não estão no git (ver abaixo) copiam-se à mão do PC antigo.
 
 ## O que não está no repositório
 
@@ -110,7 +126,7 @@ no monitor que estiver na vertical.
 
 ## Próximos passos
 
-- Correr tudo num mini PC (Linux + Docker) ligado ao monitor, com as apps a arrancar em containers.
+- No mini PC: as apps a arrancar em containers Docker.
 - Home Assistant a mandar os mesmos comandos que o telemóvel (ligar o monitor, abrir uma app).
 
 ## Licença

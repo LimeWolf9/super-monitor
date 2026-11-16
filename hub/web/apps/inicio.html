@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="pt-PT">
+<html lang="pt-PT" translate="no">
 <head>
 <meta charset="utf-8">
+<meta name="google" content="notranslate">   <!-- o Chromium do ecrã não deve oferecer tradução -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Início</title>
 <!-- As peças e o estilo (Liquid Glass) são os do desporto: o hub serve o web/ dele em /apps/desporto/ ("pastas" no apps.json) -->
@@ -78,7 +79,7 @@
   .ao-vivo-aviso { margin-top: 12px; padding: 14px 22px; border-radius: 26px; background: rgba(255, 70, 70, .18); border: 1.5px solid rgba(255, 90, 90, .5);
     font: 600 32px var(--font); display: flex; align-items: center; gap: 14px; }
   .ao-vivo-aviso i { width: 18px; height: 18px; border-radius: 50%; background: #ff4b4b; flex: none; }
-  .mais-jogos { color: var(--muted); font: 500 28px var(--font); padding-top: 12px; text-align: center; }
+  .mais-jogos { color: var(--muted); font: 500 28px var(--font); padding-top: 12px; text-align: center; border-top: 1.5px solid rgba(255, 255, 255, .12); }
 
   /* FC Porto + F1 lado a lado */
   .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
@@ -104,14 +105,14 @@
   .f1c .track { width: 100%; height: 160px; flex: none; }
   .f1c .gp { font: 700 40px/1.05 var(--font); text-align: center; margin-top: 8px; }
   .f1c .onde { font: 500 28px var(--font); color: var(--muted); text-align: center; margin-top: 6px; }
-  .f1c .sess { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; font: 500 25px var(--font); }
+  .f1c .sess { margin-top: 16px; display: flex; flex-direction: column; gap: 2px; font: 500 25px var(--font); }
   .f1c .sess div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 8px; border-radius: 12px; }
   .f1c .sess .feita { color: var(--muted); text-decoration: line-through; }
   .f1c .sess .prox { background: color-mix(in srgb, var(--f1) 35%, transparent); }
 
   /* Seleção: uma linha */
-  .selecao { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px; padding: 24px 34px; }
-  .selecao .jogo-sel { display: flex; align-items: center; gap: 16px; font: 600 36px var(--font); justify-content: center; }
+  .selecao { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; padding: 24px 34px; }
+  .selecao .jogo-sel { display: flex; align-items: center; gap: 16px; font: 600 36px var(--font); }
   .selecao .badge { width: 70px; height: 70px; }
   .selecao .q { text-align: right; font: 600 30px var(--font); }
   .selecao .q .conta { margin: 0; text-align: right; font-size: 32px; }
@@ -180,7 +181,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const hhmm = (d) => new Date(d).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 const $ = (sel) => document.querySelector(sel);
 
-let D = null, T = null, sitio = null, linksComando = [];
+let D = null, T = null, sitio = null;
 let paginaNoticias = 0, noticias = [];
 
 // ---------------------------------------------------------------- utilidades
@@ -194,6 +195,8 @@ function falta(ms) {
   if (h) return `faltam ${h} h ${String(m).padStart(2, '0')} min`;
   return `faltam ${m} min`;
 }
+// A contagem ("faltam 3 h") só no próprio dia: antes disso o dia e a hora já dizem quando é
+const contaNoDia = (t) => (t && mesmoDia(t, Date.now()) ? `<span class="conta" data-ate="${t}">${falta(t)}</span>` : '');
 const diaCurto = (ms) => {
   if (mesmoDia(ms, Date.now())) return 'Hoje';
   if (mesmoDia(ms, Date.now() + DIA_MS)) return 'Amanhã';
@@ -278,7 +281,6 @@ function blocoTempo() {
       <span class="p">${p >= 20 ? `💧 ${p}%` : ''}</span></div>`;
   }).join('');
   return `<section class="vidro bloco entra" style="animation-delay:.08s">
-    <div class="titulo-bloco">Tempo<small>${esc(sitio && sitio.nome || '')}</small></div>
     <div class="tempo-agora"><span class="ic">${agora.ic}</span><span class="t">${Math.round(c.temperature_2m)}°</span>
       <div class="desc">${agora.txt}<small>Sensação ${Math.round(c.apparent_temperature)}° · máx. ${Math.round(T.daily.temperature_2m_max[0])}° · mín. ${Math.round(T.daily.temperature_2m_min[0])}°</small></div></div>
     ${graficoHoras(horas)}
@@ -288,7 +290,7 @@ function blocoTempo() {
 
 // ---------------------------------------------------------------- hoje no desporto (só o live.json)
 // "Hoje": o futebol de hoje e a NBA desta noite (os jogos até às 6 da manhã de amanhã ainda contam como esta noite)
-function blocoHoje() {
+function blocoHoje(MAX = 4) {
   const ini = new Date(); ini.setHours(0, 0, 0, 0);
   const fimNoite = ini.getTime() + DIA_MS + 6 * 3600e3;
   const nba = ((D.nba && D.nba.tonight) || []).map((m) => ({ ...m, chave: 'nba', comp: 'NBA' }))
@@ -298,7 +300,6 @@ function blocoHoje() {
   const lista = hoje.filter((m) => { const k = `${m.home}-${m.away}`; if (vistos.has(k)) return false; vistos.add(k); return true; })
     .sort((a, b) => (minha(D, b.home) || minha(D, b.away)) - (minha(D, a.home) || minha(D, a.away)) || quando(a) - quando(b));
   if (!lista.length) return '';
-  const MAX = 4;
   // O live.json não é em direto: um jogo sem resultado que começou há menos de 2 h conta como "a decorrer"
   const decorre = (m) => m.live || (m.hs == null && quando(m) <= Date.now() && Date.now() - quando(m) < 2 * 3600e3);
   const aDecorrer = lista.filter(decorre).length;
@@ -322,9 +323,10 @@ function blocoHoje() {
   const linhaNBA = resumoNBA ? `<div class="hj nba-resumo"><span class="h">${hhmm(quando(nbaPorVer[0]))}</span>
     <span class="e casa" style="grid-column: 2 / 5; justify-content: flex-start">🏀 NBA esta noite · ${nbaPorVer.length === 1 ? '1 jogo' : `${nbaPorVer.length} jogos`}, a partir das ${hhmm(quando(nbaPorVer[0]))}</span>
     <span class="l">${logo('nba', 'NBA')}</span></div>` : '';
-  return `<section class="vidro bloco entra" style="animation-delay:.16s">
-    <div class="titulo-bloco">Hoje no desporto<small>${lista.length === 1 ? '1 jogo' : `${lista.length} jogos`}${lista.length > MAX ? ` · ${MAX} em destaque` : ''}</small></div>
-    <div class="hoje-lista">${linhas}${linhaNBA}</div>
+  const fora = lista.length - escolhidos.length - (resumoNBA ? nbaPorVer.length : 0);
+  const mais = fora > 0 ? `<div class="mais-jogos">+ ${fora === 1 ? '1 jogo' : `${fora} jogos`} hoje</div>` : '';
+  return `<section class="vidro bloco hoje entra" style="animation-delay:.16s">
+    <div class="hoje-lista">${linhas}${linhaNBA}</div>${mais}
     ${aDecorrer ? `<div class="ao-vivo-aviso"><i></i>${aDecorrer === 1 ? '1 jogo a decorrer' : `${aDecorrer} jogos a decorrer`}: abre o Ao vivo no comando</div>` : ''}
   </section>`;
 }
@@ -344,20 +346,20 @@ function blocoClube() {
   const code = D.myTeam.code;
   const prox = proximoDe(code), ult = ultimoDe(code);
   const t = quando(prox);
-  let html = `<div class="titulo-bloco">${badge(D, code, 'mini')}${esc(teamName(D, code))}</div>`;
+  let html = '';
   if (prox) {
     const [dia, ...hora] = (prox.when || '').split(' ');
     html += `<div class="prox">
       <div class="eq">${badge(D, prox.home)}${esc(teamName(D, prox.home))}</div>
       <div class="q"><b>${t ? hhmm(t) : esc(hora.join(' '))}</b><span>${t ? diaCurto(t) : esc(dia)}</span></div>
       <div class="eq">${badge(D, prox.away)}${esc(teamName(D, prox.away))}</div></div>
-      <div class="comp">${esc(prox.comp || '')}</div>${t ? `<span class="conta" data-ate="${t}">${falta(t)}</span>` : ''}`;
+      <div class="comp">${esc(prox.comp || '')}</div>${contaNoDia(t)}`;
   } else html += '<div class="comp">Sem jogos marcados</div>';
   if (ult) {
     const nos = ult.home === code ? ult.hs : ult.as, eles = ult.home === code ? ult.as : ult.hs;
     const [c, l] = nos > eles ? ['v', 'V'] : nos === eles ? ['e', 'E'] : ['d', 'D'];
     const outro = ult.home === code ? ult.away : ult.home;
-    html += `<div class="ult"><span class="vde ${c}">${l}</span>${ult.hs}–${ult.as} ${ult.home === code ? 'vs' : 'em'} ${esc(teamName(D, outro))}</div>`;
+    html += `<div class="ult"><span class="vde ${c}">${l}</span>${ult.hs}–${ult.as} contra ${esc(teamName(D, outro))}</div>`;
   }
   // Mini-tabela da liga: o lugar acima, o FC Porto e o lugar abaixo
   const tabela = Object.values(D.football || {}).find((L) => (!L.tipo || L.tipo === 'liga') && (L.table || []).some((r) => r.team === code) && L.name && /Portugal/.test(L.name))
@@ -371,21 +373,32 @@ function blocoClube() {
   return `<section class="vidro bloco clube entra" style="animation-delay:.24s">${html}</section>`;
 }
 
+// Bandeira (emoji) do país do GP; o nome vem em português (ou em inglês, conforme a fonte)
+const PAISES = { 'Austrália': 'AU', Australia: 'AU', China: 'CN', 'Japão': 'JP', Japan: 'JP', 'Bahrein': 'BH', Bahrain: 'BH',
+  'Arábia Saudita': 'SA', 'Saudi Arabia': 'SA', 'Estados Unidos': 'US', USA: 'US', 'United States': 'US', 'Canadá': 'CA', Canada: 'CA',
+  'Mónaco': 'MC', Monaco: 'MC', Espanha: 'ES', Spain: 'ES', 'Áustria': 'AT', Austria: 'AT', 'Reino Unido': 'GB', UK: 'GB',
+  'Bélgica': 'BE', Belgium: 'BE', Hungria: 'HU', Hungary: 'HU', 'Países Baixos': 'NL', Netherlands: 'NL', 'Itália': 'IT', Italy: 'IT',
+  'Azerbaijão': 'AZ', Azerbaijan: 'AZ', Singapura: 'SG', Singapore: 'SG', 'México': 'MX', Mexico: 'MX', Brasil: 'BR', Brazil: 'BR',
+  Catar: 'QA', Qatar: 'QA', 'Emirados Árabes Unidos': 'AE', UAE: 'AE', 'Abu Dhabi': 'AE', Portugal: 'PT', Alemanha: 'DE', Germany: 'DE' };
+const bandeira = (pais) => { const c = PAISES[pais]; return c ? String.fromCodePoint(...[...c].map((l) => 0x1f1a5 + l.charCodeAt(0))) + ' ' : ''; };
+
 function blocoF1() {
   const n = D.f1 && D.f1.next;
   if (!n) return '';
   const t = targetMs(n);
   const w = D.f1.weekend;
-  // Num fim de semana de GP (a 1.ª sessão a menos de 4 dias), o horário das sessões em vez dos dados da pista
-  const sessoes = w && (w.sessions || []).length && Date.parse(w.sessions[0].date) - Date.now() < 4 * DIA_MS ? w.sessions : null;
-  const prox = sessoes && sessoes.find((s) => Date.parse(s.date) > Date.now());
+  // As sessões que interessam: a próxima, a qualificação (e a sprint) e a corrida; no máximo 3, por ordem
+  let lista = w && w.name === n.name && (w.sessions || []).length ? w.sessions.filter((s) => Date.parse(s.date) > Date.now() - 3 * 3600e3) : [];
+  if (!lista.length && t) lista = [{ name: 'Corrida', date: new Date(t).toISOString() }];
+  const prox = lista.find((s) => Date.parse(s.date) > Date.now());
+  const corrida = lista.find((s) => /Corrida/i.test(s.name) && !/Sprint/i.test(s.name)) || lista[lista.length - 1];
+  const escolhidas = [corrida, prox, ...lista.filter((s) => /Qualifica|Sprint/i.test(s.name))]
+    .filter((s, i, a) => s && a.indexOf(s) === i).slice(0, 3).sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
   return `<section class="vidro bloco f1c entra" style="animation-delay:.3s">
-    <div class="titulo-bloco">Fórmula 1</div>
     <div class="corpo">${n.track ? pista(n.track) : ''}
-    <div class="gp">${esc(n.name)}</div>
-    <div class="onde">${esc([n.circuit, n.country].filter(Boolean).join(' · '))}</div>
-    <span class="conta" data-ate="${t}">${falta(t)}</span>
-    ${sessoes ? `<div class="sess">${sessoes.filter((s) => Date.parse(s.date) > Date.now() - 3 * 3600e3).slice(0, 3).map((s) => `<div class="${Date.parse(s.date) < Date.now() ? 'feita' : s === prox ? 'prox' : ''}">
+    <div class="gp">${bandeira(n.country)}${esc(n.name)}</div>
+    ${contaNoDia(t)}
+    ${escolhidas.length ? `<div class="sess">${escolhidas.map((s) => `<div class="${Date.parse(s.date) < Date.now() ? 'feita' : s === prox ? 'prox' : ''}">
       <span>${esc(s.name)}</span><span>${diaPT(s.date)} ${horaPT(s.date)}</span></div>`).join('')}</div>` : ''}</div>
   </section>`;
 }
@@ -397,9 +410,8 @@ function blocoSelecao() {
   const t = quando(m);
   if (!m || !t || t - Date.now() > SELECAO_DIAS * DIA_MS) return '';
   return `<section class="vidro selecao entra" style="animation-delay:.36s">
-    <span class="rot">${esc(teamName(D, code))}</span>
     <div class="jogo-sel">${badge(D, m.home)}${esc(teamName(D, m.home))} <span style="color:var(--muted)">–</span> ${esc(teamName(D, m.away))}${badge(D, m.away)}</div>
-    <div class="q">${diaCurto(t)} · ${hhmm(t)}<span class="conta" data-ate="${t}">${falta(t)}</span></div>
+    <div class="q">${diaCurto(t)} · ${hhmm(t)}${contaNoDia(t)}</div>
   </section>`;
 }
 
@@ -432,7 +444,7 @@ function blocoNoticias() {
   noticias = juntarNoticias();
   if (!noticias.length) return '<div class="noticias-bloco"></div>';
   return `<section class="vidro bloco noticias-bloco entra" style="animation-delay:.42s">
-    <div class="titulo-bloco">Notícias<small>FC Porto e Liga</small></div><div id="nts">${paginaDeNoticias()}</div></section>`;
+<div id="nts">${paginaDeNoticias()}</div></section>`;
 }
 // Tantas notícias por página quantas couberem no espaço que sobra (1 a 4): desenha-se e confirma-se. Sem contas com
 // getBoundingClientRect (vem multiplicado pela escala do ecrã). Repete-se quando a caixa muda de altura (ex.: imagens
@@ -486,10 +498,11 @@ function rodape() {
   const fun = (D.fun && D.fun.onThisDay) || [];
   const curiosidade = fun.length ? fun[new Date().getDate() % fun.length] : null;
   const iso = (D._atualizado || {}).futebol;
-  const dados = MOCK ? 'Dados fictícios (?mock=1)' : iso ? `Desporto: ${diaCurto(Date.parse(iso)).toLowerCase()} ${hhmm(iso)}` : '';
+  const velhos = iso && Date.now() - Date.parse(iso) > DIA_MS;
+  const dados = MOCK ? 'Dados fictícios (?mock=1)' : velhos ? `Desporto: dados de ${diaCurto(Date.parse(iso)).toLowerCase()} ${hhmm(iso)}` : '';
   return `<footer class="rodape entra" style="animation-delay:.5s">
     <div class="neste">${curiosidade ? `<b>Neste dia · ${esc(curiosidade.year)}</b>${esc(curiosidade.text)}` : ''}</div>
-    <div class="dir">${esc(dados)}${linksComando.length ? `<br>Comando: <b>${esc(linksComando[0])}</b>` : ''}</div></footer>`;
+    ${dados ? `<div class="dir">${esc(dados)}</div>` : ''}</footer>`;
 }
 
 // ---------------------------------------------------------------- topo e montagem
@@ -506,7 +519,7 @@ function relogio() {
   if (!r) return;
   r.innerHTML = `${hhmm(agora)}`;
   document.getElementById('dia').textContent = cap(DIAS[agora.getDay()]);
-  document.getElementById('data').textContent = agora.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('data').textContent = agora.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
   const h = agora.getHours();
   const ola = h >= 6 && h < 13 ? 'Bom dia' : h < 20 && h >= 13 ? 'Boa tarde' : 'Boa noite';
   document.getElementById('ola').textContent = D && D.utilizador ? `${ola}, ${D.utilizador}` : ola;
@@ -516,12 +529,22 @@ function relogio() {
 function montar() {
   const ecra = document.getElementById('ecra');
   if (!D) { ecra.innerHTML = fundo('casa') + topo() + blocoTempo(); relogio(); return; }
-  const f1 = blocoF1(), clube = blocoClube();
-  ecra.innerHTML = fundo('casa') + topo() + blocoTempo() + blocoHoje() +
-    `<div class="duas${f1 ? '' : ' uma'}">${clube}${f1}</div>` + blocoSelecao() + blocoNoticias() + blocoJogador() + blocoCuriosidades() + rodape();
+  const f1 = blocoF1(), clube = blocoClube(), selecao = blocoSelecao();
+  // Com jogo do FC Porto e de Portugal não há notícias (nem extras): o espaço vai para os jogos de hoje
+  const semNoticias = !!(selecao && D.myTeam && proximoDe(D.myTeam.code));
+  if (semNoticias) noticias = [];
+  ecra.innerHTML = fundo('casa') + topo() + blocoTempo() + blocoHoje(semNoticias ? 12 : 4) +
+    `<div class="duas${f1 ? '' : ' uma'}">${clube}${f1}</div>` + selecao +
+    (semNoticias ? '' : blocoNoticias() + blocoJogador() + blocoCuriosidades()) + rodape();
   relogio();   // antes de medir: a hora e a data enchem o topo (vazio, tinha menos ~160 px e cabiam notícias a mais)
   // Os extras só ficam se couberem (do último para o primeiro), sem tirar o lugar a 2 notícias
   ecra.classList.add('a-medir');
+  // Jogos de hoje: tira-se um de cada vez (os menos importantes) até caber tudo
+  for (let max = 11; semNoticias && max >= 4 && ecra.scrollHeight > ecra.clientHeight; max--) {
+    const h = ecra.querySelector('.hoje');
+    if (!h) break;
+    h.outerHTML = blocoHoje(max);
+  }
   const minimoNoticias = noticias.length ? 2 * ALTURA_NOTICIA + 110 : 0;
   for (const extra of [...ecra.querySelectorAll('.extra')].reverse()) {
     const nb = ecra.querySelector('.noticias-bloco');
@@ -540,9 +563,6 @@ async function lerDesporto() {
   try { D = await (await fetch(DADOS, { cache: 'no-store' })).json(); }
   catch (e) { console.warn('Desporto:', e); }
 }
-async function lerComando() {
-  try { linksComando = (await (await fetch('/api/estado', { cache: 'no-store' })).json()).links_comando || []; } catch { /* fora do hub */ }
-}
 
 // ◀ ▶ do comando (o hub só as passa quando o Início está no ecrã)
 window.addEventListener('message', (e) => {
@@ -552,7 +572,7 @@ window.addEventListener('message', (e) => {
 window.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') mudarNoticias(e.key === 'ArrowRight' ? 1 : -1); });
 
 iniciarAjuste();
-await Promise.all([lerDesporto(), lerTempo(), lerComando()]);
+await Promise.all([lerDesporto(), lerTempo()]);
 montar();
 setInterval(relogio, 1000);
 setInterval(() => mudarNoticias(1), RODAR_NOTICIAS_MS);

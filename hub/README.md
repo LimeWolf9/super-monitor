@@ -10,6 +10,8 @@ monitor vertical, no ecrã **Início** (ver abaixo). Para sair: `Alt+F4` no ecr�
 
 Sem o .bat: `python hub.py` e abrir `http://127.0.0.1:8080/`.
 
+No mini PC com Linux arranca sozinho: ver "Instalar no mini PC (Linux)" no README principal.
+
 Da primeira vez o Windows pergunta se o Python pode usar a rede: diz que sim em
 **redes privadas**, senão o telemóvel não chega cá.
 
@@ -95,7 +97,7 @@ toda, continua a funcionar como antes (usa-se esse em vez do `apps.json`).
 ```
 
 - Com `arrancar`, o hub arranca a app ao abrir e para-a ao sair. Se já estiver a correr
-  (ex.: abriste o `Dashboard.bat`), usa-a e não a para.
+  (ex.: arrancaste o `serve.py` à mão), usa-a e não a para.
 - Sem `arrancar` (ex.: o Relógio), é só uma página.
 - Uma entrada com `"apps": [...]` é um **grupo**: no comando, as apps dele aparecem juntas (o Desporto tem
   Última jornada, Ao vivo e Próxima jornada). Os filhos herdam do grupo o que não definirem, como o
@@ -145,14 +147,14 @@ Para uma app obedecer às setas, OK e pausa, ver **PROTOCOLO.md**.
 
 No PC, ⏻ põe o ecrã a preto (não desliga o monitor a sério: no Windows isso apagava
 também o teu monitor principal). No mini PC, onde o monitor é o único ecrã, o
-`config.json` liga isto ao sistema:
+`linux/instalar.sh` liga isto ao sistema no `config.local.json`:
 
 ```json
-{ "ao_desligar_ecra": "wlr-randr --output HDMI-A-1 --off",
-  "ao_ligar_ecra":    "wlr-randr --output HDMI-A-1 --on" }
+{ "ao_desligar_ecra": ["/home/<utilizador>/super-monitor/linux/ecra.sh", "off"],
+  "ao_ligar_ecra":    ["/home/<utilizador>/super-monitor/linux/ecra.sh", "on"] }
 ```
 
-(o comando exato depende de como o Linux do M80q mostrar o ecrã; vê-se na altura)
+O `ecra.sh` põe o monitor em poupança (`wlopm`) e, se não der, tira a saída (`wlr-randr`).
 
 ## Plano
 

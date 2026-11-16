@@ -1,0 +1,19 @@
+# Serviço do hub (porta 8080; o comando também na porta 80, http://supermonitor.local/). O instalar.sh troca @RAIZ@ e @UTIL@ e copia-o para /etc/systemd/system/.
+# Arranca com o mini PC e volta a arrancar se cair. Ver o que diz: journalctl -u supermonitor-hub -f
+[Unit]
+Description=Super Monitor - hub (porta 8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@UTIL@
+WorkingDirectory=@RAIZ@/hub
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 hub.py --porta-comando 80
+# A porta 80 é "privilegiada": isto deixa o hub abri-la sem correr como root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

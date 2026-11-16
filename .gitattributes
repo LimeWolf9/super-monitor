@@ -1,3 +1,5 @@
 # O hook corre em sh: tem de ficar com fins de linha LF também no Windows
 .githooks/pre-commit text eol=lf
 *.bat text eol=crlf
+# Ficheiros do mini PC (Linux): sempre LF, mesmo que se edite no Windows
+linux/* text eol=lf

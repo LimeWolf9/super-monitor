@@ -1,7 +1,8 @@
 // Ao vivo (?cat=aovivo): o "presente". Em vez da rotação de cenas, duas vistas comandadas pelo telemóvel:
 //   lista          os jogos a decorrer agora nas competições ligadas e os que começam daqui a 10 min ou menos
 //                  ("Aquecimento", sem resultado; passam a ao vivo quando a ESPN os der como começados) (GET /api/aovivo, ver tools/aovivo.py),
-//                  por competição. ▲▼ mudam o foco, OK marca/desmarca "seguir", ▶ (ou OK em "Acompanhar") abre
+//                  por competição. ▲▼ mudam o foco, OK marca/desmarca "seguir" (no título de uma competição, marca ou
+//                  desmarca os jogos todos dela), ▶ (ou OK em "Acompanhar") abre
 //                  o acompanhamento; ↩ volta ao menu do hub. Os jogos do FC Porto e de Portugal vêm marcados.
 //   acompanhamento os jogos seguidos: em cima o mapa do continente com os estádios (mapa.js), quando estão todos no
 //                  mesmo (Europa, América do Norte ou do Sul); por baixo os cartões, 2 por linha e até 6 por página.
@@ -116,8 +117,18 @@ export function iniciarAoVivo({ host, getData }) {
   const f1Seguida = () => listaSeguidos().find((j) => j.sport === 'f1');
   const cartoesSeguidos = () => listaSeguidos().filter((j) => j.sport !== 'f1');
   const nPaginas = () => (f1Seguida() ? 1 : 0) + Math.ceil(cartoesSeguidos().length / POR_PAGINA);
-  // Itens da lista: os jogos e, no fim, "Acompanhar"
-  const itens = () => [...jogos().map((j) => j.id), 'acompanhar'];
+  // Itens da lista, pela ordem do ecrã: o título de cada competição ("comp:<nome>") seguido dos jogos dela e, no
+  // fim, "Acompanhar". O servidor já manda os jogos por competição.
+  const itens = () => {
+    const lista = [];
+    let comp = null;
+    for (const j of jogos()) {
+      if (j.comp.nome !== comp) { comp = j.comp.nome; lista.push(`comp:${comp}`); }
+      lista.push(j.id);
+    }
+    return [...lista, 'acompanhar'];
+  };
+  const daCompeticao = (nome) => jogos().filter((j) => j.comp.nome === nome).map((j) => j.id);
 
   const el = document.createElement('div');
   el.className = 'scene scene-aovivo sport-football';
@@ -185,25 +196,30 @@ export function iniciarAoVivo({ host, getData }) {
       </section>`;
       return;
     }
-    // Por competição, pela ordem em que vêm (o servidor ordena por competição e hora)
+    // Por competição, pela ordem em que vêm (o servidor ordena por competição e hora). O título também é um item:
+    // OK nele marca (ou desmarca, se já estão todos) os jogos dessa competição. i conta os itens, como itens().
     let html = '', i = 0, comp = null;
     for (const j of lista) {
       if (j.comp.nome !== comp) {
         if (comp !== null) html += '</div>';
         comp = j.comp.nome;
-        html += subtitulo(comp, j.comp.chave) + '<div class="av-grupo">';
+        const ids = daCompeticao(comp), n = ids.filter((id) => seguidos.has(id)).length;
+        const estado = n === ids.length ? ' seguido' : n ? ' parte' : '';
+        html += `<div class="av-comp${i === foco ? ' foco' : ''}${estado}"><span class="av-check">${n === ids.length ? '✓' : n ? '–' : ''}</span>
+          ${subtitulo(comp, j.comp.chave)}<small>${n}/${ids.length}</small></div><div class="av-grupo">`;
+        i++;
       }
       html += linha(dd, j, i++);
     }
     html += '</div>';
     const n = listaSeguidos().length;
-    html += `<div class="av-acompanhar${foco === lista.length ? ' foco' : ''}${n ? '' : ' vazio'}">
+    html += `<div class="av-acompanhar${foco === i ? ' foco' : ''}${n ? '' : ' vazio'}">
       ${n ? `Acompanhar ${n === 1 ? '1 jogo' : `${n} jogos`} ▶` : 'Marca jogos com OK para os acompanhar'}</div>`;
     const aq = lista.filter((j) => j.estado === 'aquecimento').length;
     const contagem = aq === lista.length ? `${aq === 1 ? '1 jogo' : `${aq} jogos`} em aquecimento`
       : `${lista.length - aq === 1 ? '1 jogo' : `${lista.length - aq} jogos`} a decorrer${aq ? ` · ${aq} em aquecimento` : ''}`;
     el.innerHTML = fundo('football') + titulo('Ao vivo', `${contagem} · OK marca, ▶ acompanha`) + `<section class="av-lista">${html}</section>`;
-    el.querySelector('.av-linha.foco, .av-acompanhar.foco')?.scrollIntoView({ block: 'nearest' });
+    el.querySelector('.av-comp.foco, .av-linha.foco, .av-acompanhar.foco')?.scrollIntoView({ block: 'nearest' });
   }
 
   function cartao(dd, j) {
@@ -422,6 +438,15 @@ export function iniciarAoVivo({ host, getData }) {
     else { seguidos.add(id); desmarcados.delete(id); }
     guardar(seguidos, desmarcados);
   }
+  // Os jogos todos de uma competição: se já estão todos marcados, desmarca-os; senão, marca os que faltam
+  function alternarCompeticao(nome) {
+    const ids = daCompeticao(nome);
+    const todos = ids.every((id) => seguidos.has(id));
+    for (const id of ids) {
+      if (todos) { seguidos.delete(id); desmarcados.add(id); } else { seguidos.add(id); desmarcados.delete(id); }
+    }
+    guardar(seguidos, desmarcados);
+  }
 
   function comando(acao) {
     if (vista === 'lista') {
@@ -430,6 +455,7 @@ export function iniciarAoVivo({ host, getData }) {
       if (acao === 'ok') {
         const id = itens()[foco];
         if (id === 'acompanhar') { if (listaSeguidos().length) irPara('seguir'); return; }
+        if (id && id.startsWith('comp:')) { alternarCompeticao(id.slice(5)); desenhar(); return; }
         if (id) { alternar(id); desenhar(); }
         return;
       }
